@@ -1,0 +1,216 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`search tests read allotment not empty 1`] = `
+Object {
+  "allotment": Array [
+    Object {
+      "appliesTo": "Supplier",
+      "bySplitCode": Object {
+        "GENERAL": Object {
+          "byUnitType": Object {
+            "RM": Object {
+              "2020-08-01": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-02": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-03": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-04": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-05": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-06": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-07": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-08": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-09": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-10": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-11": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-12": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-13": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-14": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+              "2020-08-15": Object {
+                "booked": "0",
+                "max": "0",
+                "release": "999",
+                "request": false,
+              },
+            },
+          },
+        },
+      },
+      "description": "2021 Reboot Year",
+      "name": "2021 REBOOT",
+      "supplierId": "MAGLUX",
+    },
+    Object {
+      "appliesTo": "Supplier",
+      "bySplitCode": Object {
+        "GENERAL": Object {
+          "byUnitType": Object {
+            "RM": Object {
+              "2020-08-01": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-02": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-03": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-04": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-05": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-06": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-07": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-08": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-09": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-10": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-11": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-12": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-13": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-14": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+              "2020-08-15": Object {
+                "booked": "0",
+                "max": "3",
+                "release": "14",
+                "request": true,
+              },
+            },
+          },
+        },
+      },
+      "description": "",
+      "name": "FREESALE",
+      "supplierId": "MAGLUX",
+    },
+  ],
+}
+`;

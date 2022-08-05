@@ -1,0 +1,47 @@
+{
+  "name": "ti2-tourplan",
+  "version": "1.0.10",
+  "description": "Tourplan's TI2 Plugin",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TourConnect/ti2-tourplan.git"
+  },
+  "author": "",
+  "license": "GPLV3",
+  "bugs": {
+    "url": "https://github.com/TourConnect/ti2-tourplan/issues"
+  },
+  "homepage": "https://github.com/TourConnect/ti2-tourplan#readme",
+  "jest": {
+    "testEnvironment": "node",
+    "coveragePathIgnorePatterns": [
+      "/node_modules/"
+    ],
+    "setupFilesAfterEnv": [
+      "./jest.setup.js"
+    ],
+    "testTimeout": 10000
+  },
+  "dependencies": {
+    "axios": "^0.24.0",
+    "bluebird": "^3.7.2",
+    "js2xmlparser": "^4.0.2",
+    "jsonwebtoken": "^8.5.1",
+    "moment": "^2.29.1",
+    "ramda": "^0.27.1",
+    "underscore": "^1.13.4",
+    "xml2js": "^0.4.23"
+  },
+  "devDependencies": {
+    "eslint": "^8.4.1",
+    "eslint-config-airbnb": "^19.0.2",
+    "eslint-plugin-import": "^2.25.4",
+    "jest": "^27.4.5",
+    "jest-cli": "^27.4.7",
+    "jest-diff": "^27.4.2"
+  }
+}
