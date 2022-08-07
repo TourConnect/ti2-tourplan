@@ -43,13 +43,17 @@ class Plugin {
       dateFormat = 'DD/MM/YYYY',
       startDate,
       endDate,
-      productId,
-      supplierId,
+      keyPath,
     },
   }) {
     assert(endpoint);
     assert(startDate);
     assert(endDate);
+    assert(keyPath, 'Must provide a supplier/product spec');
+    const keyPathArr = keyPath.split('|');
+    assert(keyPathArr.length > 1, 'Must provide a supplier id and a product id');
+    const supplierId = R.path([-2], keyPathArr);
+    const productId = R.path([-1], keyPathArr);
     assert(supplierId);
     assert(productId);
     const model = {

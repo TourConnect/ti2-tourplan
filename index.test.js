@@ -18,8 +18,7 @@ describe('search tests', () => {
           dateFormat,
           startDate: '01/08/2022',
           endDate: '15/08/2022',
-          supplierId: 'MAGLUX',
-          productId: 'SYDACMAGLUXDELXRO',
+          keyPath: 'MAGLUX|SYDACMAGLUXDELXRO',
         },
       });
       expect(Array.isArray(retVal.allotment)).toBeTruthy();
@@ -33,8 +32,7 @@ describe('search tests', () => {
         dateFormat,
         startDate: '01/08/2020',
         endDate: '15/08/2020',
-        supplierId: 'MAGLUX',
-        productId: 'SYDACMAGLUXDELXRO',
+        keyPath: 'MAGLUX|SYDACMAGLUXDELXRO',
       },
     });
     expect(Array.isArray(retVal.allotment)).toBeTruthy();
