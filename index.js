@@ -91,7 +91,7 @@ class Plugin {
           const currentUnitTypeName = R.path(['Unit_Type', 0], currentUnitType);
           const inventoryByDay = {};
           R.path(['PerDayInventory'], currentUnitType).forEach(dayInventory => {
-            const dayName = R.path(['Date', 0], dayInventory);
+            const dayName = moment(R.path(['Date', 0], dayInventory), 'YYYY-MM-DD').format(dateFormat);
             inventoryByDay[dayName] = {
               release: dayInventory.Release_Period[0],
               max: dayInventory.Max_Qty[0],
