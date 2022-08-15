@@ -105,7 +105,6 @@ Object {
       },
       "description": "2021 Reboot Year",
       "name": "2021 REBOOT",
-      "supplierId": "MAGLUX",
     },
     Object {
       "appliesTo": "Supplier",
@@ -209,7 +208,6 @@ Object {
       },
       "description": "",
       "name": "FREESALE",
-      "supplierId": "MAGLUX",
     },
   ],
 }
