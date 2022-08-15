@@ -119,7 +119,7 @@ class Plugin {
         description: R.path(['AllocationDescription', 0], currentAllotment),
         appliesTo: {
           S: 'Supplier',
-          P: 'Product',
+          O: 'Product',
         }[appliesTo] || appliesTo,
         bySplitCode,
       };
