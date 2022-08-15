@@ -79,7 +79,8 @@ class Plugin {
       headers: getHeaders({ length: data.length }),
     }));
     const returnObj = await xmlParser.parseStringPromise(reply);
-    let allotment = R.path(
+    let allotment = R.pathOr(
+      [],
       ['Reply', 'GetInventoryReply', 0, 'Allocation'],
       returnObj,
     );
@@ -114,7 +115,6 @@ class Plugin {
         };
       });
       return {
-        supplierId: R.path(['SupplierCode', 0], currentAllotment),
         name: R.path(['AllocationName', 0], currentAllotment),
         description: R.path(['AllocationDescription', 0], currentAllotment),
         appliesTo: {
