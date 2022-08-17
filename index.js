@@ -46,6 +46,10 @@ class Plugin {
       keyPath,
     },
   }) {
+    const verbose = R.path(['verbose'], this);
+    const cleanLog = inputString =>
+      inputString.toString()
+        .replaceAll(username, '****').replaceAll(password, '****');
     assert(endpoint);
     assert(startDate);
     assert(endDate);
@@ -72,12 +76,14 @@ class Plugin {
       js2xmlparser.parse('Request', model, xmlOptions),
     );
     data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+    if (verbose) console.log('request', cleanLog(data));
     const reply = R.path(['data'], await axios({
       metod: 'post',
       url: endpoint,
       data,
       headers: getHeaders({ length: data.length }),
     }));
+    if (verbose) console.log('reply', cleanLog(reply));
     const returnObj = await xmlParser.parseStringPromise(reply);
     let allotment = R.pathOr(
       [],
