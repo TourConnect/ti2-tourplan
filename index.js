@@ -111,8 +111,8 @@ class Plugin {
               R.path(['Date', 0], dayInventory), 'YYYY-MM-DD',
             ).format(dateFormat);
             allotmentResponse.push({
-              allotmentName,
-              allotmentDescription,
+              name: allotmentName,
+              description: allotmentDescription,
               appliesTo,
               splitCode,
               unitType,

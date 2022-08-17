@@ -30,8 +30,8 @@ describe('search tests', () => {
       token,
       payload: {
         dateFormat,
-        startDate: '02/09/2020',
-        endDate: '02/10/2020',
+        startDate: '02/09/2021',
+        endDate: '02/10/2021',
         keyPath: 'MAGLUX|QLDACMAGLUXDELSUI',
       },
     });
