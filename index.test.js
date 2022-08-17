@@ -1,7 +1,7 @@
 /* globals describe, it, expect */
 const Plugin = require('./index');
 
-const app = new Plugin({});
+const app = new Plugin();
 
 describe('search tests', () => {
   const token = {
@@ -30,9 +30,9 @@ describe('search tests', () => {
       token,
       payload: {
         dateFormat,
-        startDate: '01/08/2020',
-        endDate: '15/08/2020',
-        keyPath: 'MAGLUX|SYDACMAGLUXDELXRO',
+        startDate: '02/09/2020',
+        endDate: '02/10/2020',
+        keyPath: 'MAGLUX|QLDACMAGLUXDELSUI',
       },
     });
     expect(Array.isArray(retVal.allotment)).toBeTruthy();
