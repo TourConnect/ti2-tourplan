@@ -27,7 +27,7 @@ const getHeaders = ({ length }) => ({
 });
 
 class Plugin {
-  constructor(params) { // we get the env variables from here
+  constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
     });
@@ -44,11 +44,12 @@ class Plugin {
       startDate,
       endDate,
       keyPath,
+      appliesTo: appliesToFilter,
     },
   }) {
     const verbose = R.path(['verbose'], this);
     const cleanLog = inputString =>
-      inputString.toString()
+      (inputString || '').toString()
         .replaceAll(username, '****').replaceAll(password, '****');
     assert(endpoint);
     assert(startDate);
@@ -92,45 +93,49 @@ class Plugin {
     );
     // remove empty instances
     allotment = allotment.filter(currentAllotment => Array.isArray(currentAllotment.Split));
-    allotment = allotment.map(currentAllotment => {
-      const appliesTo = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
-      const bySplitCode = {};
+    const allotmentResponse = [];
+    allotment.forEach(currentAllotment => {
+      const appliesToCode = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
+      const appliesTo = {
+        S: 'Supplier',
+        O: 'Product',
+      }[appliesToCode] || appliesToCode;
+      const allotmentName = R.path(['AllocationName', 0], currentAllotment);
+      const allotmentDescription = R.path(['AllocationDescription', 0], currentAllotment);
       currentAllotment.Split.forEach(currentSplit => {
-        const currentSplitName = R.path(['Split_Code', 0], currentSplit);
-        const byUnitType = {};
+        const splitCode = R.path(['Split_Code', 0], currentSplit);
         R.path(['UnitTypeInventory'], currentSplit).forEach(currentUnitType => {
-          const currentUnitTypeName = R.path(['Unit_Type', 0], currentUnitType);
-          const inventoryByDay = {};
+          const unitType = R.path(['Unit_Type', 0], currentUnitType);
           R.path(['PerDayInventory'], currentUnitType).forEach(dayInventory => {
-            const dayName = moment(R.path(['Date', 0], dayInventory), 'YYYY-MM-DD').format(dateFormat);
-            inventoryByDay[dayName] = {
+            const date = moment(
+              R.path(['Date', 0], dayInventory), 'YYYY-MM-DD',
+            ).format(dateFormat);
+            allotmentResponse.push({
+              name: allotmentName,
+              description: allotmentDescription,
+              appliesTo,
+              splitCode,
+              unitType,
+              date,
               release: dayInventory.Release_Period[0],
               max: dayInventory.Max_Qty[0],
               booked: dayInventory.Bkd_Qty[0],
               request: dayInventory.Request_OK[0] === 'Y',
-            };
+            });
           });
-          byUnitType[currentUnitTypeName] = {
-            ...(byUnitType[currentUnitTypeName] || {}),
-            ...inventoryByDay,
-          };
         });
-        bySplitCode[currentSplitName] = {
-          ...(bySplitCode[currentSplitName] || {}),
-          byUnitType,
-        };
       });
-      return {
-        name: R.path(['AllocationName', 0], currentAllotment),
-        description: R.path(['AllocationDescription', 0], currentAllotment),
-        appliesTo: {
-          S: 'Supplier',
-          O: 'Product',
-        }[appliesTo] || appliesTo,
-        bySplitCode,
-      };
     });
-    return { allotment };
+    return {
+      allotment: (() => {
+        if (appliesToFilter) {
+          return allotmentResponse.filter(
+            ({ appliesTo }) => appliesTo === appliesToFilter
+          );
+        }
+        return allotmentResponse;
+      })(),
+    };
   }
 }
 
