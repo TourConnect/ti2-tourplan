@@ -1,4 +1,4 @@
-/* globals describe, it, expect, jest */
+/* globals describe, it, expect, jest, afterEach */
 const { readFile } = require('fs').promises;
 const axios = require('axios');
 const path = require('path');
