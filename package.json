@@ -42,6 +42,7 @@
     "eslint-plugin-import": "^2.25.4",
     "jest": "^27.4.5",
     "jest-cli": "^27.4.7",
-    "jest-diff": "^27.4.2"
+    "jest-diff": "^27.4.2",
+    "object-hash": "^3.0.0"
   }
 }
