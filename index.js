@@ -96,6 +96,8 @@ class Plugin {
     const allotmentResponse = [];
     allotment.forEach(currentAllotment => {
       const appliesToCode = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
+      const optionCodes = R.path(['AllocationAppliesTo', 0, 'OptionCode'], currentAllotment);
+      const supplierCode = R.path(['SupplierCode', 0], currentAllotment);
       const appliesTo = {
         S: 'Supplier',
         O: 'Product',
@@ -107,9 +109,8 @@ class Plugin {
         R.path(['UnitTypeInventory'], currentSplit).forEach(currentUnitType => {
           const unitType = R.path(['Unit_Type', 0], currentUnitType);
           R.path(['PerDayInventory'], currentUnitType).forEach(dayInventory => {
-            const date = moment(
-              R.path(['Date', 0], dayInventory), 'YYYY-MM-DD',
-            ).format(dateFormat);
+            const date = moment(R.path(['Date', 0], dayInventory), 'YYYY-MM-DD')
+              .format(dateFormat);
             allotmentResponse.push({
               name: allotmentName,
               description: allotmentDescription,
@@ -117,10 +118,14 @@ class Plugin {
               splitCode,
               unitType,
               date,
-              release: dayInventory.Release_Period[0],
-              max: dayInventory.Max_Qty[0],
-              booked: dayInventory.Bkd_Qty[0],
-              request: dayInventory.Request_OK[0] === 'Y',
+              release: R.path(['Release_Period', 0], dayInventory),
+              max: R.path(['Max_Qty', 0], dayInventory),
+              booked: R.path(['Bkd_Qty', 0], dayInventory),
+              request: {
+                Y: true,
+                N: false,
+              }[R.path(['Request_OK', 0], dayInventory)],
+              keyPaths: optionCodes.map(currentProduct => `${supplierCode}|${currentProduct}`),
             });
           });
         });
@@ -130,7 +135,7 @@ class Plugin {
       allotment: (() => {
         if (appliesToFilter) {
           return allotmentResponse.filter(
-            ({ appliesTo }) => appliesTo === appliesToFilter
+            ({ appliesTo }) => appliesTo === appliesToFilter,
           );
         }
         return allotmentResponse;
