@@ -56,6 +56,31 @@ describe('search tests', () => {
         expect(retVal).toBeFalsy();
       });
     });
+    describe('template tests', () => {
+      let template;
+      it('get the template', async () => {
+        template = await app.tokenTemplate();
+        const rules = Object.keys(template);
+        expect(rules).toContain('endpoint');
+        expect(rules).toContain('password');
+        expect(rules).toContain('username');
+      });
+      it('username', () => {
+        const username = template.username.regExp;
+        expect(username.test('')).toBeFalsy();
+        expect(username.test('someuser')).toBeTruthy();
+      });
+      it('endpoint', () => {
+        const endpoint = template.endpoint.regExp;
+        expect(endpoint.test('something')).toBeFalsy();
+        expect(endpoint.test('https://www.google.com')).toBeTruthy();
+      });
+      it('password', () => {
+        const password = template.password.regExp;
+        expect(password.test('')).toBeFalsy();
+        expect(password.test('somepassword')).toBeTruthy();
+      });
+    });
   });
   it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
