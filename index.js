@@ -33,6 +33,38 @@ class Plugin {
     });
   }
 
+  async validateToken({
+    token: {
+      endpoint,
+      username,
+      password,
+    },
+  }) {
+    try {
+      const model = {
+        AuthenticationRequest: {
+          Login: username,
+          Password: password,
+        },
+      };
+      let data = Normalizer.stripEnclosingQuotes(
+        js2xmlparser.parse('Request', model, xmlOptions),
+      );
+      data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+      const reply = R.path(['data'], await axios({
+        metod: 'post',
+        url: endpoint,
+        data,
+        headers: getHeaders({ length: data.length }),
+      }));
+      const replyObj = await xmlParser.parseStringPromise(reply);
+      assert(R.path(['Reply', 'AuthenticationReply', 0], replyObj) === '');
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
   async queryAllotment({
     token: {
       endpoint = this.endpoint,

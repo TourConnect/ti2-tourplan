@@ -39,6 +39,24 @@ describe('search tests', () => {
     password: process.env.ti2_tourplan_password,
   };
   const dateFormat = 'DD/MM/YYYY';
+  describe('tooling', () => {
+    describe('validateToken', () => {
+      it('valid token', async () => {
+        axios.mockImplementation(getFixture);
+        const retVal = await app.validateToken({
+          token,
+        });
+        expect(retVal).toBeTruthy();
+      });
+      it('invalid token', async () => {
+        axios.mockImplementation(getFixture);
+        const retVal = await app.validateToken({
+          token: { ...token, username: 'somerandom' },
+        });
+        expect(retVal).toBeFalsy();
+      });
+    });
+  });
   it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
