@@ -23,7 +23,7 @@ const getHeaders = ({ length, requestId }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
   'Content-Length': length,
-  requestId,
+  ...requestId ? { requestId } : {},
 });
 
 class Plugin {
