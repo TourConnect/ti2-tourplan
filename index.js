@@ -1,10 +1,9 @@
-// const axios = require('axios');
 const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
-const axios = require('axios');
+const axiosRaw = require('axios');
 
 const Normalizer = require('./normalizer');
 
@@ -20,16 +19,35 @@ const xmlOptions = {
   },
 };
 
-const getHeaders = ({ length }) => ({
+const getHeaders = ({ length, requestId }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
   'Content-Length': length,
+  requestId,
 });
 
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
+    });
+    if (this.events) {
+      axiosRaw.interceptors.request.use(request => {
+        this.events.emit(`${this.name}.axios.request`, JSON.parse(JSON.stringify(request)));
+        return request;
+      });
+      axiosRaw.interceptors.response.use(response => {
+        this.events.emit(`${this.name}.axios.response`, JSON.parse(JSON.stringify(response)));
+        return response;
+      });
+    }
+    const pluginObj = this;
+    this.axios = async (...args) => axiosRaw(...args).catch(err => {
+      console.log('error in ti2-tourplan', err);
+      if (pluginObj.events) {
+        pluginObj.events.emit(`${this.name}.axios.error`, { request: args[0], err });
+      }
+      throw err;
     });
     this.tokenTemplate = () => ({
       endpoint: {
@@ -58,6 +76,7 @@ class Plugin {
       username,
       password,
     },
+    requestId,
   }) {
     try {
       const model = {
@@ -70,11 +89,12 @@ class Plugin {
         js2xmlparser.parse('Request', model, xmlOptions),
       );
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
-      const reply = R.path(['data'], await axios({
+      const reply = R.path(['data'], await this.axios({
         metod: 'post',
         url: endpoint,
         data,
         headers: getHeaders({ length: data.length }),
+        requestId,
       }));
       const replyObj = await xmlParser.parseStringPromise(reply);
       assert(R.path(['Reply', 'AuthenticationReply', 0], replyObj) === '');
@@ -97,6 +117,7 @@ class Plugin {
       keyPath,
       appliesTo: appliesToFilter,
     },
+    requestId,
   }) {
     const verbose = R.path(['verbose'], this);
     const cleanLog = inputString =>
@@ -129,11 +150,11 @@ class Plugin {
     );
     data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
     if (verbose) console.log('request', cleanLog(data));
-    const reply = R.path(['data'], await axios({
+    const reply = R.path(['data'], await this.axios({
       metod: 'post',
       url: endpoint,
       data,
-      headers: getHeaders({ length: data.length }),
+      headers: getHeaders({ length: data.length, requestId }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
     const returnObj = await xmlParser.parseStringPromise(reply);
