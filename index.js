@@ -26,6 +26,13 @@ const getHeaders = ({ length, requestId }) => ({
   ...requestId ? { requestId } : {},
 });
 
+const axiosSafeRequest = R.pick(['headers', 'method', 'url', 'data']);
+const axiosSafeResponse = response => {
+  const retVal = R.pick(['data', 'status', 'statusText', 'headers', 'request'], response);
+  retVal.request = axiosSafeRequest(retVal.request);
+  return retVal;
+};
+
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
@@ -33,19 +40,23 @@ class Plugin {
     });
     if (this.events) {
       axiosRaw.interceptors.request.use(request => {
-        this.events.emit(`${this.name}.axios.request`, JSON.parse(JSON.stringify(request)));
+        this.events.emit(`${this.name}.axios.request`, axiosSafeRequest(request));
         return request;
       });
       axiosRaw.interceptors.response.use(response => {
-        this.events.emit(`${this.name}.axios.response`, JSON.parse(JSON.stringify(response)));
+        this.events.emit(`${this.name}.axios.response`, axiosSafeResponse(response));
         return response;
       });
     }
     const pluginObj = this;
     this.axios = async (...args) => axiosRaw(...args).catch(err => {
-      console.log('error in ti2-tourplan', err);
+      const errMsg = R.omit(['config'], err.toJSON());
+      console.log(`error in ${this.name}`, args[0], errMsg);
       if (pluginObj.events) {
-        pluginObj.events.emit(`${this.name}.axios.error`, { request: args[0], err });
+        pluginObj.events.emit(`${this.name}.axios.error`, {
+          request: args[0],
+          err: errMsg,
+        });
       }
       throw err;
     });
