@@ -18,11 +18,10 @@ const xmlOptions = {
   },
 };
 
-const getHeaders = ({ length, requestId }) => ({
+const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
   'Content-Length': length,
-  ...requestId ? { requestId } : {},
 });
 
 class Plugin {
@@ -58,7 +57,6 @@ class Plugin {
       username,
       password,
     },
-    requestId,
   }) {
     try {
       const model = {
@@ -76,7 +74,6 @@ class Plugin {
         url: endpoint,
         data,
         headers: getHeaders({ length: data.length }),
-        requestId,
       }));
       const replyObj = await xmlParser.parseStringPromise(reply);
       assert(R.path(['Reply', 'AuthenticationReply', 0], replyObj) === '');
@@ -100,7 +97,6 @@ class Plugin {
       keyPath,
       appliesTo: appliesToFilter,
     },
-    requestId,
   }) {
     const verbose = R.path(['verbose'], this);
     const cleanLog = inputString =>
@@ -137,7 +133,7 @@ class Plugin {
       metod: 'post',
       url: endpoint,
       data,
-      headers: getHeaders({ length: data.length, requestId }),
+      headers: getHeaders({ length: data.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
     const returnObj = await xmlParser.parseStringPromise(reply);
