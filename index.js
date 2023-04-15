@@ -3,7 +3,6 @@ const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
-const axiosRaw = require('axios');
 
 const Normalizer = require('./normalizer');
 
@@ -26,39 +25,10 @@ const getHeaders = ({ length, requestId }) => ({
   ...requestId ? { requestId } : {},
 });
 
-const axiosSafeRequest = R.pick(['headers', 'method', 'url', 'data']);
-const axiosSafeResponse = response => {
-  const retVal = R.pick(['data', 'status', 'statusText', 'headers', 'request'], response);
-  retVal.request = axiosSafeRequest(retVal.request);
-  return retVal;
-};
-
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
-    });
-    if (this.events) {
-      axiosRaw.interceptors.request.use(request => {
-        this.events.emit(`${this.name}.axios.request`, axiosSafeRequest(request));
-        return request;
-      });
-      axiosRaw.interceptors.response.use(response => {
-        this.events.emit(`${this.name}.axios.response`, axiosSafeResponse(response));
-        return response;
-      });
-    }
-    const pluginObj = this;
-    this.axios = async (...args) => axiosRaw(...args).catch(err => {
-      const errMsg = R.omit(['config'], err.toJSON());
-      console.log(`error in ${this.name}`, args[0], errMsg);
-      if (pluginObj.events) {
-        pluginObj.events.emit(`${this.name}.axios.error`, {
-          request: args[0],
-          err: errMsg,
-        });
-      }
-      throw err;
     });
     this.tokenTemplate = () => ({
       endpoint: {
@@ -82,6 +52,7 @@ class Plugin {
   }
 
   async validateToken({
+    axios,
     token: {
       endpoint,
       username,
@@ -100,7 +71,7 @@ class Plugin {
         js2xmlparser.parse('Request', model, xmlOptions),
       );
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
-      const reply = R.path(['data'], await this.axios({
+      const reply = R.path(['data'], await axios({
         metod: 'post',
         url: endpoint,
         data,
@@ -116,6 +87,7 @@ class Plugin {
   }
 
   async queryAllotment({
+    axios,
     token: {
       endpoint = this.endpoint,
       username = this.username,
@@ -161,7 +133,7 @@ class Plugin {
     );
     data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
     if (verbose) console.log('request', cleanLog(data));
-    const reply = R.path(['data'], await this.axios({
+    const reply = R.path(['data'], await axios({
       metod: 'post',
       url: endpoint,
       data,

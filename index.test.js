@@ -44,6 +44,7 @@ describe('search tests', () => {
       it('valid token', async () => {
         axios.mockImplementation(getFixture);
         const retVal = await app.validateToken({
+          axios,
           token,
         });
         expect(retVal).toBeTruthy();
@@ -51,6 +52,7 @@ describe('search tests', () => {
       it('invalid token', async () => {
         axios.mockImplementation(getFixture);
         const retVal = await app.validateToken({
+          axios,
           token: { ...token, username: 'somerandom' },
         });
         expect(retVal).toBeFalsy();
@@ -85,6 +87,7 @@ describe('search tests', () => {
   it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
+      axios,
       token,
       payload: {
         dateFormat,
@@ -107,6 +110,7 @@ describe('search tests', () => {
   it('read allotment not empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
+      axios,
       token,
       payload: {
         dateFormat,
@@ -142,6 +146,7 @@ describe('search tests', () => {
   it('read allotment that applies to more products', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
+      axios,
       token,
       payload: {
         dateFormat,
