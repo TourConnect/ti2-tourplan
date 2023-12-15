@@ -5,7 +5,7 @@ const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
-const { translateTCMLCollection, translateTPOption } = require('./resolvers/product');
+const { translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
