@@ -90,6 +90,7 @@ class Plugin {
   }
 
   async validateToken({
+    axios,
     token: {
       endpoint,
       username,
@@ -133,6 +134,7 @@ class Plugin {
   }
 
   async queryAllotment({
+    axios,
     token: {
       endpoint = this.endpoint,
       username = this.username,
