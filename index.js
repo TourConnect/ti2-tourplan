@@ -99,7 +99,6 @@ class Plugin {
       hostConnectAgentID,
       hostConnectAgentPassword,
     },
-    axios,
   }) {
     try {
       if (hostConnectEndpoint) {
