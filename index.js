@@ -1,22 +1,28 @@
 // const axios = require('axios');
+const Promise = require('bluebird');
 const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
-const axios = require('axios');
+const { translateTCMLCollection, translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
 const xmlParser = new xml2js.Parser();
 
-const xmlOptions = {
-  prettyPrinting: {
-    enabled: false,
-  },
+const defaultXmlOptions = {
+  prettyPrinting: { enabled: false },
   dtd: {
     include: true,
     name: 'tourConnect_4_00_000.dtd',
+  },
+};
+const hostConnectXmlOptions = {
+  prettyPrinting: { enabled: false },
+  dtd: {
+    include: true,
+    name: 'hostConnect_4_06_009.dtd',
   },
 };
 
@@ -49,7 +55,38 @@ class Plugin {
         description: 'The tourplan provided password',
         default: 'en',
       },
+      hostConnectEndpoint: {
+        type: 'text',
+        regExp: /.+/,
+      },
+      hostConnectAgentID: {
+        type: 'text',
+        regExp: /.+/,
+      },
+      hostConnectAgentPassword: {
+        type: 'text',
+        regExp: /.+/,
+      },
     });
+    this.callTourplan = async ({
+      model,
+      endpoint,
+      axios,
+      xmlOptions,
+    }) => {
+      let data = Normalizer.stripEnclosingQuotes(
+        js2xmlparser.parse('Request', model, xmlOptions),
+      );
+      data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+      const reply = R.path(['data'], await axios({
+        method: 'post',
+        url: endpoint,
+        data,
+        headers: getHeaders({ length: data.length }),
+      }));
+      const replyObj = await xmlParser.parseStringPromise(reply);
+      return R.path(['Reply'], replyObj);
+    };
   }
 
   async validateToken({
@@ -57,27 +94,38 @@ class Plugin {
       endpoint,
       username,
       password,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
     },
+    axios,
   }) {
     try {
+      if (hostConnectEndpoint) {
+        assert(hostConnectAgentID && hostConnectAgentPassword);
+        const model = {
+          AgentInfoRequest: {
+            AgentID: hostConnectAgentID,
+            Password: hostConnectAgentPassword,
+          },
+        };
+        const replyObj = await this.callTourplan({
+          model,
+          endpoint: hostConnectEndpoint,
+          axios,
+          xmlOptions: hostConnectXmlOptions,
+        });
+        assert(R.path(['AgentInfoReply', 0, 'Currency'], replyObj));
+        return true;
+      }
       const model = {
         AuthenticationRequest: {
           Login: username,
           Password: password,
         },
       };
-      let data = Normalizer.stripEnclosingQuotes(
-        js2xmlparser.parse('Request', model, xmlOptions),
-      );
-      data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
-      const reply = R.path(['data'], await axios({
-        metod: 'post',
-        url: endpoint,
-        data,
-        headers: getHeaders({ length: data.length }),
-      }));
-      const replyObj = await xmlParser.parseStringPromise(reply);
-      assert(R.path(['Reply', 'AuthenticationReply', 0], replyObj) === '');
+      const replyObj = await this.callTourplan({ model, endpoint, axios, xmlOptions: defaultXmlOptions });
+      assert(R.path(['AuthenticationReply', 0], replyObj) === '');
       return true;
     } catch (err) {
       return false;
@@ -191,6 +239,200 @@ class Plugin {
         }
         return allotmentResponse;
       })(),
+    };
+  }
+
+  async searchProducts({
+    axios,
+    typeDefsAndQueries: {
+      productTypeDefs,
+      productQuery,
+    },
+    token: {
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+    },
+    payload: { optionId },
+  }) {
+    const model = {
+      OptionInfoRequest: {
+        Opt: optionId || '?????????????????',
+        Info: 'G',
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+      },
+    };
+    const payload = {
+      model,
+      endpoint: hostConnectEndpoint,
+      axios,
+      xmlOptions: hostConnectXmlOptions,
+    };
+    // use cache if we are getting the full list
+    const replyObj = optionId
+      ? await this.callTourplan(payload)
+      : await this.cache.getOrExec({
+        fnParams: [model],
+        fn: () => this.callTourplan(payload),
+        ttl: 60 * 60 * 12, // 12 hours
+        forceRefresh: false,
+      });
+    const productFields = [{
+      id: 'productId',
+      title: 'Supplier',
+      type: 'extended-option',
+    }, {
+      id: 'optionId',
+      title: 'Service',
+      type: 'extended-option',
+    }, {
+      id: 'startDate',
+      title: 'Date',
+      type: 'date',
+    }, {
+      id: 'paxConfigs',
+      title: 'Pax',
+      type: 'list_of_fields',
+      fields: [{
+        id: 'adults',
+        title: 'Adults',
+        type: 'count',
+      }, {
+        id: 'children',
+        title: 'Children',
+        type: 'count',
+      }, {
+        id: 'infants',
+        title: 'Infants',
+        type: 'count',
+      }, {
+        id: 'roomType',
+        title: 'Room Type',
+        type: 'extended-option',
+        options: [{ value: 'SG', label: 'Single' }, { value: 'DB', label: 'Double' }, { value: 'TW', label: 'Twin' }, { value: 'QD', label: 'Quad' }],
+      }],
+      requiredForAvailability: true,
+      requiredForCalendar: true,
+      requiredForBooking: true,
+    }, {
+      id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
+      description: 'number of nights or days or hours depending on charge unit',
+      title: 'Charge Unit Quantity',
+      type: 'count',
+    }];
+    const products = R.call(R.compose(
+      R.map(optionsGroupedBySupplierId => {
+        const supplierData = {
+          supplierId: R.path([0, 'OptGeneral', 0, 'SupplierId', 0], optionsGroupedBySupplierId),
+          supplierName: R.path([0, 'OptGeneral', 0, 'SupplierName', 0], optionsGroupedBySupplierId),
+        };
+        return translateTPOption({
+          supplierData,
+          optionsGroupedBySupplierId,
+          typeDefs: productTypeDefs,
+          query: productQuery,
+        });
+      }),
+      R.values,
+      R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
+      R.pathOr([], ['OptionInfoReply', 0, 'Option']),
+    ), replyObj);
+    return {
+      products,
+      productFields,
+    };
+  }
+
+  async getProductPackages() {
+    return [{
+      packageId: '123',
+      packageName: 'Canterbury & Dover day trip',
+      items: [{
+        itemId: 'jfjkdjf',
+        itemType: 'option',
+      }, {
+        itemId: 'eeeee',
+        itemType: 'product',
+      }],
+    }];
+  }
+  
+  async createQuote({
+    axios,
+    token: {
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+    },
+    payload: {
+      holder,
+      rebookingId,
+      optionIds,
+      startDate,
+      dateFormat,
+      reference,
+      /*
+      paxConfigs: [{ RoomType: 'DB', Adults: 2 }, { roomType: 'TW', Children: 2 }]
+      */
+      paxConfigs,
+      /*
+        The number of second charge units required (second charge units are discussed
+        in the OptionInfo section). Should only be specified for options that have SCUs.
+        Defaults to 1.
+      */
+      SCUqty,
+    },
+  }) {
+    const DateFrom = moment(startDate, dateFormat).format('YYYY-MM-DD');
+    const model = {
+      AddService: {
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+        ...(rebookingId ? {
+          ExistingBookingInfo: { BookingId: rebookingId },
+        } : {
+          NewBookingInfo: { Name: holder.name, QB: 'Q' },
+        }),
+        Opt: optionIds[0],
+        DateFrom,
+        SCUqty,
+        AgentRef: reference,
+        RoomConfigs: paxConfigs.map(obj => ({
+          RoomConfig: {
+            Adults: obj.adults,
+            Children: obj.children,
+            Infants: obj.infants,
+            RoomType: obj.roomType,
+          },
+        })),
+      },
+    };
+    const replyObj = await this.callTourplan({
+      model,
+      endpoint: hostConnectEndpoint,
+      axios,
+      xmlOptions: hostConnectXmlOptions,
+    });
+    return {
+      bookingId: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
+      reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
+    };
+  }
+
+  // eslint-disable-next-line class-methods-use-this
+  async getCreateBookingFields({
+    // token: {
+    //   hostConnectAgentID,
+    //   hostConnectAgentPassword,
+    //   hostConnectEndpoint,
+    // },
+    // axios,
+  }) {
+    const customFields = [];
+    return {
+      fields: [],
+      customFields,
     };
   }
 }

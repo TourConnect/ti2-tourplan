@@ -27,7 +27,8 @@
     "testTimeout": 10000
   },
   "dependencies": {
-    "axios": "^0.24.0",
+    "@graphql-tools/schema": "^8.5.1",
+    "graphql": "^16.5.0",
     "bluebird": "^3.7.2",
     "js2xmlparser": "^4.0.2",
     "jsonwebtoken": "^8.5.1",
