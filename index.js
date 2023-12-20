@@ -31,7 +31,11 @@ const getHeaders = ({ length }) => ({
   'Content-Type': 'application/xml; charset=utf-8',
   'Content-Length': length,
 });
-
+const wildcardMatch = (wildcard, str) => {
+  const w = wildcard.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // regexp escape
+  const re = new RegExp(`^${w.replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i');
+  return re.test(str); // remove last 'i' above to have case sensitive
+};
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
@@ -85,6 +89,9 @@ class Plugin {
         headers: getHeaders({ length: data.length }),
       }));
       const replyObj = await xmlParser.parseStringPromise(reply);
+      if (R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj)) {
+        throw new Error(R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj));
+      }
       return R.path(['Reply'], replyObj);
     };
   }
@@ -254,7 +261,7 @@ class Plugin {
       hostConnectAgentID,
       hostConnectAgentPassword,
     },
-    payload: { optionId },
+    payload: { optionId, productName },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -319,7 +326,7 @@ class Plugin {
     }, {
       id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
       description: 'number of nights or days or hours depending on charge unit',
-      title: 'Charge Unit Quantity',
+      title: 'Quantity',
       type: 'count',
     }];
     const products = R.call(R.compose(
@@ -337,6 +344,18 @@ class Plugin {
       }),
       R.values,
       R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
+      productName ? R.filter(o => {
+        const str = `${
+          R.path(['OptGeneral', 0, 'Description', 0], o)
+        } ${
+          R.path(['Opt', 0], o)
+        } ${
+          R.path(['OptGeneral', 0, 'SupplierId', 0], o)
+        } ${
+          R.path(['OptGeneral', 0, 'SupplierName', 0], o)
+        }`;
+        return wildcardMatch(productName, str);
+      }) : R.identity,
       R.pathOr([], ['OptionInfoReply', 0, 'Option']),
     ), replyObj);
     return {
@@ -358,8 +377,8 @@ class Plugin {
       }],
     }];
   }
-  
-  async createQuote({
+
+  async searchQuote({
     axios,
     token: {
       hostConnectEndpoint,
@@ -367,14 +386,13 @@ class Plugin {
       hostConnectAgentPassword,
     },
     payload: {
-      holder,
-      rebookingId,
-      optionIds,
+      quoteName,
+      quoteId,
+      optionId,
       startDate,
-      dateFormat,
       reference,
       /*
-      paxConfigs: [{ RoomType: 'DB', Adults: 2 }, { roomType: 'TW', Children: 2 }]
+      paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
       */
       paxConfigs,
       /*
@@ -382,29 +400,35 @@ class Plugin {
         in the OptionInfo section). Should only be specified for options that have SCUs.
         Defaults to 1.
       */
-      SCUqty,
+      chargeUnitQuanity,
     },
   }) {
-    const DateFrom = moment(startDate, dateFormat).format('YYYY-MM-DD');
     const model = {
-      AddService: {
+      AddServiceRequest: {
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
-        ...(rebookingId ? {
-          ExistingBookingInfo: { BookingId: rebookingId },
+        ...(quoteId ? {
+          ExistingBookingInfo: { BookingId: quoteId },
         } : {
-          NewBookingInfo: { Name: holder.name, QB: 'Q' },
+          NewBookingInfo: { Name: quoteName, QB: 'Q' },
         }),
-        Opt: optionIds[0],
-        DateFrom,
-        SCUqty,
+        Opt: optionId,
+        DateFrom: startDate,
+        RateId: 'Default',
+        SCUqty: chargeUnitQuanity || 1,
         AgentRef: reference,
         RoomConfigs: paxConfigs.map(obj => ({
           RoomConfig: {
-            Adults: obj.adults,
-            Children: obj.children,
-            Infants: obj.infants,
-            RoomType: obj.roomType,
+            Adults: obj.adults || 0,
+            Children: obj.children || 0,
+            Infants: obj.infants || 0,
+            RoomType: ({
+              Single: 'SG',
+              Double: 'DB',
+              Twin: 'TW',
+              Triple: 'TR',
+              Quad: 'QU',
+            })[obj.roomType],
           },
         })),
       },
@@ -415,9 +439,14 @@ class Plugin {
       axios,
       xmlOptions: hostConnectXmlOptions,
     });
+    console.log('replyObj', replyObj);
     return {
-      bookingId: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
-      reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
+      message: R.path(['AddServiceReply', 0, 'Status', 0], replyObj)
+        === 'NO' ? 'Service cannot be added to quote' : '',
+      quote: {
+        id: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
+        reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
+      },
     };
   }
 
