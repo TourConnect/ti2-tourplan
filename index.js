@@ -183,9 +183,9 @@ class Plugin {
       },
     };
     let data = Normalizer.stripEnclosingQuotes(
-      js2xmlparser.parse('Request', model, xmlOptions),
+      js2xmlparser.parse('Request', model, defaultXmlOptions),
     );
-    data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+    data = data.replace(defaultXmlOptions.dtd.name, `Request SYSTEM "${defaultXmlOptions.dtd.name}"`);
     if (verbose) console.log('request', cleanLog(data));
     const reply = R.path(['data'], await axios({
       metod: 'post',
