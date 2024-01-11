@@ -328,7 +328,7 @@ class Plugin {
     }, {
       id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
       description: 'number of nights or days or hours depending on charge unit',
-      title: 'Quantity',
+      title: 'Nights/Days',
       type: 'count',
     }];
     const products = R.call(R.compose(
@@ -634,6 +634,7 @@ class Plugin {
       paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
       */
       paxConfigs,
+      passengers,
       /*
         The number of second charge units required (second charge units are discussed
         in the OptionInfo section). Should only be specified for options that have SCUs.
@@ -656,20 +657,22 @@ class Plugin {
         RateId: 'Default',
         SCUqty: chargeUnitQuanity || 1,
         AgentRef: reference,
-        RoomConfigs: paxConfigs.map(obj => ({
-          RoomConfig: {
+        RoomConfigs: paxConfigs.map(obj => {
+          const RoomConfig = {
             Adults: obj.adults || 0,
             Children: obj.children || 0,
             Infants: obj.infants || 0,
-            RoomType: ({
-              Single: 'SG',
-              Double: 'DB',
-              Twin: 'TW',
-              Triple: 'TR',
-              Quad: 'QU',
-            })[obj.roomType],
-          },
-        })),
+          };
+          const RoomType = ({
+            Single: 'SG',
+            Double: 'DB',
+            Twin: 'TW',
+            Triple: 'TR',
+            Quad: 'QU',
+          })[obj.roomType];
+          if (RoomType) RoomConfig.RoomType = RoomType;
+          return { RoomConfig };
+        }),
       },
     };
     const replyObj = await this.callTourplan({
@@ -685,6 +688,7 @@ class Plugin {
       quote: {
         id: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
         reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
+        linePrice: R.path(['AddServiceReply', 0, 'Services', 0, 'Service', 0, 'LinePrice', 0], replyObj),
       },
     };
   }
