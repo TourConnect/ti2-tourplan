@@ -34,10 +34,12 @@ const translateTCMLCollection = async ({ rootValue, typeDefs, query }) => {
   return retVal.data;
 };
 
-const translateTPOption = ({ optionsGroupedBySupplierId, supplierData, typeDefs, query }) => {
+const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
   return {
     productId: supplierData.supplierId,
     productName: supplierData.supplierName,
+    // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
+    // category: R.path([0, 'OptGeneral', 0, 'ButtonName', 0], optionsGroupedBySupplierId),
     options: optionsGroupedBySupplierId.map(option => {
       const keyData = {
         optionId: R.path(['Opt', 0], option),

@@ -328,7 +328,7 @@ class Plugin {
     }, {
       id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
       description: 'number of nights or days or hours depending on charge unit',
-      title: 'Quantity',
+      title: 'Nights/Days',
       type: 'count',
     }];
     const products = R.call(R.compose(
