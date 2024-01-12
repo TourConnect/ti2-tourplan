@@ -89,8 +89,16 @@ class Plugin {
         headers: getHeaders({ length: data.length }),
       }));
       const replyObj = await xmlParser.parseStringPromise(reply);
-      if (R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj)) {
-        throw new Error(R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj));
+      const error = R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj);
+      if (error) {
+        const requestType = R.keys(model)[0];
+        if (requestType.indexOf('2050 SCN Request denied for TEST connecting from') > -1
+          && requestType === 'OptionInfoRequest'
+          && endpoint.indexOf('actour') > -1
+        ) {
+          return 'useFixture';
+        }
+        throw new Error(`${requestType} failed: ${error}}`);
       }
       return R.path(['Reply'], replyObj);
     };
@@ -288,22 +296,75 @@ class Plugin {
         ttl: 60 * 60 * 12, // 12 hours
         forceRefresh: false,
       });
+    let products = [];
+    if (replyObj === 'useFixture') {
+      products = require('./__fixtures__/fullacoptionlist.json');
+    } else {
+      products = R.call(R.compose(
+        R.map(optionsGroupedBySupplierId => {
+          const supplierData = {
+            supplierId: R.path([0, 'OptGeneral', 0, 'SupplierId', 0], optionsGroupedBySupplierId),
+            supplierName: R.path([0, 'OptGeneral', 0, 'SupplierName', 0], optionsGroupedBySupplierId),
+          };
+          return translateTPOption({
+            supplierData,
+            optionsGroupedBySupplierId,
+            typeDefs: productTypeDefs,
+            query: productQuery,
+          });
+        }),
+        R.values,
+        R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
+        productName ? R.filter(o => {
+          const str = `${
+            R.path(['OptGeneral', 0, 'Description', 0], o)
+          } ${
+            R.path(['Opt', 0], o)
+          } ${
+            R.path(['OptGeneral', 0, 'SupplierId', 0], o)
+          } ${
+            R.path(['OptGeneral', 0, 'SupplierName', 0], o)
+          }`;
+          return wildcardMatch(productName, str);
+        }) : R.identity,
+        R.pathOr([], ['OptionInfoReply', 0, 'Option']),
+      ), replyObj);
+    }
     const productFields = [{
       id: 'productId',
       title: 'Supplier',
       type: 'extended-option',
+      requiredForAvailability: true,
+      requiredForBooking: true,
+      options: products.map(p => ({
+        value: p.productId,
+        label: p.productName,
+      })),
     }, {
       id: 'optionId',
       title: 'Service',
       type: 'extended-option',
+      requiredForAvailability: true,
+      requiredForBooking: true,
+      filterableBy: 'productId',
+      options: R.chain(p => p.options.map(o => ({
+        label: o.optionName,
+        value: o.optionId,
+        productId: p.productId,
+        productName: p.productName,
+      })), products),
     }, {
       id: 'startDate',
       title: 'Date',
       type: 'date',
+      requiredForAvailability: true,
+      requiredForBooking: true,
     }, {
       id: 'paxConfigs',
       title: 'Pax',
       type: 'list_of_fields',
+      requiredForAvailability: true,
+      requiredForBooking: true,
       fields: [{
         id: 'adults',
         title: 'Adults',
@@ -331,35 +392,6 @@ class Plugin {
       title: 'Nights/Days',
       type: 'count',
     }];
-    const products = R.call(R.compose(
-      R.map(optionsGroupedBySupplierId => {
-        const supplierData = {
-          supplierId: R.path([0, 'OptGeneral', 0, 'SupplierId', 0], optionsGroupedBySupplierId),
-          supplierName: R.path([0, 'OptGeneral', 0, 'SupplierName', 0], optionsGroupedBySupplierId),
-        };
-        return translateTPOption({
-          supplierData,
-          optionsGroupedBySupplierId,
-          typeDefs: productTypeDefs,
-          query: productQuery,
-        });
-      }),
-      R.values,
-      R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
-      productName ? R.filter(o => {
-        const str = `${
-          R.path(['OptGeneral', 0, 'Description', 0], o)
-        } ${
-          R.path(['Opt', 0], o)
-        } ${
-          R.path(['OptGeneral', 0, 'SupplierId', 0], o)
-        } ${
-          R.path(['OptGeneral', 0, 'SupplierName', 0], o)
-        }`;
-        return wildcardMatch(productName, str);
-      }) : R.identity,
-      R.pathOr([], ['OptionInfoReply', 0, 'Option']),
-    ), replyObj);
     return {
       products,
       productFields,
