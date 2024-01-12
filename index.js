@@ -92,13 +92,13 @@ class Plugin {
       const error = R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj);
       if (error) {
         const requestType = R.keys(model)[0];
-        if (requestType.indexOf('2050 SCN Request denied for TEST connecting from') > -1
+        if (error.indexOf('2050 SCN Request denied for TEST connecting from') > -1
           && requestType === 'OptionInfoRequest'
           && endpoint.indexOf('actour') > -1
         ) {
           return 'useFixture';
         }
-        throw new Error(`${requestType} failed: ${error}}`);
+        throw new Error(`${requestType} failed: ${error}`);
       }
       return R.path(['Reply'], replyObj);
     };
