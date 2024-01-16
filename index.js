@@ -659,6 +659,8 @@ class Plugin {
     payload: {
       quoteName,
       quoteId,
+      // existingQuoteId,
+      // existingLineId,
       optionId,
       startDate,
       reference,
@@ -666,7 +668,7 @@ class Plugin {
       paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
       */
       paxConfigs,
-      passengers,
+      // passengers,
       /*
         The number of second charge units required (second charge units are discussed
         in the OptionInfo section). Should only be specified for options that have SCUs.
@@ -721,6 +723,7 @@ class Plugin {
         id: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
         reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
         linePrice: R.path(['AddServiceReply', 0, 'Services', 0, 'Service', 0, 'LinePrice', 0], replyObj),
+        lineId: R.path(['AddServiceReply', 0, 'ServiceLineId', 0], replyObj),
       },
     };
   }
