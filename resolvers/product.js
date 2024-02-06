@@ -41,9 +41,12 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
     // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
     // category: R.path([0, 'OptGeneral', 0, 'ButtonName', 0], optionsGroupedBySupplierId),
     options: optionsGroupedBySupplierId.map(option => {
+      const comment = R.path(['OptGeneral', 0, 'Comment', 0], option);
       const keyData = {
         optionId: R.path(['Opt', 0], option),
-        optionName: R.path(['OptGeneral', 0, 'Description', 0], option),
+        optionName: `${R.path(['OptGeneral', 0, 'Description', 0], option)}${
+          comment ? `-${comment}` : ''
+        }`,
       };
       /*
       SType: One character that specifies the service type of the

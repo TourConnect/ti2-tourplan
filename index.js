@@ -383,9 +383,7 @@ class Plugin {
         type: 'extended-option',
         options: [{ value: 'SG', label: 'Single' }, { value: 'DB', label: 'Double' }, { value: 'TW', label: 'Twin' }, { value: 'QD', label: 'Quad' }],
       }],
-      requiredForAvailability: true,
       requiredForCalendar: true,
-      requiredForBooking: true,
     }, {
       id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
       description: 'number of nights or days or hours depending on charge unit',
