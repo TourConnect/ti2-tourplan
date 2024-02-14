@@ -220,7 +220,7 @@ class Plugin {
       headers: getHeaders({ length: data.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
-    const returnObj = xmlParser.parseStringPromise(reply);
+    const returnObj = await xmlParser.parseStringPromise(reply);
     let allotment = R.pathOr(
       [],
       ['Reply', 'GetInventoryReply', 0, 'Allocation'],
