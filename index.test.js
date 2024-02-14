@@ -14,6 +14,7 @@ jest.mock('axios');
 const actualAxios = jest.requireActual('axios');
 
 const getFixture = async requestObject => {
+  console.log('requestObject', requestObject);
   const requestHash = hash(requestObject);
   const file = path.resolve(__dirname, `./__fixtures__/${requestHash}.txt`);
   try {
