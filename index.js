@@ -30,7 +30,7 @@ const hostConnectXmlOptions = {
 const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
-  // 'Content-Length': length,
+  'Content-Length': `${length}`,
 });
 const wildcardMatch = (wildcard, str) => {
   const w = wildcard.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // regexp escape
