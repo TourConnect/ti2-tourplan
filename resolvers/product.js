@@ -39,12 +39,12 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
     productId: supplierData.supplierId,
     productName: supplierData.supplierName,
     // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
-    // category: R.path([0, 'OptGeneral', 0, 'ButtonName', 0], optionsGroupedBySupplierId),
+    // category: R.path([0, 'OptGeneral', 'ButtonName'], optionsGroupedBySupplierId),
     options: optionsGroupedBySupplierId.map(option => {
-      const comment = R.path(['OptGeneral', 0, 'Comment', 0], option);
+      const comment = R.path(['OptGeneral', 'Comment'], option);
       const keyData = {
-        optionId: R.path(['Opt', 0], option),
-        optionName: `${R.path(['OptGeneral', 0, 'Description', 0], option)}${
+        optionId: R.path(['Opt'], option),
+        optionName: `${R.path(['OptGeneral', 'Description'], option)}${
           comment ? `-${comment}` : ''
         }`,
       };
@@ -60,44 +60,44 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
               nights is not specified).
       */
       const units = (() => {
-        if (R.path(['OptGeneral', 0, 'SType', 0], option) === 'N') {
+        if (R.path(['OptGeneral', 'SType'], option) === 'N') {
           return [{
             unitId: 'Adults',
             unitName: 'Adults',
             pricing: [],
             restrictions: {
-              paxCount: R.path(['OptGeneral', 0, 'MPFCU', 0], option),
-              minAge: R.path(['OptGeneral', 0, 'Adult_From', 0], option),
-              maxAge: R.path(['OptGeneral', 0, 'Adult_To', 0], option),
+              paxCount: R.path(['OptGeneral', 'MPFCU'], option),
+              minAge: R.path(['OptGeneral', 'Adult_From'], option),
+              maxAge: R.path(['OptGeneral', 'Adult_To'], option),
             },
-          }, R.path(['OptGeneral', 0, 'ChildrenAllowed', 0], option) === 'Y' ? {
+          }, R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y' ? {
             unitId: 'Children',
             unitName: 'Children',
             pricing: [],
             restrictions: {
-              minAge: R.path(['OptGeneral', 0, 'Child_From', 0], option),
-              maxAge: R.path(['OptGeneral', 0, 'Child_To', 0], option),
+              minAge: R.path(['OptGeneral', 'Child_From'], option),
+              maxAge: R.path(['OptGeneral', 'Child_To'], option),
             },
-          } : null, R.path(['OptGeneral', 0, 'InfantsAllowed', 0], option) === 'Y' ? {
+          } : null, R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y' ? {
             unitId: 'Infants',
             unitName: 'Infants',
             pricing: [],
             restrictions: {
-              minAge: R.path(['OptGeneral', 0, 'Infant_From', 0], option),
-              maxAge: R.path(['OptGeneral', 0, 'Infant_To', 0], option),
+              minAge: R.path(['OptGeneral', 'Infant_From'], option),
+              maxAge: R.path(['OptGeneral', 'Infant_To'], option),
             },
           } : null].filter(Boolean);
         }
-        if (R.path(['OptGeneral', 0, 'SType', 0], option) === 'Y') {
+        if (R.path(['OptGeneral', 'SType'], option) === 'Y') {
           return [['SG', 'Single'], ['TW', 'Twin'], ['DB', 'Double'], ['QD', 'Quad']]
-            .filter(([_, unitName]) => R.path(['OptGeneral', 0, `${unitName}_Avail`, 0], option) === 'Y')
+            .filter(([_, unitName]) => R.path(['OptGeneral', `${unitName}_Avail`], option) === 'Y')
             .map(([unitId, unitName]) => ({
               unitId,
               unitName,
               pricing: [],
               restrictions: {
-                paxCount: R.path(['OptGeneral', 0, `${unitName}_Max`, 0], option)
-                || R.path(['OptGeneral', 0, `${unitName}_Ad_Max`, 0], option),
+                paxCount: R.path(['OptGeneral', `${unitName}_Max`], option)
+                || R.path(['OptGeneral', `${unitName}_Ad_Max`], option),
               },
             }));
         }

@@ -27,14 +27,17 @@
     "testTimeout": 10000
   },
   "dependencies": {
+    "axios": "^0.27.2",
     "@graphql-tools/schema": "^8.5.1",
-    "graphql": "^16.5.0",
     "bluebird": "^3.7.2",
+    "fast-xml-parser": "^4.3.4",
+    "graphql": "^16.5.0",
     "js2xmlparser": "^4.0.2",
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.29.1",
     "ramda": "^0.27.1",
     "underscore": "^1.13.4",
+    "xml-js": "^1.6.11",
     "xml2js": "^0.4.23"
   },
   "devDependencies": {

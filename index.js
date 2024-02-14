@@ -1,15 +1,17 @@
-// const axios = require('axios');
-const Promise = require('bluebird');
+const axiosRaw = require('axios');
+// const Promise = require('bluebird');
 const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
+const { XMLParser } = require('fast-xml-parser');
 const { translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
 const xmlParser = new xml2js.Parser();
+const fastParser = new XMLParser();
 
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
@@ -25,7 +27,6 @@ const hostConnectXmlOptions = {
     name: 'hostConnect_4_06_009.dtd',
   },
 };
-
 const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
@@ -82,16 +83,58 @@ class Plugin {
         js2xmlparser.parse('Request', model, xmlOptions),
       );
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
-      const reply = R.path(['data'], await axios({
-        method: 'post',
-        url: endpoint,
-        data,
-        headers: getHeaders({ length: data.length }),
-      }));
-      const replyObj = await xmlParser.parseStringPromise(reply);
-      const error = R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj);
+      let replyObj;
+      let errorStr;
+      if (this.xmlProxyUrl) {
+        // use pyfilematch xmlproxy
+        try {
+          replyObj = R.path(['data'], await axios({
+            method: 'post',
+            url: `${this.xmlProxyUrl}/xmlproxy`,
+            data: {
+              url: endpoint,
+              data,
+              headers: getHeaders({ length: `${data.length}` }),
+            },
+          }));
+        } catch (err) {
+          console.log('error in calling pyfilematch xmlproxy', err);
+          errorStr = `error in calling pyfilematch xmlproxy: ${err}`;
+        }
+      }
+      if (!replyObj) {
+        // in case of error /xmlproxy, fallback to call tourplan directly
+        // and then use pyfilematch xml2json to parse the xml
+        const reply = R.path(['data'], await axios({
+          method: 'post',
+          url: endpoint,
+          data,
+          headers: getHeaders({ length: data.length }),
+        }));
+        if (this.xmlProxyUrl) {
+          try {
+            // using raw axios to avoid logging the large xml request
+            ({ data: replyObj } = await axiosRaw({
+              method: 'post',
+              url: `${this.xmlProxyUrl}/xml2json`,
+              data: { xml: reply },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+            }));
+          } catch (err) {
+            console.log('error in calling pyfilematch xml2json', R.pathOr('Nada', ['response', 'data', 'error'], err));
+            errorStr = `error in calling pyfilematch xml2json: ${R.pathOr('Nada', ['response', 'data', 'error'], err)}`;
+          }
+        }
+        // in case of error from /xml2json, fallback to fast-xml-parser
+        if (!replyObj) {
+          replyObj = fastParser.parse(reply);
+        }
+      }
+      const requestType = R.keys(model)[0];
+      if (!replyObj) throw new Error(`${requestType} failed: ${errorStr || 'no reply object'}`);
+      const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
-        const requestType = R.keys(model)[0];
         if (error.indexOf('2050 SCN Request denied for TEST connecting from') > -1
           && requestType === 'OptionInfoRequest'
           && endpoint.indexOf('actour') > -1
@@ -130,7 +173,7 @@ class Plugin {
           axios,
           xmlOptions: hostConnectXmlOptions,
         });
-        assert(R.path(['AgentInfoReply', 0, 'Currency'], replyObj));
+        assert(R.path(['AgentInfoReply', 'Currency'], replyObj));
         return true;
       }
       const model = {
@@ -142,7 +185,7 @@ class Plugin {
       const replyObj = await this.callTourplan({
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
-      assert(R.path(['AuthenticationReply', 0], replyObj) === '');
+      assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
       return false;
@@ -293,7 +336,7 @@ class Plugin {
       : await this.cache.getOrExec({
         fnParams: [model],
         fn: () => this.callTourplan(payload),
-        ttl: 60 * 60 * 12, // 12 hours
+        ttl: 60 * 60 * 24, // 24 hours
         forceRefresh: false,
       });
     let products = [];
@@ -303,8 +346,8 @@ class Plugin {
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
           const supplierData = {
-            supplierId: R.path([0, 'OptGeneral', 0, 'SupplierId', 0], optionsGroupedBySupplierId),
-            supplierName: R.path([0, 'OptGeneral', 0, 'SupplierName', 0], optionsGroupedBySupplierId),
+            supplierId: R.path([0, 'OptGeneral', 'SupplierId'], optionsGroupedBySupplierId),
+            supplierName: R.path([0, 'OptGeneral', 'SupplierName'], optionsGroupedBySupplierId),
           };
           return translateTPOption({
             supplierData,
@@ -314,20 +357,26 @@ class Plugin {
           });
         }),
         R.values,
-        R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
+        R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
         productName ? R.filter(o => {
           const str = `${
-            R.path(['OptGeneral', 0, 'Description', 0], o)
+            R.path(['OptGeneral', 'Description'], o)
           } ${
-            R.path(['Opt', 0], o)
+            R.path(['Opt'], o)
           } ${
-            R.path(['OptGeneral', 0, 'SupplierId', 0], o)
+            R.path(['OptGeneral', 'SupplierId'], o)
           } ${
-            R.path(['OptGeneral', 0, 'SupplierName', 0], o)
+            R.path(['OptGeneral', 'SupplierName'], o)
           }`;
           return wildcardMatch(productName, str);
         }) : R.identity,
-        R.pathOr([], ['OptionInfoReply', 0, 'Option']),
+        root => {
+          const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
+          // due to the new parser, single option will be returned as an object
+          // instead of an array
+          if (Array.isArray(options)) return options;
+          return [options];
+        },
       ), replyObj);
     }
     const productFields = [{
@@ -715,13 +764,13 @@ class Plugin {
     });
     console.log('replyObj', replyObj);
     return {
-      message: R.path(['AddServiceReply', 0, 'Status', 0], replyObj)
+      message: R.path(['AddServiceReply', 'Status'], replyObj)
         === 'NO' ? 'Service cannot be added to quote' : '',
       quote: {
-        id: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
-        reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
-        linePrice: R.path(['AddServiceReply', 0, 'Services', 0, 'Service', 0, 'LinePrice', 0], replyObj),
-        lineId: R.path(['AddServiceReply', 0, 'ServiceLineId', 0], replyObj),
+        id: R.path(['AddServiceReply', 'BookingId'], replyObj),
+        reference: R.path(['AddServiceReply', 'Ref'], replyObj),
+        linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
+        lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
       },
     };
   }
