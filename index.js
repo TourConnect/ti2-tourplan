@@ -13,7 +13,6 @@ const Normalizer = require('./normalizer');
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
 
-const pyfilematchUrl = process.env.PYFILEMATCH_URL || 'http://pyfilematch:5000';
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
   dtd: {
@@ -31,7 +30,7 @@ const hostConnectXmlOptions = {
 const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
-  'Content-Length': length,
+  // 'Content-Length': length,
 });
 const wildcardMatch = (wildcard, str) => {
   const w = wildcard.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // regexp escape
@@ -84,28 +83,50 @@ class Plugin {
         js2xmlparser.parse('Request', model, xmlOptions),
       );
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
-      const reply = R.path(['data'], await axios({
-        method: 'post',
-        url: endpoint,
-        data,
-        headers: getHeaders({ length: data.length }),
-      }));
       let replyObj;
-      if (typeof jest === 'undefined') {
+      if (this.xmlProxyUrl) {
+        // use pyfilematch xmlproxy
         try {
-          ({ data: replyObj } = await axiosRaw({
+          replyObj = R.path(['data'], await axios({
             method: 'post',
-            url: `${pyfilematchUrl}/xml2json`,
-            data: { xml: reply },
-            maxContentLength: Infinity,
-            maxBodyLength: Infinity,
+            url: `${this.xmlProxyUrl}/xmlproxy`,
+            data: {
+              url: endpoint,
+              data,
+              headers: getHeaders({ length: `${data.length}` }),
+            },
           }));
         } catch (err) {
-          console.log('error in calling pyfilematch xml2json', err);
+          console.log('error in calling pyfilematch xmlproxy', err);
         }
       }
       if (!replyObj) {
-        replyObj = fastParser.parse(reply);
+        // in case of error /xmlproxy, fallback to call tourplan directly
+        // and then use pyfilematch xml2json to parse the xml
+        const reply = R.path(['data'], await axios({
+          method: 'post',
+          url: endpoint,
+          data,
+          headers: getHeaders({ length: data.length }),
+        }));
+        if (this.xmlProxyUrl) {
+          try {
+            // using raw axios to avoid logging the large xml request
+            ({ data: replyObj } = await axiosRaw({
+              method: 'post',
+              url: `${this.xmlProxyUrl}/xml2json`,
+              data: { xml: reply },
+              maxContentLength: Infinity,
+              maxBodyLength: Infinity,
+            }));
+          } catch (err) {
+            console.log('error in calling pyfilematch xml2json', err);
+          }
+        }
+        // in case of error from /xml2json, fallback to fast-xml-parser
+        if (!replyObj) {
+          replyObj = fastParser.parse(reply);
+        }
       }
       const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
