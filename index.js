@@ -85,23 +85,24 @@ class Plugin {
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
       let replyObj;
       let errorStr;
-      if (this.xmlProxyUrl) {
-        // use pyfilematch xmlproxy
-        try {
-          replyObj = R.path(['data'], await axios({
-            method: 'post',
-            url: `${this.xmlProxyUrl}/xmlproxy`,
-            data: {
-              url: endpoint,
-              data,
-              headers: getHeaders({ length: `${data.length}` }),
-            },
-          }));
-        } catch (err) {
-          console.log('error in calling pyfilematch xmlproxy', err);
-          errorStr = `error in calling pyfilematch xmlproxy: ${err}`;
-        }
-      }
+      // can't use proxy because of the static IP thing, darn
+      // if (this.xmlProxyUrl) {
+      //   // use pyfilematch xmlproxy
+      //   try {
+      //     replyObj = R.path(['data'], await axios({
+      //       method: 'post',
+      //       url: `${this.xmlProxyUrl}/xmlproxy`,
+      //       data: {
+      //         url: endpoint,
+      //         data,
+      //         headers: getHeaders({ length: `${data.length}` }),
+      //       },
+      //     }));
+      //   } catch (err) {
+      //     console.log('error in calling pyfilematch xmlproxy', err);
+      //     errorStr = `error in calling pyfilematch xmlproxy: ${err}`;
+      //   }
+      // }
       if (!replyObj) {
         // in case of error /xmlproxy, fallback to call tourplan directly
         // and then use pyfilematch xml2json to parse the xml
