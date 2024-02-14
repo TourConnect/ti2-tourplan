@@ -1,16 +1,19 @@
-// const axios = require('axios');
-const Promise = require('bluebird');
+const axiosRaw = require('axios');
+// const Promise = require('bluebird');
 const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
-const xml2js = require('xml2js');
+// const xml2js = require('xml2js');
+// const { XMLParser } = require('fast-xml-parser');
 const { translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
-const xmlParser = new xml2js.Parser();
+// const xmlParser = new xml2js.Parser();
+// const xmlParser = new XMLParser();
 
+const pyfilematchUrl = process.env.PYFILEMATCH_URL;
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
   dtd: {
@@ -88,8 +91,15 @@ class Plugin {
         data,
         headers: getHeaders({ length: data.length }),
       }));
-      const replyObj = await xmlParser.parseStringPromise(reply);
-      const error = R.path(['Reply', 'ErrorReply', 0, 'Error', 0], replyObj);
+      const dataP = { xml: reply };
+      const { data: replyObj } = await axiosRaw({
+        method: 'post',
+        url: `${pyfilematchUrl}/xml2json`,
+        data: dataP,
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      });
+      const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
         const requestType = R.keys(model)[0];
         if (error.indexOf('2050 SCN Request denied for TEST connecting from') > -1
@@ -130,7 +140,7 @@ class Plugin {
           axios,
           xmlOptions: hostConnectXmlOptions,
         });
-        assert(R.path(['AgentInfoReply', 0, 'Currency'], replyObj));
+        assert(R.path(['AgentInfoReply', 'Currency'], replyObj));
         return true;
       }
       const model = {
@@ -142,7 +152,7 @@ class Plugin {
       const replyObj = await this.callTourplan({
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
-      assert(R.path(['AuthenticationReply', 0], replyObj) === '');
+      assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
       return false;
@@ -202,31 +212,37 @@ class Plugin {
       headers: getHeaders({ length: data.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
-    const returnObj = await xmlParser.parseStringPromise(reply);
+    const { data: returnObj } = await axiosRaw({
+      method: 'post',
+      url: `${pyfilematchUrl}/xml2json`,
+      data: { xml: reply },
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
+    });
     let allotment = R.pathOr(
       [],
-      ['Reply', 'GetInventoryReply', 0, 'Allocation'],
+      ['Reply', 'GetInventoryReply', 'Allocation'],
       returnObj,
     );
     // remove empty instances
     allotment = allotment.filter(currentAllotment => Array.isArray(currentAllotment.Split));
     const allotmentResponse = [];
     allotment.forEach(currentAllotment => {
-      const appliesToCode = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
-      const optionCodes = R.path(['AllocationAppliesTo', 0, 'OptionCode'], currentAllotment);
-      const supplierCode = R.path(['SupplierCode', 0], currentAllotment);
+      const appliesToCode = R.path(['AllocationAppliesTo', 'AllocationType'], currentAllotment);
+      const optionCodes = R.path(['AllocationAppliesTo', 'OptionCode'], currentAllotment);
+      const supplierCode = R.path(['SupplierCode'], currentAllotment);
       const appliesTo = {
         S: 'Supplier',
         O: 'Product',
       }[appliesToCode] || appliesToCode;
-      const allotmentName = R.path(['AllocationName', 0], currentAllotment);
-      const allotmentDescription = R.path(['AllocationDescription', 0], currentAllotment);
+      const allotmentName = R.path(['AllocationName'], currentAllotment);
+      const allotmentDescription = R.path(['AllocationDescription'], currentAllotment);
       currentAllotment.Split.forEach(currentSplit => {
-        const splitCode = R.path(['Split_Code', 0], currentSplit);
+        const splitCode = R.path(['Split_Code'], currentSplit);
         R.path(['UnitTypeInventory'], currentSplit).forEach(currentUnitType => {
-          const unitType = R.path(['Unit_Type', 0], currentUnitType);
+          const unitType = R.path(['Unit_Type'], currentUnitType);
           R.path(['PerDayInventory'], currentUnitType).forEach(dayInventory => {
-            const date = moment(R.path(['Date', 0], dayInventory), 'YYYY-MM-DD')
+            const date = moment(R.path(['Date'], dayInventory), 'YYYY-MM-DD')
               .format(dateFormat);
             allotmentResponse.push({
               name: allotmentName,
@@ -235,13 +251,13 @@ class Plugin {
               splitCode,
               unitType,
               date,
-              release: R.path(['Release_Period', 0], dayInventory),
-              max: R.path(['Max_Qty', 0], dayInventory),
-              booked: R.path(['Bkd_Qty', 0], dayInventory),
+              release: R.path(['Release_Period'], dayInventory),
+              max: R.path(['Max_Qty'], dayInventory),
+              booked: R.path(['Bkd_Qty'], dayInventory),
               request: {
                 Y: true,
                 N: false,
-              }[R.path(['Request_OK', 0], dayInventory)],
+              }[R.path(['Request_OK'], dayInventory)],
               keyPaths: optionCodes.map(currentProduct => `${supplierCode}|${currentProduct}`),
             });
           });
@@ -303,8 +319,8 @@ class Plugin {
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
           const supplierData = {
-            supplierId: R.path([0, 'OptGeneral', 0, 'SupplierId', 0], optionsGroupedBySupplierId),
-            supplierName: R.path([0, 'OptGeneral', 0, 'SupplierName', 0], optionsGroupedBySupplierId),
+            supplierId: R.path([0, 'OptGeneral', 'SupplierId'], optionsGroupedBySupplierId),
+            supplierName: R.path([0, 'OptGeneral', 'SupplierName'], optionsGroupedBySupplierId),
           };
           return translateTPOption({
             supplierData,
@@ -314,20 +330,20 @@ class Plugin {
           });
         }),
         R.values,
-        R.groupBy(R.path(['OptGeneral', 0, 'SupplierId', 0])),
+        R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
         productName ? R.filter(o => {
           const str = `${
-            R.path(['OptGeneral', 0, 'Description', 0], o)
+            R.path(['OptGeneral', 'Description'], o)
           } ${
-            R.path(['Opt', 0], o)
+            R.path(['Opt'], o)
           } ${
-            R.path(['OptGeneral', 0, 'SupplierId', 0], o)
+            R.path(['OptGeneral', 'SupplierId'], o)
           } ${
-            R.path(['OptGeneral', 0, 'SupplierName', 0], o)
+            R.path(['OptGeneral', 'SupplierName'], o)
           }`;
           return wildcardMatch(productName, str);
         }) : R.identity,
-        R.pathOr([], ['OptionInfoReply', 0, 'Option']),
+        R.pathOr([], ['OptionInfoReply', 'Option']),
       ), replyObj);
     }
     const productFields = [{
@@ -715,13 +731,13 @@ class Plugin {
     });
     console.log('replyObj', replyObj);
     return {
-      message: R.path(['AddServiceReply', 0, 'Status', 0], replyObj)
+      message: R.path(['AddServiceReply', 'Status'], replyObj)
         === 'NO' ? 'Service cannot be added to quote' : '',
       quote: {
-        id: R.path(['AddServiceReply', 0, 'BookingId', 0], replyObj),
-        reference: R.path(['AddServiceReply', 0, 'Ref', 0], replyObj),
-        linePrice: R.path(['AddServiceReply', 0, 'Services', 0, 'Service', 0, 'LinePrice', 0], replyObj),
-        lineId: R.path(['AddServiceReply', 0, 'ServiceLineId', 0], replyObj),
+        id: R.path(['AddServiceReply', 'BookingId'], replyObj),
+        reference: R.path(['AddServiceReply', 'Ref'], replyObj),
+        linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
+        lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
       },
     };
   }

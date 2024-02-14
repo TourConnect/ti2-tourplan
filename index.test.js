@@ -101,7 +101,7 @@ describe('search tests', () => {
     let sentPayload = await xmlParser.parseStringPromise(
       request.mock.calls[0][0].data,
     );
-    sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
+    sentPayload = R.path(['Request', 'GetInventoryRequest'], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('MAGLUX');
     expect(sentPayload.OptionCode[0]).toBe('SYDACMAGLUXDELXRO');
     expect(sentPayload.Date_From[0]).toBe('2022-08-01');
@@ -137,7 +137,7 @@ describe('search tests', () => {
     let sentPayload = await xmlParser.parseStringPromise(
       request.mock.calls[0][0].data,
     );
-    sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
+    sentPayload = R.path(['Request', 'GetInventoryRequest'], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('MAGLUX');
     expect(sentPayload.OptionCode[0]).toBe('QLDACMAGLUXDELSUI');
     expect(sentPayload.Date_From[0]).toBe('2021-09-02');
@@ -173,7 +173,7 @@ describe('search tests', () => {
     let sentPayload = await xmlParser.parseStringPromise(
       request.mock.calls[0][0].data,
     );
-    sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
+    sentPayload = R.path(['Request', 'GetInventoryRequest'], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('XXYYIN');
     expect(sentPayload.OptionCode[0]).toBe('SINACXXYYIN2SDXBF');
     expect(sentPayload.Date_From[0]).toBe('2022-05-16');
