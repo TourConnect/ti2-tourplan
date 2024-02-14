@@ -5,15 +5,15 @@ const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
 // const xml2js = require('xml2js');
-// const { XMLParser } = require('fast-xml-parser');
+const { XMLParser } = require('fast-xml-parser');
 const { translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
 // const xmlParser = new xml2js.Parser();
-// const xmlParser = new XMLParser();
+const xmlParser = new XMLParser();
 
-const pyfilematchUrl = process.env.PYFILEMATCH_URL;
+const pyfilematchUrl = process.env.PYFILEMATCH_URL || 'http://pyfilematch:5000';
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
   dtd: {
@@ -28,7 +28,6 @@ const hostConnectXmlOptions = {
     name: 'hostConnect_4_06_009.dtd',
   },
 };
-
 const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
@@ -91,14 +90,19 @@ class Plugin {
         data,
         headers: getHeaders({ length: data.length }),
       }));
-      const dataP = { xml: reply };
-      const { data: replyObj } = await axiosRaw({
-        method: 'post',
-        url: `${pyfilematchUrl}/xml2json`,
-        data: dataP,
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      });
+      let replyObj;
+      if (typeof jest === 'undefined') {
+        const dataP = { xml: reply };
+        ({ data: replyObj } = await axiosRaw({
+          method: 'post',
+          url: `${pyfilematchUrl}/xml2json`,
+          data: dataP,
+          maxContentLength: Infinity,
+          maxBodyLength: Infinity,
+        }));
+      } else {
+        replyObj = xmlParser.parse(reply);
+      }
       const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
         const requestType = R.keys(model)[0];
@@ -212,13 +216,18 @@ class Plugin {
       headers: getHeaders({ length: data.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
-    const { data: returnObj } = await axiosRaw({
-      method: 'post',
-      url: `${pyfilematchUrl}/xml2json`,
-      data: { xml: reply },
-      maxContentLength: Infinity,
-      maxBodyLength: Infinity,
-    });
+    let returnObj;
+    if (typeof jest === 'undefined') {
+      ({ data: returnObj } = await axiosRaw({
+        method: 'post',
+        url: `${pyfilematchUrl}/xml2json`,
+        data: { xml: reply },
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity,
+      }));
+    } else {
+      returnObj = xmlParser.parse(reply);
+    }
     let allotment = R.pathOr(
       [],
       ['Reply', 'GetInventoryReply', 'Allocation'],
