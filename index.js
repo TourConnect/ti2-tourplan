@@ -92,14 +92,17 @@ class Plugin {
       }));
       let replyObj;
       if (typeof jest === 'undefined') {
-        const dataP = { xml: reply };
-        ({ data: replyObj } = await axiosRaw({
-          method: 'post',
-          url: `${pyfilematchUrl}/xml2json`,
-          data: dataP,
-          maxContentLength: Infinity,
-          maxBodyLength: Infinity,
-        }));
+        try {
+          ({ data: replyObj } = await axiosRaw({
+            method: 'post',
+            url: `${pyfilematchUrl}/xml2json`,
+            data: { xml: reply },
+            maxContentLength: Infinity,
+            maxBodyLength: Infinity,
+          }));
+        } catch (err) {
+          console.log('error in calling pyfilematch xml2json', err);
+        }
       }
       if (!replyObj) {
         replyObj = fastParser.parse(reply);
