@@ -84,6 +84,7 @@ class Plugin {
       );
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
       let replyObj;
+      let errorStr;
       if (this.xmlProxyUrl) {
         // use pyfilematch xmlproxy
         try {
@@ -98,6 +99,7 @@ class Plugin {
           }));
         } catch (err) {
           console.log('error in calling pyfilematch xmlproxy', err);
+          errorStr = `error in calling pyfilematch xmlproxy: ${err}`;
         }
       }
       if (!replyObj) {
@@ -120,7 +122,8 @@ class Plugin {
               maxBodyLength: Infinity,
             }));
           } catch (err) {
-            console.log('error in calling pyfilematch xml2json', err);
+            console.log('error in calling pyfilematch xml2json', R.pathOr('Nada', ['response', 'data', 'error'], err));
+            errorStr = `error in calling pyfilematch xml2json: ${R.pathOr('Nada', ['response', 'data', 'error'], err)}`;
           }
         }
         // in case of error from /xml2json, fallback to fast-xml-parser
@@ -128,9 +131,10 @@ class Plugin {
           replyObj = fastParser.parse(reply);
         }
       }
+      const requestType = R.keys(model)[0];
+      if (!replyObj) throw new Error(`${requestType} failed: ${errorStr || 'no reply object'}`);
       const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
-        const requestType = R.keys(model)[0];
         if (error.indexOf('2050 SCN Request denied for TEST connecting from') > -1
           && requestType === 'OptionInfoRequest'
           && endpoint.indexOf('actour') > -1
@@ -332,7 +336,7 @@ class Plugin {
       : await this.cache.getOrExec({
         fnParams: [model],
         fn: () => this.callTourplan(payload),
-        ttl: 60 * 60 * 12, // 12 hours
+        ttl: 60 * 60 * 24, // 24 hours
         forceRefresh: false,
       });
     let products = [];
@@ -366,7 +370,13 @@ class Plugin {
           }`;
           return wildcardMatch(productName, str);
         }) : R.identity,
-        R.pathOr([], ['OptionInfoReply', 'Option']),
+        root => {
+          const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
+          // due to the new parser, single option will be returned as an object
+          // instead of an array
+          if (Array.isArray(options)) return options;
+          return [options];
+        },
       ), replyObj);
     }
     const productFields = [{
