@@ -4,14 +4,14 @@ const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
 const js2xmlparser = require('js2xmlparser');
-// const xml2js = require('xml2js');
+const xml2js = require('xml2js');
 const { XMLParser } = require('fast-xml-parser');
 const { translateTPOption } = require('./resolvers/product');
 
 const Normalizer = require('./normalizer');
 
-// const xmlParser = new xml2js.Parser();
-const xmlParser = new XMLParser();
+const xmlParser = new xml2js.Parser();
+const fastParser = new XMLParser();
 
 const pyfilematchUrl = process.env.PYFILEMATCH_URL || 'http://pyfilematch:5000';
 const defaultXmlOptions = {
@@ -100,8 +100,9 @@ class Plugin {
           maxContentLength: Infinity,
           maxBodyLength: Infinity,
         }));
-      } else {
-        replyObj = xmlParser.parse(reply);
+      }
+      if (!replyObj) {
+        replyObj = fastParser.parse(reply);
       }
       const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
@@ -216,42 +217,31 @@ class Plugin {
       headers: getHeaders({ length: data.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
-    let returnObj;
-    if (typeof jest === 'undefined') {
-      ({ data: returnObj } = await axiosRaw({
-        method: 'post',
-        url: `${pyfilematchUrl}/xml2json`,
-        data: { xml: reply },
-        maxContentLength: Infinity,
-        maxBodyLength: Infinity,
-      }));
-    } else {
-      returnObj = xmlParser.parse(reply);
-    }
+    const returnObj = xmlParser.parseStringPromise(reply);
     let allotment = R.pathOr(
       [],
-      ['Reply', 'GetInventoryReply', 'Allocation'],
+      ['Reply', 'GetInventoryReply', 0, 'Allocation'],
       returnObj,
     );
     // remove empty instances
     allotment = allotment.filter(currentAllotment => Array.isArray(currentAllotment.Split));
     const allotmentResponse = [];
     allotment.forEach(currentAllotment => {
-      const appliesToCode = R.path(['AllocationAppliesTo', 'AllocationType'], currentAllotment);
-      const optionCodes = R.path(['AllocationAppliesTo', 'OptionCode'], currentAllotment);
-      const supplierCode = R.path(['SupplierCode'], currentAllotment);
+      const appliesToCode = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
+      const optionCodes = R.path(['AllocationAppliesTo', 0, 'OptionCode'], currentAllotment);
+      const supplierCode = R.path(['SupplierCode', 0], currentAllotment);
       const appliesTo = {
         S: 'Supplier',
         O: 'Product',
       }[appliesToCode] || appliesToCode;
-      const allotmentName = R.path(['AllocationName'], currentAllotment);
-      const allotmentDescription = R.path(['AllocationDescription'], currentAllotment);
+      const allotmentName = R.path(['AllocationName', 0], currentAllotment);
+      const allotmentDescription = R.path(['AllocationDescription', 0], currentAllotment);
       currentAllotment.Split.forEach(currentSplit => {
-        const splitCode = R.path(['Split_Code'], currentSplit);
+        const splitCode = R.path(['Split_Code', 0], currentSplit);
         R.path(['UnitTypeInventory'], currentSplit).forEach(currentUnitType => {
-          const unitType = R.path(['Unit_Type'], currentUnitType);
+          const unitType = R.path(['Unit_Type', 0], currentUnitType);
           R.path(['PerDayInventory'], currentUnitType).forEach(dayInventory => {
-            const date = moment(R.path(['Date'], dayInventory), 'YYYY-MM-DD')
+            const date = moment(R.path(['Date', 0], dayInventory), 'YYYY-MM-DD')
               .format(dateFormat);
             allotmentResponse.push({
               name: allotmentName,
@@ -260,13 +250,13 @@ class Plugin {
               splitCode,
               unitType,
               date,
-              release: R.path(['Release_Period'], dayInventory),
-              max: R.path(['Max_Qty'], dayInventory),
-              booked: R.path(['Bkd_Qty'], dayInventory),
+              release: R.path(['Release_Period', 0], dayInventory),
+              max: R.path(['Max_Qty', 0], dayInventory),
+              booked: R.path(['Bkd_Qty', 0], dayInventory),
               request: {
                 Y: true,
                 N: false,
-              }[R.path(['Request_OK'], dayInventory)],
+              }[R.path(['Request_OK', 0], dayInventory)],
               keyPaths: optionCodes.map(currentProduct => `${supplierCode}|${currentProduct}`),
             });
           });
