@@ -33,9 +33,9 @@ const getHeaders = ({ length }) => ({
   'Content-Length': length,
 });
 const wildcardMatch = (wildcard, str) => {
-  const w = wildcard.replace(/[.+^${}()|[\]\\]/g, '\\$&'); // regexp escape
-  const re = new RegExp(`^${w.replace(/\*/g, '.*').replace(/\?/g, '.')}$`, 'i');
-  return re.test(str); // remove last 'i' above to have case sensitive
+  const w = wildcard.replace(/\s/g, '').replace(/[.+^${}()|[\]\\]/g, '\\$&'); // regexp escape
+  const re = new RegExp(`${w.replace(/\*/g, '.*').replace(/\?/g, '.')}`, 'i');
+  return re.test(str.replace(/\s/g, ''));
 };
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
@@ -314,8 +314,9 @@ class Plugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
+      configuration,
     },
-    payload: { optionId, productName },
+    payload: { optionId, productName, skipFilter },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -344,6 +345,12 @@ class Plugin {
     if (replyObj === 'useFixture') {
       products = require('./__fixtures__/fullacoptionlist.json');
     } else {
+      const shouldFilter = Boolean(
+        productName
+        || (!skipFilter
+          && configuration
+          && configuration.productFilters),
+      );
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
           const supplierData = {
@@ -359,7 +366,7 @@ class Plugin {
         }),
         R.values,
         R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-        productName ? R.filter(o => {
+        shouldFilter ? R.filter(o => {
           const str = `${
             R.path(['OptGeneral', 'Description'], o)
           } ${
@@ -369,7 +376,13 @@ class Plugin {
           } ${
             R.path(['OptGeneral', 'SupplierName'], o)
           }`;
-          return wildcardMatch(productName, str);
+          if (productName) {
+            return wildcardMatch(productName, str);
+          }
+          if (configuration && configuration.productFilters) {
+            return configuration.productFilters.some(filter => wildcardMatch(filter, str));
+          }
+          return true;
         }) : R.identity,
         root => {
           const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
