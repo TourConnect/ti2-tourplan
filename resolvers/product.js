@@ -38,6 +38,8 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
   return {
     productId: supplierData.supplierId,
     productName: supplierData.supplierName,
+    address: supplierData.supplierAddress,
+    forPlaces: supplierData.supplierPlaces,
     // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
     // category: R.path([0, 'OptGeneral', 'ButtonName'], optionsGroupedBySupplierId),
     options: optionsGroupedBySupplierId.map(option => {
@@ -47,6 +49,7 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
         optionName: `${R.path(['OptGeneral', 'Description'], option)}${
           comment ? `-${comment}` : ''
         }`,
+        forPlaces: R.pathOr([], ['optionPlaces'], option).join(', ') || supplierData.supplierPlaces,
       };
       /*
       SType: One character that specifies the service type of the

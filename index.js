@@ -37,6 +37,37 @@ const wildcardMatch = (wildcard, str) => {
   const re = new RegExp(`${w.replace(/\*/g, '.*').replace(/\?/g, '.')}`, 'i');
   return re.test(str.replace(/\s/g, ''));
 };
+
+const convertProductFilters = (productFilters = []) => {
+  /*
+  productFilters: [
+    {
+      place: 'London',
+      filters: ['ACLUXE'],
+    },
+    {
+      place: 'Cambridge',
+      filters: ['LONEFBLEPARFITENT', 'ACLUXE'],
+    },
+  ]
+  result: {
+    filters: ['ACLUXE', 'LONEFBLEPARFITENT'],
+    filterPlaceMap: {
+      ACLUXE: ['London','Cambridge'],
+      LONEFBLEPARFITENT: ['Cambridge'],
+    },
+  }
+  */
+  const groupedByfilter = R.call(R.compose(
+    R.groupBy(R.prop('filter')),
+    R.flatten,
+    R.map(obj => obj.filters.map(str => ({ filter: str, place: obj.place }))),
+  ), productFilters);
+  return {
+    filters: R.keys(groupedByfilter),
+    filterPlaceMap: R.map(arr => arr.map(o => o.place), groupedByfilter),
+  };
+};
 class Plugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
@@ -316,7 +347,7 @@ class Plugin {
       hostConnectAgentPassword,
       configuration,
     },
-    payload: { optionId, productName, skipFilter },
+    payload: { optionId, skipFilter, forceRefresh },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -339,23 +370,27 @@ class Plugin {
         fnParams: [model],
         fn: () => this.callTourplan(payload),
         ttl: 60 * 60 * 24, // 24 hours
-        forceRefresh: false,
+        forceRefresh: Boolean(forceRefresh),
       });
     let products = [];
     if (replyObj === 'useFixture') {
       products = require('./__fixtures__/fullacoptionlist.json');
     } else {
-      const shouldFilter = Boolean(
-        productName
-        || (!skipFilter
+      const shouldFilter = Boolean(!skipFilter
           && configuration
-          && configuration.productFilters),
-      );
+          && configuration.productFilters);
+      const {
+        filters: productFilters,
+        filterPlaceMap,
+      } = convertProductFilters(configuration.productFilters);
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
+          const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
           const supplierData = {
-            supplierId: R.path([0, 'OptGeneral', 'SupplierId'], optionsGroupedBySupplierId),
-            supplierName: R.path([0, 'OptGeneral', 'SupplierName'], optionsGroupedBySupplierId),
+            supplierId: R.path(['SupplierId'], OptGeneral),
+            supplierName: R.path(['SupplierName'], OptGeneral),
+            supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
+            supplierPlaces: R.pathOr([], [0, 'supplierPlaces'], optionsGroupedBySupplierId).join(';'),
           };
           return translateTPOption({
             supplierData,
@@ -366,23 +401,21 @@ class Plugin {
         }),
         R.values,
         R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-        shouldFilter ? R.filter(o => {
-          const str = `${
-            R.path(['OptGeneral', 'Description'], o)
-          } ${
-            R.path(['Opt'], o)
-          } ${
-            R.path(['OptGeneral', 'SupplierId'], o)
-          } ${
-            R.path(['OptGeneral', 'SupplierName'], o)
-          }`;
-          if (productName) {
-            return wildcardMatch(productName, str);
-          }
-          if (configuration && configuration.productFilters) {
-            return configuration.productFilters.some(filter => wildcardMatch(filter, str));
-          }
-          return true;
+        shouldFilter ? R.filter(o => o.supplierPlaces || o.optionPlaces) : R.identity,
+        shouldFilter ? R.map(o => {
+          const str = o.Opt;
+          let supplierCodeMatch;
+          let optionCodeMatch;
+          productFilters.forEach(filter => {
+            const doesMatch = wildcardMatch(filter, str);
+            if (filter.length < 10 && doesMatch) supplierCodeMatch = filter;
+            if (filter.length > 10 && doesMatch) optionCodeMatch = filter;
+          });
+          return {
+            ...o,
+            supplierPlaces: filterPlaceMap[supplierCodeMatch],
+            optionPlaces: filterPlaceMap[optionCodeMatch],
+          };
         }) : R.identity,
         root => {
           const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
