@@ -382,7 +382,7 @@ class Plugin {
       const {
         filters: productFilters,
         filterPlaceMap,
-      } = convertProductFilters(configuration.productFilters);
+      } = convertProductFilters(configuration ? configuration.productFilters : []);
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
           const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
