@@ -39,9 +39,7 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
     productId: supplierData.supplierId,
     productName: supplierData.supplierName,
     address: supplierData.supplierAddress,
-    forPlaces: supplierData.supplierPlaces,
-    // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
-    // category: R.path([0, 'OptGeneral', 'ButtonName'], optionsGroupedBySupplierId),
+    serviceTypes: supplierData.serviceTypes,
     options: optionsGroupedBySupplierId.map(option => {
       const comment = R.path(['OptGeneral', 'Comment'], option);
       const keyData = {
@@ -49,7 +47,8 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
         optionName: `${R.path(['OptGeneral', 'Description'], option)}${
           comment ? `-${comment}` : ''
         }`,
-        forPlaces: R.pathOr([], ['optionPlaces'], option).join(', ') || supplierData.supplierPlaces,
+        // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
+        serviceType: R.path(['OptGeneral', 'ButtonName'], option),
       };
       /*
       SType: One character that specifies the service type of the
@@ -109,8 +108,7 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
         }];
       })();
       return {
-        optionId: keyData.optionId,
-        optionName: keyData.optionName,
+        ...keyData,
         units,
       };
     }),

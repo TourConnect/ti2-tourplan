@@ -347,7 +347,7 @@ class Plugin {
       hostConnectAgentPassword,
       configuration,
     },
-    payload: { optionId, skipFilter, forceRefresh },
+    payload: { optionId, forceRefresh },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -376,13 +376,6 @@ class Plugin {
     if (replyObj === 'useFixture') {
       products = require('./__fixtures__/fullacoptionlist.json');
     } else {
-      const shouldFilter = Boolean(!skipFilter
-          && configuration
-          && configuration.productFilters);
-      const {
-        filters: productFilters,
-        filterPlaceMap,
-      } = convertProductFilters(configuration ? configuration.productFilters : []);
       products = R.call(R.compose(
         R.map(optionsGroupedBySupplierId => {
           const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
@@ -390,7 +383,7 @@ class Plugin {
             supplierId: R.path(['SupplierId'], OptGeneral),
             supplierName: R.path(['SupplierName'], OptGeneral),
             supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
-            supplierPlaces: R.pathOr([], [0, 'supplierPlaces'], optionsGroupedBySupplierId).join(';'),
+            serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
           };
           return translateTPOption({
             supplierData,
@@ -401,22 +394,6 @@ class Plugin {
         }),
         R.values,
         R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-        shouldFilter ? R.filter(o => o.supplierPlaces || o.optionPlaces) : R.identity,
-        shouldFilter ? R.map(o => {
-          const str = o.Opt;
-          let supplierCodeMatch;
-          let optionCodeMatch;
-          productFilters.forEach(filter => {
-            const doesMatch = wildcardMatch(filter, str);
-            if (filter.length < 10 && doesMatch) supplierCodeMatch = filter;
-            if (filter.length > 10 && doesMatch) optionCodeMatch = filter;
-          });
-          return {
-            ...o,
-            supplierPlaces: filterPlaceMap[supplierCodeMatch],
-            optionPlaces: filterPlaceMap[optionCodeMatch],
-          };
-        }) : R.identity,
         root => {
           const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
           // due to the new parser, single option will be returned as an object
@@ -432,10 +409,10 @@ class Plugin {
       type: 'extended-option',
       requiredForAvailability: true,
       requiredForBooking: true,
-      options: products.map(p => ({
-        value: p.productId,
-        label: p.productName,
-      })),
+      // options: products.map(p => ({
+      //   value: p.productId,
+      //   label: p.productName,
+      // })),
     }, {
       id: 'optionId',
       title: 'Service',
@@ -443,12 +420,12 @@ class Plugin {
       requiredForAvailability: true,
       requiredForBooking: true,
       filterableBy: 'productId',
-      options: R.chain(p => p.options.map(o => ({
-        label: o.optionName,
-        value: o.optionId,
-        productId: p.productId,
-        productName: p.productName,
-      })), products),
+      // options: R.chain(p => p.options.map(o => ({
+      //   label: o.optionName,
+      //   value: o.optionId,
+      //   productId: p.productId,
+      //   productName: p.productName,
+      // })), products),
     }, {
       id: 'startDate',
       title: 'Date',
@@ -489,6 +466,7 @@ class Plugin {
     return {
       products,
       productFields,
+      ...configuration,
     };
   }
 
