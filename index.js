@@ -288,7 +288,7 @@ class Plugin {
     const allotmentResponse = [];
     allotment.forEach(currentAllotment => {
       const appliesToCode = R.path(['AllocationAppliesTo', 0, 'AllocationType', 0], currentAllotment);
-      const optionCodes = R.path(['AllocationAppliesTo', 0, 'OptionCode'], currentAllotment);
+      const optionCodes = R.pathOr([], ['AllocationAppliesTo', 0, 'OptionCode'], currentAllotment);
       const supplierCode = R.path(['SupplierCode', 0], currentAllotment);
       const appliesTo = {
         S: 'Supplier',
