@@ -364,14 +364,7 @@ class Plugin {
       xmlOptions: hostConnectXmlOptions,
     };
     // use cache if we are getting the full list
-    const replyObj = optionId
-      ? await this.callTourplan(payload)
-      : await this.cache.getOrExec({
-        fnParams: [model],
-        fn: () => this.callTourplan(payload),
-        ttl: 60 * 60 * 24, // 24 hours
-        forceRefresh: Boolean(forceRefresh),
-      });
+    const replyObj = await this.callTourplan(payload);
     let products = [];
     if (replyObj === 'useFixture') {
       products = require('./__fixtures__/fullacoptionlist.json');
