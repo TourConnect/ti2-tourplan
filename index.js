@@ -1,5 +1,5 @@
 const axiosRaw = require('axios');
-// const Promise = require('bluebird');
+const Promise = require('bluebird');
 const R = require('ramda');
 const assert = require('assert');
 const moment = require('moment');
@@ -463,256 +463,6 @@ class Plugin {
     };
   }
 
-  async getProductPackages() {
-    return [
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fea-0242ac120002',
-        packageName: "Afternoon at St Paul's Cathedral and Kensington Palace (half day)",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8feb-0242ac120002',
-        packageName: 'Beefeater Day Out',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fec-0242ac120002',
-        packageName: 'Brighton and Hove tour',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fed-0242ac120002',
-        packageName: 'Buckingham Palace & Kensington Palace (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fee-0242ac120002',
-        packageName: 'Buckingham Palace and Hampton Court Palace (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fef-0242ac120002',
-        packageName: 'Buckingham Palace and Windsor Castle (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff0-0242ac120002',
-        packageName: 'Canterbury & Dover day trip',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff1-0242ac120002',
-        packageName: 'Canterbury day trip',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff2-0242ac120002',
-        packageName: 'Churchill War Rooms and the Imperial War Museum',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff3-0242ac120002',
-        packageName: 'Churchill War Rooms, the Changing of the Guards & the Tower of London',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff4-0242ac120002',
-        packageName: "City walking tour, St Paul's Cathedral and theatre performance at the Globe",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff5-0242ac120002',
-        packageName: 'Downton Abbey day trip',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff6-0242ac120002',
-        packageName: "Guided tour of St Paul's Cathedral",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff7-0242ac120002',
-        packageName: 'Hampton Court Palace (half day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff8-0242ac120002',
-        packageName: 'Hampton Court Palace and Windsor Castle (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ff9-0242ac120002',
-        packageName: 'Kensington Palace and the Tower of London (full day)',
-        items: [
-          {
-            itemId: 'LONGUACLUXELONFDG',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFKENPALFIKENI',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFTOWLONFITOWL',
-            itemType: 'option',
-          },
-        ],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ffa-0242ac120002',
-        packageName: 'Kensington Palace and Westminster Abbey (half day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ffb-0242ac120002',
-        packageName: "Late afternoon visit to St Paul's Cathedral",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ffc-0242ac120002',
-        packageName: "St Paul's Cathedral & Kensington Palace (half day)",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ffd-0242ac120002',
-        packageName: "St Paul's Cathedral and the Churchill War Rooms (half day)",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8ffe-0242ac120002',
-        packageName: "St Paul's Cathedral and Westminster Abbey (half day)",
-        items: [
-          {
-            itemId: 'LONGUACLUXELONHDG',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFSTPCATFITSPC',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONSSGOLTOUGTWAP',
-            itemType: 'option',
-          },
-        ],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-8fff-0242ac120002',
-        packageName: "St Paul's Cathedral, Changing of the Guard and Tower of London (full day)",
-        items: [
-          {
-            itemId: 'LONGUACLUXELONFDG',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFTOWLONFITOWL',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFGOLTOUGT105N',
-            itemType: 'option',
-          },
-        ],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9000-0242ac120002',
-        packageName: "St Paul's Cathedral, Kensington Palace and Westminster Abbey (full day)",
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9001-0242ac120002',
-        packageName: 'St Pauls and Tower of London',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9002-0242ac120002',
-        packageName: 'Stonehenge (Full Day from London)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9003-0242ac120002',
-        packageName: 'Stonehenge, Lacock and Avebury (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9004-0242ac120002',
-        packageName: 'The White Cliffs of Dover, Dover Castle, & military tunnels (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9005-0242ac120002',
-        packageName: 'Tower of London by boat',
-        items: [
-          {
-            itemId: 'LONGUACLUXELONHDG',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONSSTHACLISINLON',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFTOWLONFITOWL',
-            itemType: 'option',
-          },
-        ],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9006-0242ac120002',
-        packageName: 'Warner Bros.- The Making of Harry Potter (non refundable)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9007-0242ac120002',
-        packageName: 'Westminster Abbey and Buckingham Palace (half day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9008-0242ac120002',
-        packageName: 'Westminster Abbey and Changing of the Guard',
-        items: [
-          {
-            itemId: 'LONGUACLUXELONHDG',
-            itemType: 'option',
-          },
-          {
-            itemId: 'LONEFWESABBWESABB',
-            itemType: 'option',
-          },
-        ],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-9009-0242ac120002',
-        packageName: 'Westminster Abbey and the Tower by boat (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-900a-0242ac120002',
-        packageName: 'Westminster Abbey, Changing of the Guard & Kensington Palace (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-900b-0242ac120002',
-        packageName: 'Westminster Abbey, Changing of the Guard and Buckingham Palace',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-900c-0242ac120002',
-        packageName: 'Westminster and the Tower of London (half day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-900d-0242ac120002',
-        packageName: 'Westminster, Changing of the Guard and the Tower of London (full day)',
-        items: [],
-      },
-      {
-        packageId: 'a1b2c3d4-e8e8-11ec-900e-0242ac120002',
-        packageName: 'Windsor Castle (half day)',
-        items: [],
-      },
-    ];
-  }
 
   async searchQuote({
     axios,
@@ -780,7 +530,6 @@ class Plugin {
       axios,
       xmlOptions: hostConnectXmlOptions,
     });
-    console.log('replyObj', replyObj);
     return {
       message: R.path(['AddServiceReply', 'Status'], replyObj)
         === 'NO' ? 'Service cannot be added to quote' : '',
@@ -806,6 +555,64 @@ class Plugin {
     return {
       fields: [],
       customFields,
+    };
+  }
+
+  async searchBooking({
+    token: {
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      hostConnectEndpoint,
+    },
+    axios,
+    payload: {
+      purchaseDateStart,
+      purchaseDateEnd,
+      bookingId,
+    },
+  }) {
+    const getPayload = (RequestType, RequestInput) => ({
+      model: {
+        [RequestType]: {
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+          ...RequestInput,
+        },
+      },
+      endpoint: hostConnectEndpoint,
+      axios,
+      xmlOptions: hostConnectXmlOptions,
+    });
+    const listBookingPayload = getPayload('ListBookingsRequest', {
+      EnteredDateFrom: purchaseDateStart || moment().subtract(6, 'month').format('YYYY-MM-DD'),
+      EnteredDateTo: purchaseDateEnd || moment().format('YYYY-MM-DD'),
+    });
+    const allSearches = bookingId
+      ? ['BookingId', 'Ref', 'AgentRef'].map(async key => {
+        let reply;
+        try {
+          reply = await this.callTourplan(getPayload('ListBookingsRequest', { [key]: bookingId }));
+        } catch (err) {
+          if (err.message.indexOf('not found') > -1) {
+            reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+          } else {
+            throw err;
+          }
+        }
+        return reply;
+      })
+      : [this.callTourplan(listBookingPayload)];
+    const replyObjs = await Promise.all(allSearches);
+    const bookingHeaders = R.flatten(replyObjs.map(o => R.pathOr([], ['ListBookingsReply', 'BookingHeaders', 'BookingHeader'], o)));
+    const bookings = await Promise.map(bookingHeaders, async bookingHeader => {
+      const getBookingPayload = getPayload('GetBookingRequest', {
+        BookingId: R.prop('BookingId', bookingHeader),
+      });
+      const bookingReply = await this.callTourplan(getBookingPayload);
+      return R.path(['GetBookingReply'], bookingReply);
+    }, { concurrency: 10 });
+    return {
+      bookings,
     };
   }
 }
