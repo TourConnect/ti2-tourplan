@@ -609,7 +609,12 @@ class Plugin {
         BookingId: R.prop('BookingId', bookingHeader),
       });
       const bookingReply = await this.callTourplan(getBookingPayload);
-      return R.path(['GetBookingReply'], bookingReply);
+      const booking = R.path(['GetBookingReply'], bookingReply);
+      const Services = R.pathOr([], ['Services', 'Service'], booking);
+      return {
+        ...booking,
+        Services: Array.isArray(Services) ? Services : [Services],
+      };
     }, { concurrency: 10 });
     return {
       bookings,
