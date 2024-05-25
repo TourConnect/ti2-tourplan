@@ -396,73 +396,85 @@ class Plugin {
         },
       ), replyObj);
     }
-    const productFields = [{
-      id: 'productId',
-      title: 'Supplier',
-      type: 'extended-option',
-      requiredForAvailability: true,
-      requiredForBooking: true,
-      // options: products.map(p => ({
-      //   value: p.productId,
-      //   label: p.productName,
-      // })),
-    }, {
-      id: 'optionId',
-      title: 'Service',
-      type: 'extended-option',
-      requiredForAvailability: true,
-      requiredForBooking: true,
-      filterableBy: 'productId',
-      // options: R.chain(p => p.options.map(o => ({
-      //   label: o.optionName,
-      //   value: o.optionId,
-      //   productId: p.productId,
-      //   productName: p.productName,
-      // })), products),
-    }, {
-      id: 'startDate',
-      title: 'Date',
-      type: 'date',
-      requiredForAvailability: true,
-      requiredForBooking: true,
-    }, {
-      id: 'paxConfigs',
-      title: 'Pax',
-      type: 'list_of_fields',
-      requiredForAvailability: true,
-      requiredForBooking: true,
-      fields: [{
-        id: 'adults',
-        title: 'Adults',
-        type: 'count',
-      }, {
-        id: 'children',
-        title: 'Children',
-        type: 'count',
-      }, {
-        id: 'infants',
-        title: 'Infants',
-        type: 'count',
-      }, {
-        id: 'roomType',
-        title: 'Room Type',
-        type: 'extended-option',
-        options: [{ value: 'SG', label: 'Single' }, { value: 'DB', label: 'Double' }, { value: 'TW', label: 'Twin' }, { value: 'QD', label: 'Quad' }],
-      }],
-      requiredForCalendar: true,
-    }, {
-      id: 'chargeUnitQuanity', // secondary charge unit (SCU) quantity
-      description: 'number of nights or days or hours depending on charge unit',
-      title: 'Nights/Days',
-      type: 'count',
-    }];
     return {
       products,
-      productFields,
+      productFields: [],
       ...configuration,
     };
   }
 
+
+  async searchAvailability({
+    axios,
+    token: {
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+    },
+    payload: {
+      optionId,
+      startDate,
+      reference,
+      /*
+      paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
+      */
+      paxConfigs,
+      // passengers,
+      /*
+        The number of second charge units required (second charge units are discussed
+        in the OptionInfo section). Should only be specified for options that have SCUs.
+        Defaults to 1.
+      */
+      chargeUnitQuanity,
+    },
+  }) {
+    const model = {
+      OptionInfoRequest: {
+        Opt: optionId,
+        Info: 'A',
+        DateFrom: startDate,
+        DateTo: startDate,
+        RoomConfigs: paxConfigs.map(obj => {
+          const RoomConfig = {
+            Adults: obj.adults || 0,
+            Children: obj.children || 0,
+            Infants: obj.infants || 0,
+          };
+          const RoomType = ({
+            Single: 'SG',
+            Double: 'DB',
+            Twin: 'TW',
+            Triple: 'TR',
+            Quad: 'QU',
+          })[obj.roomType];
+          if (RoomType) RoomConfig.RoomType = RoomType;
+          return { RoomConfig };
+        }),
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+      },
+    };
+    const replyObj = await this.callTourplan({
+      model,
+      endpoint: hostConnectEndpoint,
+      axios,
+      xmlOptions: hostConnectXmlOptions,
+    });
+    const optAvail = R.path(['OptionInfoReply', 'Option', 'OptAvail'], replyObj);
+    /*
+    FROM TP DOCS:
+    Each integer in the list gives the availability for one of the days in the range requested,
+    from the start date through to the end date. The integer values are to be interpreted as
+    follows:
+    Greater than 0 means that inventory is available, with the integer specifying the
+    number of units available. For options with a service type of Y , the inventory is in
+    units of rooms. For other service types, the inventory is in units of pax.
+    -1 Not available.
+    -2 Available on free sell.
+    -3 Available on request.
+    Note: A return value of 0 or something less than -3 is impossible.
+    */
+  }
 
   async searchQuote({
     axios,
@@ -483,7 +495,6 @@ class Plugin {
       paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
       */
       paxConfigs,
-      // passengers,
       /*
         The number of second charge units required (second charge units are discussed
         in the OptionInfo section). Should only be specified for options that have SCUs.
@@ -506,20 +517,46 @@ class Plugin {
         RateId: 'Default',
         SCUqty: chargeUnitQuanity || 1,
         AgentRef: reference,
-        RoomConfigs: paxConfigs.map(obj => {
-          const RoomConfig = {
-            Adults: obj.adults || 0,
-            Children: obj.children || 0,
-            Infants: obj.infants || 0,
-          };
+        RoomConfigs: paxConfigs.map(({ roomType, passengers }) => {
+          const RoomConfig = passengers.reduce((acc, p) => {
+            if (p.passengerType === 'Adult') {
+              acc.Adults += 1;
+            }
+            if (p.passengerType === 'Child') {
+              acc.Children += 1;
+            }
+            if (p.passengerType === 'Infant') {
+              acc.Infants += 1;
+            }
+            return acc;
+          }, {
+            Adults: 0,
+            Children: 0,
+            Infants: 0,
+          });
           const RoomType = ({
             Single: 'SG',
             Double: 'DB',
             Twin: 'TW',
             Triple: 'TR',
             Quad: 'QU',
-          })[obj.roomType];
+          })[roomType];
           if (RoomType) RoomConfig.RoomType = RoomType;
+          if (passengers && passengers.length) {
+            RoomConfig.PaxList = passengers.map(p => ({
+              PaxDetails: {
+                Forename: p.firstName,
+                Surname: p.lastName,
+                PaxType: {
+                  Adult: 'A',
+                  Child: 'C',
+                  Infant: 'I',
+                }[p.passengerType],
+                Age: p.age,
+                Title: p.salutation,
+              },
+            }));
+          }
           return { RoomConfig };
         }),
       },
