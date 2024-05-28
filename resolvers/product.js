@@ -49,6 +49,38 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
         }`,
         // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
         serviceType: R.path(['OptGeneral', 'ButtonName'], option),
+        restrictions: {
+          MPFCU: R.path(['OptGeneral', 'MPFCU'], option),
+          roomTypeRequired: ['Y', 'P'].includes(R.path(['OptGeneral', 'SType'], option)),
+          Adult: {
+            allowed: R.path(['OptGeneral', 'AdultsAllowed'], option) === 'Y',
+            minAge: R.path(['OptGeneral', 'Adult_From'], option),
+            maxAge: R.path(['OptGeneral', 'Adult_To'], option),
+          },
+          Child: {
+            allowed: R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y',
+            minAge: R.path(['OptGeneral', 'Child_From'], option),
+            maxAge: R.path(['OptGeneral', 'Child_To'], option),
+          },
+          Infant: {
+            allowed: R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y',
+            minAge: R.path(['OptGeneral', 'Infant_From'], option),
+            maxAge: R.path(['OptGeneral', 'Infant_To'], option),
+          },
+          ...['Single', 'Twin', 'Double', 'Quad'].reduce((acc, roomType) => {
+            const unitAvail = R.path(['OptGeneral', `${roomType}_Avail`], option);
+            const unitMax = R.path(['OptGeneral', `${roomType}_Max`], option);
+            const unitAdMax = R.path(['OptGeneral', `${roomType}_Ad_Max`], option);
+            return {
+              ...acc,
+              [roomType]: {
+                allowed: unitAvail === 'Y',
+                maxPax: unitMax,
+                maxAdults: unitAdMax,
+              },
+            };
+          }, {}),
+        },
       };
       /*
       SType: One character that specifies the service type of the
@@ -68,7 +100,6 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
             unitName: 'Adults',
             pricing: [],
             restrictions: {
-              paxCount: R.path(['OptGeneral', 'MPFCU'], option),
               minAge: R.path(['OptGeneral', 'Adult_From'], option),
               maxAge: R.path(['OptGeneral', 'Adult_To'], option),
             },
@@ -90,14 +121,14 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
             },
           } : null].filter(Boolean);
         }
-        if (R.path(['OptGeneral', 'SType'], option) === 'Y') {
-          return [['SG', 'Single'], ['TW', 'Twin'], ['DB', 'Double'], ['QD', 'Quad']]
-            .filter(([_, unitName]) => R.path(['OptGeneral', `${unitName}_Avail`], option) === 'Y')
+        if (R.path(['OptGeneral', 'SType'], option) === 'Y' || R.path(['OptGeneral', 'SType'], option) === 'P') {
+          return ['Single', 'Twin', 'Double', 'Quad']
             .map(([unitId, unitName]) => ({
               unitId,
               unitName,
               pricing: [],
               restrictions: {
+                allowed: R.path(['OptGeneral', `${unitName}_Avail`], option) === 'Y',
                 paxCount: R.path(['OptGeneral', `${unitName}_Max`], option)
                 || R.path(['OptGeneral', `${unitName}_Ad_Max`], option),
               },
