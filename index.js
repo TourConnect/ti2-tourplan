@@ -492,6 +492,7 @@ class Plugin {
     },
     payload: {
       quoteName,
+      rateId,
       quoteId,
       // existingQuoteId,
       // existingLineId,
@@ -508,6 +509,9 @@ class Plugin {
         Defaults to 1.
       */
       chargeUnitQuanity,
+      extras,
+      puInfo,
+      doInfo,
     },
   }) {
     const model = {
@@ -519,6 +523,26 @@ class Plugin {
         } : {
           NewBookingInfo: { Name: quoteName, QB: 'Q' },
         }),
+        ...(rateId ? {
+          RateId: rateId,
+        } : {}),
+        ...(puInfo ? {
+          puTime: puInfo.time,
+          puRemark: `Time: ${puInfo.time || 'NA'},
+          Location: ${puInfo.location || 'NA'},
+          Flight: ${puInfo.flightDetails || 'NA'},
+          `,
+        } : {}),
+        ...(doInfo ? {
+          doTime: doInfo.time,
+          doRemark: `Time: ${doInfo.time || 'NA'},
+          Location: ${doInfo.location || 'NA'},
+          Flight: ${doInfo.flightDetails || 'NA'},
+          `,
+        } : {}),
+        ...(extras && extras.length ? {
+          Remarks: extras.map((e, i) => `Extra ${i + 1}: ${e.name} x ${e.quantity}`).join(`\n`),
+        } : {}),
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
@@ -560,6 +584,7 @@ class Plugin {
                   Infant: 'I',
                 }[p.passengerType],
                 Age: p.age,
+                DateOfBirth: p.dob,
                 Title: p.salutation,
               },
             }));
