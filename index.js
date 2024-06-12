@@ -177,6 +177,51 @@ class Plugin {
       }
       return R.path(['Reply'], replyObj);
     };
+
+    this.getPaxConfigs = (paxConfigs, noPaxList) =>
+      paxConfigs.map(({ roomType, passengers = [] }) => {
+        const RoomConfig = passengers.reduce((acc, p) => {
+          if (p.passengerType === 'Adult') {
+            acc.Adults += 1;
+          }
+          if (p.passengerType === 'Child') {
+            acc.Children += 1;
+          }
+          if (p.passengerType === 'Infant') {
+            acc.Infants += 1;
+          }
+          return acc;
+        }, {
+          Adults: 0,
+          Children: 0,
+          Infants: 0,
+        });
+        const RoomType = ({
+          Single: 'SG',
+          Double: 'DB',
+          Twin: 'TW',
+          Triple: 'TR',
+          Quad: 'QU',
+        })[roomType];
+        if (RoomType) RoomConfig.RoomType = RoomType;
+        if (passengers && passengers.length && !noPaxList) {
+          RoomConfig.PaxList = passengers.map(p => ({
+            PaxDetails: {
+              Forename: p.firstName,
+              Surname: p.lastName,
+              PaxType: {
+                Adult: 'A',
+                Child: 'C',
+                Infant: 'I',
+              }[p.passengerType],
+              Age: p.age,
+              ...(p.dob ? { DateOfBirth: p.dob } : {}),
+              Title: p.salutation,
+            },
+          }));
+        }
+        return { RoomConfig };
+      });
   }
 
   async validateToken({
@@ -217,9 +262,11 @@ class Plugin {
       const replyObj = await this.callTourplan({
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
+      console.log(replyObj)
       assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
+      console.log(err)
       return false;
     }
   }
@@ -421,7 +468,6 @@ class Plugin {
     payload: {
       optionId,
       startDate,
-      reference,
       /*
       paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
       */
@@ -441,22 +487,7 @@ class Plugin {
         Info: 'A',
         DateFrom: startDate,
         DateTo: startDate,
-        RoomConfigs: paxConfigs.map(obj => {
-          const RoomConfig = {
-            Adults: obj.adults || 0,
-            Children: obj.children || 0,
-            Infants: obj.infants || 0,
-          };
-          const RoomType = ({
-            Single: 'SG',
-            Double: 'DB',
-            Twin: 'TW',
-            Triple: 'TR',
-            Quad: 'QU',
-          })[obj.roomType];
-          if (RoomType) RoomConfig.RoomType = RoomType;
-          return { RoomConfig };
-        }),
+        RoomConfigs: this.getPaxConfigs(paxConfigs, true),
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
       },
@@ -481,6 +512,33 @@ class Plugin {
     -3 Available on request.
     Note: A return value of 0 or something less than -3 is impossible.
     */
+    if (optAvail === -1) {
+      return {
+        available: false,
+      };
+    }
+    if (optAvail === -2) {
+      return {
+        available: true,
+        type: 'free sell',
+      };
+    }
+    if (optAvail === -3) {
+      return {
+        available: true,
+        type: 'on request',
+      };
+    }
+    if (optAvail > 0) {
+      return {
+        available: true,
+        type: 'inventory',
+        quantity: optAvail,
+      };
+    }
+    return {
+      available: false,
+    };
   }
 
   async searchQuote({
@@ -548,49 +606,7 @@ class Plugin {
         RateId: 'Default',
         SCUqty: chargeUnitQuanity || 1,
         AgentRef: reference,
-        RoomConfigs: paxConfigs.map(({ roomType, passengers }) => {
-          const RoomConfig = passengers.reduce((acc, p) => {
-            if (p.passengerType === 'Adult') {
-              acc.Adults += 1;
-            }
-            if (p.passengerType === 'Child') {
-              acc.Children += 1;
-            }
-            if (p.passengerType === 'Infant') {
-              acc.Infants += 1;
-            }
-            return acc;
-          }, {
-            Adults: 0,
-            Children: 0,
-            Infants: 0,
-          });
-          const RoomType = ({
-            Single: 'SG',
-            Double: 'DB',
-            Twin: 'TW',
-            Triple: 'TR',
-            Quad: 'QU',
-          })[roomType];
-          if (RoomType) RoomConfig.RoomType = RoomType;
-          if (passengers && passengers.length) {
-            RoomConfig.PaxList = passengers.map(p => ({
-              PaxDetails: {
-                Forename: p.firstName,
-                Surname: p.lastName,
-                PaxType: {
-                  Adult: 'A',
-                  Child: 'C',
-                  Infant: 'I',
-                }[p.passengerType],
-                Age: p.age,
-                DateOfBirth: p.dob,
-                Title: p.salutation,
-              },
-            }));
-          }
-          return { RoomConfig };
-        }),
+        RoomConfigs: this.getRoomConfigs(paxConfigs),
       },
     };
     const replyObj = await this.callTourplan({
@@ -676,6 +692,7 @@ class Plugin {
     const bookings = await Promise.map(bookingHeaders, async bookingHeader => {
       const getBookingPayload = getPayload('GetBookingRequest', {
         BookingId: R.prop('BookingId', bookingHeader),
+        ReturnAccountInfo: 'Y',
       });
       const bookingReply = await this.callTourplan(getBookingPayload);
       const booking = R.path(['GetBookingReply'], bookingReply);
