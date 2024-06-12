@@ -618,7 +618,7 @@ class Plugin {
         RateId: 'Default',
         SCUqty: chargeUnitQuanity || 1,
         AgentRef: reference,
-        RoomConfigs: this.getRoomConfigs(paxConfigs),
+        RoomConfigs: this.getPaxConfigs(paxConfigs),
       },
     };
     const replyObj = await this.callTourplan({
