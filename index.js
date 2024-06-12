@@ -205,20 +205,27 @@ class Plugin {
         })[roomType];
         if (RoomType) RoomConfig.RoomType = RoomType;
         if (passengers && passengers.length && !noPaxList) {
-          RoomConfig.PaxList = passengers.map(p => ({
-            PaxDetails: {
+          RoomConfig.PaxList = passengers.map(p => {
+            const PaxDetails = {
               Forename: p.firstName,
               Surname: p.lastName,
               PaxType: {
                 Adult: 'A',
                 Child: 'C',
                 Infant: 'I',
-              }[p.passengerType],
-              Age: p.age,
-              ...(p.dob ? { DateOfBirth: p.dob } : {}),
+              }[p.passengerType] || 'A',
               Title: p.salutation,
-            },
-          }));
+            };
+            if (p.dob) PaxDetails.DateOfBirth = p.dob;
+            if (!isNaN(p.age)) {
+              if (!(p.passengerType === 'Adult' && p.age === 0)) {
+                PaxDetails.Age = p.age;
+              }
+            }
+            return {
+              PaxDetails,
+            };
+          });
         }
         return { RoomConfig };
       });
@@ -585,14 +592,19 @@ class Plugin {
           RateId: rateId,
         } : {}),
         ...(puInfo ? {
-          puTime: puInfo.time,
+          ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
+            puTime: puInfo.time.replace(/\D/g, ''),
+          } : {}),
           puRemark: `Time: ${puInfo.time || 'NA'},
           Location: ${puInfo.location || 'NA'},
           Flight: ${puInfo.flightDetails || 'NA'},
           `,
         } : {}),
         ...(doInfo ? {
-          doTime: doInfo.time,
+          // only get numbers from doInfo.time
+          ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
+            doTime: doInfo.time.replace(/\D/g, ''),
+          } : {}),
           doRemark: `Time: ${doInfo.time || 'NA'},
           Location: ${doInfo.location || 'NA'},
           Flight: ${doInfo.flightDetails || 'NA'},
