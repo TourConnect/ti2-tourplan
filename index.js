@@ -690,11 +690,8 @@ class Plugin {
         try {
           reply = await this.callTourplan(getPayload('ListBookingsRequest', { [key]: bookingId }));
         } catch (err) {
-          if (err.message.indexOf('not found') > -1) {
-            reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
-          } else {
-            throw err;
-          }
+          console.log('error in searchBooking', err);
+          reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
         return reply;
       })
