@@ -577,8 +577,12 @@ class Plugin {
       extras,
       puInfo,
       doInfo,
+      notes,
     },
   }) {
+    const extraText = extras && extras.length
+      ? extras.map((e, i) => `Extra ${i + 1}: ${e.name} x ${e.quantity}`).join(`\n`)
+      : '';
     const model = {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
@@ -610,9 +614,7 @@ class Plugin {
           Flight: ${doInfo.flightDetails || 'NA'},
           `,
         } : {}),
-        ...(extras && extras.length ? {
-          Remarks: extras.map((e, i) => `Extra ${i + 1}: ${e.name} x ${e.quantity}`).join(`\n`),
-        } : {}),
+        Remarks: `${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`,
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
