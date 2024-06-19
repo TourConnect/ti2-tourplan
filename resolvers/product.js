@@ -42,13 +42,14 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
     serviceTypes: supplierData.serviceTypes,
     options: optionsGroupedBySupplierId.map(option => {
       const comment = R.path(['OptGeneral', 'Comment'], option);
+      const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
       const keyData = {
         optionId: R.path(['Opt'], option),
         optionName: `${R.path(['OptGeneral', 'Description'], option)}${
           comment ? `-${comment}` : ''
         }`,
         // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
-        serviceType: R.path(['OptGeneral', 'ButtonName'], option),
+        serviceType: typeof st === 'string' ? st : '',
         restrictions: {
           MPFCU: R.path(['OptGeneral', 'MPFCU'], option),
           roomTypeRequired: ['Y', 'P'].includes(R.path(['OptGeneral', 'SType'], option)),
