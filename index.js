@@ -229,6 +229,20 @@ class Plugin {
         }
         return { RoomConfig };
       });
+    this.escapeInvalidXmlChars = str => {
+      if (!str) return '';
+      return str.replace(/[^\x00-\x7F]+/g, '')
+        .replace(/’/g, "'")
+        .replace(/‘/g, "'")
+        .replace(/“/g, '"')
+        .replace(/”/g, '"')
+        .replace(/–/g, '-')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;')
+    }
   }
 
   async validateToken({
@@ -401,7 +415,7 @@ class Plugin {
       hostConnectAgentPassword,
       configuration,
     },
-    payload: { optionId, forceRefresh },
+    payload: { optionId, forceRefresh, searchInput },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -449,6 +463,19 @@ class Plugin {
         R.values,
         R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
         root => {
+          if (!searchInput) return root;
+          const getFullSearchStr = o => {
+            const fullPptionName = `${R.path(['OptGeneral', 'Description'], o) || ''}-${R.path(['OptGeneral', 'Comment'], o) || ''}`;
+            return `${R.path(['OptGeneral', 'SupplierName'], o) || ''} ${fullPptionName} ${R.path(['Opt'], o)} ${R.path(['OptGeneral', 'SupplierId'], o) || ''}`;
+          };
+          const inputValueLower = searchInput.trim().toLowerCase();
+          const parts = inputValueLower.split(' ').filter(Boolean); // Filter out any empty strings just in case
+          return root.filter(option => {
+            const fullSearchStr = getFullSearchStr(option).toLowerCase();
+            return parts.every(part => fullSearchStr.includes(part));
+          });
+        },
+        root => {
           const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
           // due to the new parser, single option will be returned as an object
           // instead of an array
@@ -460,7 +487,7 @@ class Plugin {
     return {
       products,
       productFields: [],
-      ...configuration,
+      ...(searchInput || optionId ? {} : configuration),
     };
   }
 
@@ -590,7 +617,10 @@ class Plugin {
         ...(quoteId ? {
           ExistingBookingInfo: { BookingId: quoteId },
         } : {
-          NewBookingInfo: { Name: quoteName, QB: 'Q' },
+          NewBookingInfo: {
+            Name: this.escapeInvalidXmlChars(quoteName),
+            QB: 'Q',
+          },
         }),
         ...(rateId ? {
           RateId: rateId,
@@ -599,22 +629,22 @@ class Plugin {
           ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
             puTime: puInfo.time.replace(/\D/g, ''),
           } : {}),
-          puRemark: `Time: ${puInfo.time || 'NA'},
+          puRemark: this.escapeInvalidXmlChars(`Time: ${puInfo.time || 'NA'},
           Location: ${puInfo.location || 'NA'},
           Flight: ${puInfo.flightDetails || 'NA'},
-          `,
+          `),
         } : {}),
         ...(doInfo ? {
           // only get numbers from doInfo.time
           ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
             doTime: doInfo.time.replace(/\D/g, ''),
           } : {}),
-          doRemark: `Time: ${doInfo.time || 'NA'},
+          doRemark: this.escapeInvalidXmlChars(`Time: ${doInfo.time || 'NA'},
           Location: ${doInfo.location || 'NA'},
           Flight: ${doInfo.flightDetails || 'NA'},
-          `,
+          `),
         } : {}),
-        Remarks: `${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`,
+        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`),
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
