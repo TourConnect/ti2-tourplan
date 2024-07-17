@@ -759,6 +759,10 @@ class Plugin {
         try {
           reply = await this.callTourplan(getPayload('ListBookingsRequest', { [key]: bookingId }));
         } catch (err) {
+          if (err.includes && err.includes('Request failed with status code')) {
+            throw Error(err);
+          }
+          // if it's not server error, we just considered as no booking is found
           console.log('error in searchBooking', err);
           reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
