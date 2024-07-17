@@ -518,7 +518,7 @@ class Plugin {
     const model = {
       OptionInfoRequest: {
         Opt: optionId,
-        Info: 'A',
+        Info: 'S',
         DateFrom: startDate,
         DateTo: startDate,
         RoomConfigs: this.getPaxConfigs(paxConfigs, true),
@@ -532,47 +532,84 @@ class Plugin {
       axios,
       xmlOptions: hostConnectXmlOptions,
     });
-    const optAvail = R.path(['OptionInfoReply', 'Option', 'OptAvail'], replyObj);
     /*
-    FROM TP DOCS:
-    Each integer in the list gives the availability for one of the days in the range requested,
-    from the start date through to the end date. The integer values are to be interpreted as
-    follows:
-    Greater than 0 means that inventory is available, with the integer specifying the
-    number of units available. For options with a service type of Y , the inventory is in
-    units of rooms. For other service types, the inventory is in units of pax.
-    -1 Not available.
-    -2 Available on free sell.
-    -3 Available on request.
-    Note: A return value of 0 or something less than -3 is impossible.
+      If not rates, optionInfoReply is null, meaning it's not bookable
+      otherwise, example data:
+      {
+        optionInfoReply: {
+          Option: {
+            Opt: 'LHRTRDAVIDSHABTVC',
+            OptStayResults: {
+              AgentPrice: '51175',
+              Availability: 'RQ',
+              CancelHours: '96',
+              CommissionPercent: '0.00',
+              Currency: 'GBP',
+              PeriodValueAdds: {
+                PeriodValueAdd: {
+                  DateFrom: '2024-08-10',
+                  DateTo: '2024-08-10',
+                  RateName: 'Std-Mon Sun',
+                  RateText: 'Std'
+                }
+              },
+              RateId: 'Default',
+              RateName: 'Std-Mon Sun',
+              RateText: 'Std',
+              SaleFrom: '2023-12-20',
+              TotalPrice: '51175'
+            },
+            OptionNumber: '70461'
+          }
+        }
+      }
     */
-    if (optAvail === -1) {
-      return {
-        available: false,
-      };
-    }
-    if (optAvail === -2) {
-      return {
-        available: true,
-        type: 'free sell',
-      };
-    }
-    if (optAvail === -3) {
-      return {
-        available: true,
-        type: 'on request',
-      };
-    }
-    if (optAvail > 0) {
-      return {
-        available: true,
-        type: 'inventory',
-        quantity: optAvail,
-      };
-    }
+    const optionInfoReply = R.path(['OptionInfoReply'], replyObj);
     return {
-      available: false,
+      bookable: Boolean(optionInfoReply),
     };
+    // THE BELOW CODE is for A check, might still need it on user's future request
+    // const optAvail = parseInt(R.pathOr('-4', ['OptionInfoReply', 'Option', 'OptAvail'], replyObj), 10);
+    // /*
+    // FROM TP DOCS:
+    // Each integer in the list gives the availability for one of the days in the range requested,
+    // from the start date through to the end date. The integer values are to be interpreted as
+    // follows:
+    // Greater than 0 means that inventory is available, with the integer specifying the
+    // number of units available. For options with a service type of Y , the inventory is in
+    // units of rooms. For other service types, the inventory is in units of pax.
+    // -1 Not available.
+    // -2 Available on free sell.
+    // -3 Available on request.
+    // Note: A return value of 0 or something less than -3 is impossible.
+    // */
+    // if (optAvail === -1) {
+    //   return {
+    //     available: false,
+    //   };
+    // }
+    // if (optAvail === -2) {
+    //   return {
+    //     available: true,
+    //     type: 'free sell',
+    //   };
+    // }
+    // if (optAvail === -3) {
+    //   return {
+    //     available: true,
+    //     type: 'on request',
+    //   };
+    // }
+    // if (optAvail > 0) {
+    //   return {
+    //     available: true,
+    //     type: 'inventory',
+    //     quantity: optAvail,
+    //   };
+    // }
+    // return {
+    //   available: false,
+    // };
   }
 
   async searchQuote({
