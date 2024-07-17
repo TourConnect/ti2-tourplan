@@ -242,7 +242,12 @@ class Plugin {
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
         .replace(/'/g, '&apos;')
-    }
+    };
+
+    // this.errorPathsAxiosErrors = () => ([ // axios triggered errors
+    //   ['response', 'data', 'error'],
+    // ]);
+    // this.errorPathsAxiosAny = () => ([]); // 200's that should be errors
   }
 
   async validateToken({
@@ -662,23 +667,23 @@ class Plugin {
         ...(rateId ? {
           RateId: rateId,
         } : {}),
-        ...(puInfo ? {
+        ...(puInfo && (puInfo.time || puInfo.location || puInfo.flightDetails) ? {
           ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
             puTime: puInfo.time.replace(/\D/g, ''),
           } : {}),
-          puRemark: this.escapeInvalidXmlChars(`Time: ${puInfo.time || 'NA'},
-          Location: ${puInfo.location || 'NA'},
-          Flight: ${puInfo.flightDetails || 'NA'},
+          puRemark: this.escapeInvalidXmlChars(`${puInfo.time ? `Time: ${puInfo.time || 'NA'},` : ''}
+          ${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
+          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
-        ...(doInfo ? {
+        ...(doInfo && (doInfo.time || doInfo.location || doInfo.flightDetails) ? {
           // only get numbers from doInfo.time
           ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
             doTime: doInfo.time.replace(/\D/g, ''),
           } : {}),
-          doRemark: this.escapeInvalidXmlChars(`Time: ${doInfo.time || 'NA'},
-          Location: ${doInfo.location || 'NA'},
-          Flight: ${doInfo.flightDetails || 'NA'},
+          doRemark: this.escapeInvalidXmlChars(`${doInfo.time ? `Time: ${doInfo.time || 'NA'},` : ''}
+          ${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
+          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
         Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`).slice(0, 240),
