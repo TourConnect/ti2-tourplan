@@ -201,7 +201,7 @@ class Plugin {
           Double: 'DB',
           Twin: 'TW',
           Triple: 'TR',
-          Quad: 'QU',
+          Quad: 'QD',
         })[roomType];
         if (RoomType) RoomConfig.RoomType = RoomType;
         if (passengers && passengers.length && !noPaxList) {
