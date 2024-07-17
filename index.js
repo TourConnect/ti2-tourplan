@@ -681,7 +681,7 @@ class Plugin {
           Flight: ${doInfo.flightDetails || 'NA'},
           `),
         } : {}),
-        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`),
+        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`).slice(0, 240),
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
