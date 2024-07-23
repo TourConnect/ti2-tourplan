@@ -217,7 +217,7 @@ class Plugin {
             };
             if (p.salutation) PaxDetails.Title = p.salutation;
             if (p.dob) PaxDetails.DateOfBirth = p.dob;
-            if (!isNaN(p.age)) {
+            if (!R.isNil(p.age) && !isNaN(p.age)) {
               if (!(p.passengerType === 'Adult' && p.age === 0)) {
                 PaxDetails.Age = p.age;
               }
