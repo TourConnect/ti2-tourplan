@@ -694,7 +694,11 @@ class Plugin {
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
-        SCUqty: chargeUnitQuanity || 1,
+        SCUqty: (() => {
+          const num = parseInt(chargeUnitQuanity, 10);
+          if (isNaN(num) || num < 1) return 1;
+          return num;
+        })(),
         AgentRef: reference,
         RoomConfigs: this.getPaxConfigs(paxConfigs),
       },
