@@ -214,8 +214,8 @@ class Plugin {
                 Child: 'C',
                 Infant: 'I',
               }[p.passengerType] || 'A',
-              Title: p.salutation,
             };
+            if (p.salutation) PaxDetails.Title = p.salutation;
             if (p.dob) PaxDetails.DateOfBirth = p.dob;
             if (!isNaN(p.age)) {
               if (!(p.passengerType === 'Adult' && p.age === 0)) {
