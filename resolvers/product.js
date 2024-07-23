@@ -123,15 +123,16 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
           } : null].filter(Boolean);
         }
         if (R.path(['OptGeneral', 'SType'], option) === 'Y' || R.path(['OptGeneral', 'SType'], option) === 'P') {
+          console.log('hit here')
           return ['Single', 'Twin', 'Double', 'Quad']
-            .map(([unitId, unitName]) => ({
+            .map((unitId) => ({
               unitId,
-              unitName,
+              unitName: unitId,
               pricing: [],
               restrictions: {
-                allowed: R.path(['OptGeneral', `${unitName}_Avail`], option) === 'Y',
-                paxCount: R.path(['OptGeneral', `${unitName}_Max`], option)
-                || R.path(['OptGeneral', `${unitName}_Ad_Max`], option),
+                allowed: R.path(['OptGeneral', `${unitId}_Avail`], option) === 'Y',
+                paxCount: R.path(['OptGeneral', `${unitId}_Max`], option)
+                || R.path(['OptGeneral', `${unitId}_Ad_Max`], option),
               },
             }));
         }

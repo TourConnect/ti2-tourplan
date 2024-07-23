@@ -525,7 +525,11 @@ class Plugin {
         Opt: optionId,
         Info: 'S',
         DateFrom: startDate,
-        DateTo: startDate,
+        SCUqty: (() => {
+          const num = parseInt(chargeUnitQuanity, 10);
+          if (isNaN(num) || num < 1) return 1;
+          return num;
+        })(),
         RoomConfigs: this.getPaxConfigs(paxConfigs, true),
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
