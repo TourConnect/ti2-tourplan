@@ -711,7 +711,7 @@ class Plugin {
     });
     return {
       message: R.path(['AddServiceReply', 'Status'], replyObj)
-        === 'NO' ? 'Service cannot be added to quote' : '',
+        === 'NO' ? 'Service cannot be added to quote (could be due to no rates)' : '',
       quote: {
         id: R.path(['AddServiceReply', 'BookingId'], replyObj),
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),
