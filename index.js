@@ -748,6 +748,7 @@ class Plugin {
       purchaseDateStart,
       purchaseDateEnd,
       bookingId,
+      name,
     },
   }) {
     const getPayload = (RequestType, RequestInput) => ({
@@ -766,11 +767,18 @@ class Plugin {
       EnteredDateFrom: purchaseDateStart || moment().subtract(6, 'month').format('YYYY-MM-DD'),
       EnteredDateTo: purchaseDateEnd || moment().format('YYYY-MM-DD'),
     });
-    const allSearches = bookingId
-      ? ['BookingId', 'Ref', 'AgentRef'].map(async key => {
+    let searchCriterias = [];
+    if (bookingId) {
+      searchCriterias = ['BookingId', 'Ref', 'AgentRef'].map(key => ({ [key]: bookingId }));
+    }
+    if (name) {
+      searchCriterias.push({ NameContains: name });
+    }
+    const allSearches = searchCriterias.length
+      ? searchCriterias.map(async keyObj => {
         let reply;
         try {
-          reply = await this.callTourplan(getPayload('ListBookingsRequest', { [key]: bookingId }));
+          reply = await this.callTourplan(getPayload('ListBookingsRequest', keyObj));
         } catch (err) {
           if (err.includes && err.includes('Request failed with status code')) {
             throw Error(err);

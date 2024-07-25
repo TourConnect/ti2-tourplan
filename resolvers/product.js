@@ -123,7 +123,6 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
           } : null].filter(Boolean);
         }
         if (R.path(['OptGeneral', 'SType'], option) === 'Y' || R.path(['OptGeneral', 'SType'], option) === 'P') {
-          console.log('hit here')
           return ['Single', 'Twin', 'Double', 'Quad']
             .map((unitId) => ({
               unitId,
