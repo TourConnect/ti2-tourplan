@@ -170,13 +170,14 @@ class Plugin {
       }
       const requestType = R.keys(model)[0];
       if (!replyObj) throw new Error(`${requestType} failed: ${errorStr || 'no reply object'}`);
-      const error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
+      let error = replyObj.error || R.path(['Reply', 'ErrorReply', 'Error'], replyObj);
       if (error) {
-        if (error.indexOf('2050 SCN Request denied for TEST connecting from') > -1
-          && requestType === 'OptionInfoRequest'
-          && endpoint.indexOf('actour') > -1
-        ) {
-          return 'useFixture';
+        if (error.includes('DateFrom in the past')) {
+          error = '1002 - Date is in the past';
+        } else if (error.includes('1052 SCN')) {
+          error = '1052 - OptionId not found(Check if it is Internet Enabled)';
+        } else if (error.includes('SCN Server overloaded')) {
+          error = "2051 - The Tourplan server is unavailable. Please wait a minute and try again. If you keep getting this error, please contact your team's Tourplan administrator or Tourplan support."
         }
         throw new Error(`${requestType} failed: ${error}`);
       }
