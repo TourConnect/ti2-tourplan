@@ -681,8 +681,7 @@ class Plugin {
           ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
             puTime: puInfo.time.replace(/\D/g, ''),
           } : {}),
-          puRemark: this.escapeInvalidXmlChars(`${puInfo.time ? `Time: ${puInfo.time || 'NA'},` : ''}
-          ${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
+          puRemark: this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
           ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
@@ -691,8 +690,7 @@ class Plugin {
           ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
             doTime: doInfo.time.replace(/\D/g, ''),
           } : {}),
-          doRemark: this.escapeInvalidXmlChars(`${doInfo.time ? `Time: ${doInfo.time || 'NA'},` : ''}
-          ${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
+          doRemark: this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
           ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
