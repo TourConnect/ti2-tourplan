@@ -443,50 +443,57 @@ class Plugin {
       xmlOptions: hostConnectXmlOptions,
     };
     // use cache if we are getting the full list
-    const replyObj = await this.callTourplan(payload);
-    let products = [];
-    if (replyObj === 'useFixture') {
-      products = require('./__fixtures__/fullacoptionlist.json');
-    } else {
-      products = R.call(R.compose(
-        R.map(optionsGroupedBySupplierId => {
-          const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
-          const supplierData = {
-            supplierId: R.path(['SupplierId'], OptGeneral),
-            supplierName: R.path(['SupplierName'], OptGeneral),
-            supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
-            serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
-          };
-          return translateTPOption({
-            supplierData,
-            optionsGroupedBySupplierId,
-            typeDefs: productTypeDefs,
-            query: productQuery,
-          });
-        }),
-        R.values,
-        R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-        root => {
-          if (!searchInput) return root;
-          const getFullSearchStr = o => {
-            const fullPptionName = `${R.path(['OptGeneral', 'Description'], o) || ''}-${R.path(['OptGeneral', 'Comment'], o) || ''}`;
-            return `${R.path(['OptGeneral', 'SupplierName'], o) || ''} ${fullPptionName} ${R.path(['Opt'], o)} ${R.path(['OptGeneral', 'SupplierId'], o) || ''}`;
-          };
-          const inputValueLower = searchInput.trim().toLowerCase();
-          const parts = inputValueLower.split(' ').filter(Boolean); // Filter out any empty strings just in case
-          return root.filter(option => {
-            const fullSearchStr = getFullSearchStr(option).toLowerCase();
-            return parts.every(part => fullSearchStr.includes(part));
-          });
-        },
-        root => {
-          const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
-          // due to the new parser, single option will be returned as an object
-          // instead of an array
-          if (Array.isArray(options)) return options;
-          return [options];
-        },
-      ), replyObj);
+    // for example: for searchInput (backend search), we shouldn't get the full list from 
+    // tourplan each time user search
+    const replyObj = optionId
+      ? await this.callTourplan(payload)
+      : await this.cache.getOrExec({
+        fnParams: [model],
+        fn: () => this.callTourplan(payload),
+        ttl: 60 * 60 * 2, // 2 hours
+        forceRefresh: Boolean(forceRefresh),
+      });
+    const products = R.call(R.compose(
+      R.map(optionsGroupedBySupplierId => {
+        const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
+        const supplierData = {
+          supplierId: R.path(['SupplierId'], OptGeneral),
+          supplierName: R.path(['SupplierName'], OptGeneral),
+          supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
+          serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
+        };
+        return translateTPOption({
+          supplierData,
+          optionsGroupedBySupplierId,
+          typeDefs: productTypeDefs,
+          query: productQuery,
+        });
+      }),
+      R.values,
+      R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
+      root => {
+        if (!searchInput) return root;
+        const getFullSearchStr = o => {
+          const fullPptionName = `${R.path(['OptGeneral', 'Description'], o) || ''}-${R.path(['OptGeneral', 'Comment'], o) || ''}`;
+          return `${R.path(['OptGeneral', 'SupplierName'], o) || ''} ${fullPptionName} ${R.path(['Opt'], o)} ${R.path(['OptGeneral', 'SupplierId'], o) || ''}`;
+        };
+        const inputValueLower = searchInput.trim().toLowerCase();
+        const parts = inputValueLower.split(' ').filter(Boolean); // Filter out any empty strings just in case
+        return root.filter(option => {
+          const fullSearchStr = getFullSearchStr(option).toLowerCase();
+          return parts.every(part => fullSearchStr.includes(part));
+        });
+      },
+      root => {
+        const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
+        // due to the new parser, single option will be returned as an object
+        // instead of an array
+        if (Array.isArray(options)) return options;
+        return [options];
+      },
+    ), replyObj);
+    if (!(products && products.length)) {
+      throw new Error('No products found');
     }
     return {
       products,
