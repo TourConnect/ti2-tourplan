@@ -142,12 +142,14 @@ class Plugin {
       if (!replyObj) {
         // in case of error /xmlproxy, fallback to call tourplan directly
         // and then use pyfilematch xml2json to parse the xml
-        const reply = R.path(['data'], await axios({
+        const axiospayload = {
           method: 'post',
           url: endpoint,
           data,
           headers: getHeaders({ length: data.length }),
-        }));
+        };
+        // console.log(axiospayload)
+        const reply = R.path(['data'], await axios(axiospayload));
         if (this.xmlProxyUrl) {
           try {
             // using raw axios to avoid logging the large xml request
@@ -213,15 +215,15 @@ class Plugin {
         if (passengers && passengers.length && !noPaxList) {
           RoomConfig.PaxList = passengers.map(p => {
             const PaxDetails = {
-              Forename: p.firstName,
-              Surname: p.lastName,
+              Forename: this.escapeInvalidXmlChars(p.firstName),
+              Surname: this.escapeInvalidXmlChars(p.lastName),
               PaxType: {
                 Adult: 'A',
                 Child: 'C',
                 Infant: 'I',
               }[p.passengerType] || 'A',
             };
-            if (p.salutation) PaxDetails.Title = p.salutation;
+            if (p.salutation) PaxDetails.Title = this.escapeInvalidXmlChars(p.salutation);
             if (p.dob) PaxDetails.DateOfBirth = p.dob;
             if (!R.isNil(p.age) && !isNaN(p.age)) {
               if (!(p.passengerType === 'Adult' && p.age === 0)) {
@@ -237,7 +239,10 @@ class Plugin {
       });
     this.escapeInvalidXmlChars = str => {
       if (!str) return '';
-      return str.replace(/[^\x00-\x7F]+/g, '')
+      const convertAccentedChars = s => {
+        return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      }
+      return convertAccentedChars(str)
         .replace(/’/g, "'")
         .replace(/‘/g, "'")
         .replace(/“/g, '"')
@@ -694,7 +699,7 @@ class Plugin {
           ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
-        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`).slice(0, 240),
+        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`).slice(0, 220),
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',
@@ -773,10 +778,10 @@ class Plugin {
     });
     let searchCriterias = [];
     if (bookingId) {
-      searchCriterias = ['BookingId', 'Ref', 'AgentRef'].map(key => ({ [key]: bookingId }));
+      searchCriterias = ['BookingId', 'Ref', 'AgentRef'].map(key => ({ [key]: this.escapeInvalidXmlChars(bookingId) }));
     }
     if (name) {
-      searchCriterias.push({ NameContains: name });
+      searchCriterias.push({ NameContains: this.escapeInvalidXmlChars(name) });
     }
     const allSearches = searchCriterias.length
       ? searchCriterias.map(async keyObj => {
