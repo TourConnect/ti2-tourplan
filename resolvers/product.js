@@ -36,7 +36,8 @@ const translateTCMLCollection = async ({ rootValue, typeDefs, query }) => {
 
 const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
   return {
-    productId: supplierData.supplierId,
+    // LLM sends the product id as string
+    productId: supplierData.supplierId + "",
     productName: supplierData.supplierName,
     address: supplierData.supplierAddress,
     serviceTypes: supplierData.serviceTypes,
