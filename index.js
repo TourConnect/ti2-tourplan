@@ -215,8 +215,12 @@ class Plugin {
         })[roomType];
         if (RoomType) RoomConfig.RoomType = RoomType;
         if (passengers && passengers.length && !noPaxList) {
-          RoomConfig.PaxList = passengers.map(p => {
-            const PaxDetails = {
+          // There should be only 1 PaxList inside each RoomConfig
+          RoomConfig.PaxList = {};
+          // Inside PaxList, there should be 1 PaxDetails for each passenger (Pax)
+          RoomConfig.PaxList.PaxDetails = [];
+          passengers.forEach((p, index) => {
+            const EachPaxDetails = {
               Forename: this.escapeInvalidXmlChars(p.firstName),
               Surname: this.escapeInvalidXmlChars(p.lastName),
               PaxType: {
@@ -225,16 +229,14 @@ class Plugin {
                 Infant: 'I',
               }[p.passengerType] || 'A',
             };
-            if (p.salutation) PaxDetails.Title = this.escapeInvalidXmlChars(p.salutation);
-            if (p.dob) PaxDetails.DateOfBirth = p.dob;
+            if (p.salutation) EachPaxDetails.Title = this.escapeInvalidXmlChars(p.salutation);
+            if (p.dob) EachPaxDetails.DateOfBirth = p.dob;
             if (!R.isNil(p.age) && !isNaN(p.age)) {
               if (!(p.passengerType === 'Adult' && p.age === 0)) {
-                PaxDetails.Age = p.age;
+                EachPaxDetails.Age = p.age;
               }
             }
-            return {
-              PaxDetails,
-            };
+            RoomConfig.PaxList.PaxDetails[index] = EachPaxDetails;
           });
         }
         return { RoomConfig };
