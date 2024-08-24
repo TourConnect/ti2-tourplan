@@ -187,9 +187,15 @@ class Plugin {
       return R.path(['Reply'], replyObj);
     };
 
-    this.getPaxConfigs = (paxConfigs, noPaxList) =>
+    this.getRoomConfigs = (paxConfigs, noPaxList) => {
+      // There should be only 1 RoomConfigs for AddServiceRequest
+      let RoomConfigs = {};
+      // add one RoomConfig for each room required (i.e. one for each PaxConfig)
+      RoomConfigs.RoomConfig = [];
+      let indexRoomConfig = 0;
       paxConfigs.map(({ roomType, passengers = [] }) => {
-        const RoomConfig = passengers.reduce((acc, p) => {
+        const EachRoomConfig = passengers.reduce((acc, p) => {
+          console.log(JSON.stringify(p));
           if (p.passengerType === 'Adult') {
             acc.Adults += 1;
           }
@@ -213,13 +219,13 @@ class Plugin {
           Quad: 'QD',
           Other: 'OT',
         })[roomType];
-        if (RoomType) RoomConfig.RoomType = RoomType;
+        if (RoomType) EachRoomConfig.RoomType = RoomType;
         if (passengers && passengers.length && !noPaxList) {
-          // There should be only 1 PaxList inside each RoomConfig
-          RoomConfig.PaxList = {};
+          // There should be only 1 PaxList inside each EachRoomConfig
+          EachRoomConfig.PaxList = {};
           // Inside PaxList, there should be 1 PaxDetails for each passenger (Pax)
-          RoomConfig.PaxList.PaxDetails = [];
-          passengers.forEach((p, index) => {
+          EachRoomConfig.PaxList.PaxDetails = [];
+          passengers.forEach((p, indexEachPax) => {
             const EachPaxDetails = {
               Forename: this.escapeInvalidXmlChars(p.firstName),
               Surname: this.escapeInvalidXmlChars(p.lastName),
@@ -236,11 +242,13 @@ class Plugin {
                 EachPaxDetails.Age = p.age;
               }
             }
-            RoomConfig.PaxList.PaxDetails[index] = EachPaxDetails;
+            EachRoomConfig.PaxList.PaxDetails[indexEachPax] = EachPaxDetails;
           });
         }
-        return { RoomConfig };
+        RoomConfigs.RoomConfig[indexRoomConfig++] = EachRoomConfig
       });
+      return RoomConfigs;
+    };
     this.escapeInvalidXmlChars = str => {
       if (!str) return '';
       const convertAccentedChars = s => {
@@ -546,7 +554,7 @@ class Plugin {
           if (isNaN(num) || num < 1) return 1;
           return num;
         })(),
-        RoomConfigs: this.getPaxConfigs(paxConfigs, true),
+        RoomConfigs: this.getRoomConfigs(paxConfigs, true),
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
       },
@@ -714,7 +722,7 @@ class Plugin {
           return num;
         })(),
         AgentRef: reference,
-        RoomConfigs: this.getPaxConfigs(paxConfigs),
+        RoomConfigs: this.getRoomConfigs(paxConfigs),
       },
     };
     const replyObj = await this.callTourplan({
