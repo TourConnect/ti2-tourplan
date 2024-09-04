@@ -474,9 +474,13 @@ class Plugin {
     const products = R.call(R.compose(
       R.map(optionsGroupedBySupplierId => {
         const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
+        let supplierName = R.path(['SupplierName'], OptGeneral);
+        if (R.path(['SupplierName'], OptGeneral).toLocaleLowerCase() === 'transfers') {
+          supplierName = `${R.path(['VoucherName'], OptGeneral)} (${R.path(['SupplierName'], OptGeneral)})`;
+        }
         const supplierData = {
           supplierId: R.path(['SupplierId'], OptGeneral),
-          supplierName: R.path(['SupplierName'], OptGeneral),
+          supplierName: supplierName,
           supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
           serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
         };
@@ -809,6 +813,20 @@ class Plugin {
           console.log('error in searchBooking', err);
           reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
+
+        // {"ListBookingsReply":
+        //  {"BookingHeaders":
+        //    {"BookingHeader":[
+        //        {"AgentRef":"2399181","BookingId":"314164","BookingStatus":"Quotation","BookingType":"F",
+        //          "Consult":null,"Currency":"GBP","EnteredDate":"2024-05-23","IsInternetBooking":"Y",
+        //          "Name":"Mr. Robert Slavonia x2 2399181","QB":"Q","Ref":"ALFI393309","TotalPrice":"583143",
+        //          "TravelDate":"2024-07-09"},{"AgentRef":"666666/1","BookingId":"315357",
+        //          "BookingStatus":"Quotation","BookingType":"F","Consult":null,"Currency":"GBP",
+        //          "EnteredDate":"2024-06-04","IsInternetBooking":"Y","Name":"Robert Guerrerio x3 2413898",
+        //          "QB":"Q","Ref":"ALFI393503","TotalPrice":"2309452","TravelDate":"2024-08-31"
+        //        }
+        //     ]}
+        // }}
         return reply;
       })
       : [this.callTourplan(listBookingPayload)];
