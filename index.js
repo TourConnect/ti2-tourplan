@@ -681,9 +681,6 @@ class Plugin {
       notes,
     },
   }) {
-    const extraText = extras && extras.length
-      ? extras.map((e, i) => `Extra ${i + 1}: ${e.name} x ${e.quantity}`).join(`\n`)
-      : '';
     const model = {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
@@ -716,7 +713,15 @@ class Plugin {
           ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
           `),
         } : {}),
-        Remarks: this.escapeInvalidXmlChars(`${notes || ''} ${extraText ? `\nExtras: ${extraText}` : ''}`).slice(0, 220),
+        ...(extras && extras.filter(e => e.selectedExtra && e.selectedExtra.id).length ? {
+          ExtraQuantities: {
+            ExtraQuantityItem: extras.filter(e => e.selectedExtra && e.selectedExtra.id).map(e => ({
+              SequenceNumber: e.selectedExtra.id,
+              ExtraQuantity: e.quantity,
+            })),
+          },
+        } : {}),
+        Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
         Opt: optionId,
         DateFrom: startDate,
         RateId: 'Default',

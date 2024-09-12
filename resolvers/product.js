@@ -44,6 +44,10 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
     options: optionsGroupedBySupplierId.map(option => {
       const comment = R.path(['OptGeneral', 'Comment'], option);
       const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
+      // when only one extra is present, it is not an array
+      let OptExtras = R.pathOr([], ['OptGeneral', 'OptExtras', 'OptExtra'], option);
+      // console.log({ OptExtras })
+      if (!Array.isArray(OptExtras)) OptExtras = [OptExtras];
       const keyData = {
         optionId: R.path(['Opt'], option),
         optionName: `${R.path(['OptGeneral', 'Description'], option)}${
@@ -83,6 +87,13 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
             };
           }, {}),
         },
+        extras: OptExtras.map(obj => ({
+          id: R.path(['SequenceNumber'], obj),
+          name: R.path(['Description'], obj),
+          chargeBasis: R.path(['ChargeBasis'], obj),
+          isCompulsory: R.path(['IsCompulsory'], obj),
+          isPricePerPerson: R.path(['IsPricePerPerson'], obj),
+        })),
       };
       /*
       SType: One character that specifies the service type of the
