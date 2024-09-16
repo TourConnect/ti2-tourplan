@@ -468,7 +468,8 @@ class Plugin {
       : await this.cache.getOrExec({
         fnParams: [model],
         fn: () => this.callTourplan(payload),
-        ttl: 60 * 60 * 2, // 2 hours
+        alwaysCache: true,
+        ttl: 60 * 10, // 10 mins
         forceRefresh: Boolean(forceRefresh),
       });
     const products = R.call(R.compose(
