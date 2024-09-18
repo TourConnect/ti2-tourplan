@@ -590,11 +590,22 @@ class Plugin {
                   RateText: 'Std'
                 }
               },
-              RateId: 'Default',
+              RateId: '$NZD2016b81f44793096,4,DOUB,C5 A1INF KGB DOUB RONL',
               RateName: 'Std-Mon Sun',
               RateText: 'Std',
               SaleFrom: '2023-12-20',
-              TotalPrice: '51175'
+              TotalPrice: '51175',
+              ExternalRateDetails: {
+                ExtSupplierId: 'NZ000021',
+                ExtOptionId: 'DOUB',
+                ExtOptionDescr: 'Superior Room, 1 King Bed',
+                ExtRatePlanCode: 'C5 A1INF KGB DOUB RONL',
+                ExtRatePlanDescr: 'Room Only',
+                ExtGuarantee: 'N',
+              },
+              RoomList: {
+                RoomType: 'DB',
+              }
             },
             OptionNumber: '70461'
           }
@@ -602,8 +613,21 @@ class Plugin {
       }
     */
     const optionInfoReply = R.path(['OptionInfoReply'], replyObj);
+    let OptStayResults = R.pathOr([], ['Option', 'OptStayResults'], optionInfoReply);
+    if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
     return {
       bookable: Boolean(optionInfoReply),
+      rates: OptStayResults.map(rate => {
+        let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
+        const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
+        if (extRatePlanDescr && !externalRateText.includes(extRatePlanDescr)) {
+          externalRateText = `${externalRateText} (${extRatePlanDescr})`;
+        }
+        return {
+          rateId: R.path(['RateId'], rate),
+          externalRateText,
+        };
+      }),
     };
     // THE BELOW CODE is for A check, might still need it on user's future request
     // const optAvail = parseInt(R.pathOr('-4', ['OptionInfoReply', 'Option', 'OptAvail'], replyObj), 10);
@@ -679,6 +703,7 @@ class Plugin {
       puInfo,
       doInfo,
       notes,
+      directHeaderPayload,
     },
   }) {
     const model = {
@@ -691,11 +716,9 @@ class Plugin {
           NewBookingInfo: {
             Name: this.escapeInvalidXmlChars(quoteName),
             QB: 'Q',
+            ...(directHeaderPayload || {}),
           },
         }),
-        ...(rateId ? {
-          RateId: rateId,
-        } : {}),
         ...(puInfo && (puInfo.time || puInfo.location || puInfo.flightDetails) ? {
           ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
             puTime: puInfo.time.replace(/\D/g, ''),
@@ -724,7 +747,7 @@ class Plugin {
         Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
         Opt: optionId,
         DateFrom: startDate,
-        RateId: 'Default',
+        RateId: rateId || 'Default',
         SCUqty: (() => {
           const num = parseInt(chargeUnitQuanity, 10);
           if (isNaN(num) || num < 1) return 1;
