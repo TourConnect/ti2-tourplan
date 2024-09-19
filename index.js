@@ -704,6 +704,7 @@ class Plugin {
       doInfo,
       notes,
       directHeaderPayload,
+      directLinePayload,
     },
   }) {
     const model = {
@@ -755,6 +756,7 @@ class Plugin {
         })(),
         AgentRef: reference,
         RoomConfigs: this.getRoomConfigs(paxConfigs),
+        ...(directLinePayload || {}),
       },
     };
     const replyObj = await this.callTourplan({
