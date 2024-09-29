@@ -715,10 +715,21 @@ class Plugin {
       puInfo,
       doInfo,
       notes,
+      QB,
       directHeaderPayload,
       directLinePayload,
+      customFieldValues = [],
     },
   }) {
+    const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
+      .reduce((acc, f) => {
+        if (f.type === 'extended-option') {
+          acc[f.id] = f.value.value || f.value;
+        } else {
+          acc[f.id] = f.value;
+        }
+        return acc;
+      }, {});
     const model = {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
@@ -728,7 +739,7 @@ class Plugin {
         } : {
           NewBookingInfo: {
             Name: this.escapeInvalidXmlChars(quoteName),
-            QB: 'Q',
+            QB: QB || 'Q',
             ...(directHeaderPayload || {}),
           },
         }),
@@ -769,6 +780,7 @@ class Plugin {
         AgentRef: reference,
         RoomConfigs: this.getRoomConfigs(paxConfigs),
         ...(directLinePayload || {}),
+        ...(cfvPerService || {}),
       },
     };
     const replyObj = await this.callTourplan({
