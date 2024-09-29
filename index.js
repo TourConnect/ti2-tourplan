@@ -791,14 +791,38 @@ class Plugin {
 
   // eslint-disable-next-line class-methods-use-this
   async getCreateBookingFields({
-    // token: {
-    //   hostConnectAgentID,
-    //   hostConnectAgentPassword,
-    //   hostConnectEndpoint,
-    // },
-    // axios,
+    token: {
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      hostConnectEndpoint,
+    },
+    axios,
   }) {
-    const customFields = [];
+    const model = {
+      GetLocationsRequest: {
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+      },
+    };
+    const GetLocationsReply = await this.cache.getOrExec({
+      fnParams: [model],
+      fn: () => this.callTourplan({
+        model,
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      }),
+      ttl: 60 * 60 * 12, // 2 hours
+    });
+    let locationCodes = R.pathOr([], ['GetLocationsReply', 'Locations', 'Location'], GetLocationsReply);
+    if (!Array.isArray(locationCodes)) locationCodes = [locationCodes];
+    const customFields = [{
+      id: 'LocationCode',
+      label: 'Location Code',
+      type: 'extended-option',
+      isPerService: true,
+      options: locationCodes.map(o => ({ value: o.Code, label: `${o.Name} (${o.Code})` })),
+    }];
     return {
       fields: [],
       customFields,
