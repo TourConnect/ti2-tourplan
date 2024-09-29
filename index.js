@@ -769,7 +769,7 @@ class Plugin {
       message: R.path(['AddServiceReply', 'Status'], replyObj)
         === 'NO' ? 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)' : '',
       quote: {
-        id: R.path(['AddServiceReply', 'BookingId'], replyObj),
+        id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),
         linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
         lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
@@ -866,13 +866,68 @@ class Plugin {
       const getBookingPayload = getPayload('GetBookingRequest', {
         BookingId: R.prop('BookingId', bookingHeader),
         ReturnAccountInfo: 'Y',
+        ReturnRoomConfigs: 'Y',
       });
       const bookingReply = await this.callTourplan(getBookingPayload);
       const booking = R.path(['GetBookingReply'], bookingReply);
-      const Services = R.pathOr([], ['Services', 'Service'], booking);
+      /*
+        booking = {
+          Services: {
+            ...
+            RoomConfigs: {
+              RoomConfig: {
+                Adults: '2',
+                Children: '0',
+                Infants: '0',
+                PaxList: {
+                  PaxDetails: [
+                    {
+                      Age: '37',
+                      DateOfBirth: '1987-09-26',
+                      Forename: 'Chris',
+                      PaxType: 'A',
+                      PersonId: '628206',
+                      Surname: 'Voss'
+                    },
+                    {
+                      Age: '36',
+                      DateOfBirth: '1988-09-26',
+                      Forename: 'Joy',
+                      PaxType: 'A',
+                      PersonId: '628207',
+                      Surname: 'Voss'
+                    }
+                  ]
+                }
+              }
+            },
+            ...
+          }
+        }
+      */
+      let Services = R.pathOr([], ['Services', 'Service'], booking);
+      if (!Array.isArray(Services)) Services = [Services];
+      Services = Services.map(s => {
+        let actualRoomConfigs = s.RoomConfigs.RoomConfig;
+        if (!Array.isArray(actualRoomConfigs)) actualRoomConfigs = [actualRoomConfigs];
+        const paxList = actualRoomConfigs.reduce((acc, roomConfig) => {
+          const paxDetails = R.pathOr([], ['PaxList', 'PaxDetails'], roomConfig);
+          if (!Array.isArray(paxDetails)) return acc;
+          return [...acc, ...paxDetails];
+        }, [])
+          .map(p => ({
+            personId: R.path(['PersonId'], p),
+            firstName: R.path(['Forename'], p),
+            lastName: R.path(['Surname'], p),
+          }));
+        return {
+          ...s,
+          paxList,
+        };
+      });
       return {
         ...booking,
-        Services: Array.isArray(Services) ? Services : [Services],
+        Services,
       };
     }, { concurrency: 10 });
     return {
