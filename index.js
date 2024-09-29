@@ -193,7 +193,7 @@ class Plugin {
       // add one RoomConfig for each room required (i.e. one for each PaxConfig)
       RoomConfigs.RoomConfig = [];
       let indexRoomConfig = 0;
-      paxConfigs.map(({ roomType, passengers = [] }) => {
+      paxConfigs.forEach(({ roomType, passengers = [] }) => {
         const EachRoomConfig = passengers.reduce((acc, p) => {
           console.log(JSON.stringify(p));
           if (p.passengerType === 'Adult') {
@@ -223,9 +223,21 @@ class Plugin {
         if (passengers && passengers.length && !noPaxList) {
           // There should be only 1 PaxList inside each EachRoomConfig
           EachRoomConfig.PaxList = {};
-          // Inside PaxList, there should be 1 PaxDetails for each passenger (Pax)
-          EachRoomConfig.PaxList.PaxDetails = [];
-          passengers.forEach((p, indexEachPax) => {
+          // Inside PaxList, there should be 1 PaxDetail for each passenger (Pax)
+          EachRoomConfig.PaxList.PaxDetails = passengers.map(p => {
+            /*
+              TP API doesn't allow us to modify existing pax details
+              when PersonId is present, other details are ignored by TP anyways
+              when it is not present, TP is comparing every key in PaxDetail to identify
+              duplicate, so if we send Pax Detail with the same first and last name, but different
+              Age, TP will consider them to be different pax, which actually is duplicate, given
+              sometimes AI could be extracting inconsistent data
+            */
+            if (p.personId) {
+              return {
+                PersonId: p.personId,
+              };
+            }
             const EachPaxDetails = {
               Forename: this.escapeInvalidXmlChars(p.firstName),
               Surname: this.escapeInvalidXmlChars(p.lastName),
@@ -242,7 +254,7 @@ class Plugin {
                 EachPaxDetails.Age = p.age;
               }
             }
-            EachRoomConfig.PaxList.PaxDetails[indexEachPax] = EachPaxDetails;
+            return EachPaxDetails;
           });
         }
         RoomConfigs.RoomConfig[indexRoomConfig++] = EachRoomConfig
