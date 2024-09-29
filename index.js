@@ -193,7 +193,7 @@ class Plugin {
       // add one RoomConfig for each room required (i.e. one for each PaxConfig)
       RoomConfigs.RoomConfig = [];
       let indexRoomConfig = 0;
-      paxConfigs.map(({ roomType, passengers = [] }) => {
+      paxConfigs.forEach(({ roomType, passengers = [] }) => {
         const EachRoomConfig = passengers.reduce((acc, p) => {
           console.log(JSON.stringify(p));
           if (p.passengerType === 'Adult') {
@@ -223,9 +223,21 @@ class Plugin {
         if (passengers && passengers.length && !noPaxList) {
           // There should be only 1 PaxList inside each EachRoomConfig
           EachRoomConfig.PaxList = {};
-          // Inside PaxList, there should be 1 PaxDetails for each passenger (Pax)
-          EachRoomConfig.PaxList.PaxDetails = [];
-          passengers.forEach((p, indexEachPax) => {
+          // Inside PaxList, there should be 1 PaxDetail for each passenger (Pax)
+          EachRoomConfig.PaxList.PaxDetails = passengers.map(p => {
+            /*
+              TP API doesn't allow us to modify existing pax details
+              when PersonId is present, other details are ignored by TP anyways
+              when it is not present, TP is comparing every key in PaxDetail to identify
+              duplicate, so if we send Pax Detail with the same first and last name, but different
+              Age, TP will consider them to be different pax, which actually is duplicate, given
+              sometimes AI could be extracting inconsistent data
+            */
+            if (p.personId) {
+              return {
+                PersonId: p.personId,
+              };
+            }
             const EachPaxDetails = {
               Forename: this.escapeInvalidXmlChars(p.firstName),
               Surname: this.escapeInvalidXmlChars(p.lastName),
@@ -242,7 +254,7 @@ class Plugin {
                 EachPaxDetails.Age = p.age;
               }
             }
-            EachRoomConfig.PaxList.PaxDetails[indexEachPax] = EachPaxDetails;
+            return EachPaxDetails;
           });
         }
         RoomConfigs.RoomConfig[indexRoomConfig++] = EachRoomConfig
@@ -703,10 +715,21 @@ class Plugin {
       puInfo,
       doInfo,
       notes,
+      QB,
       directHeaderPayload,
       directLinePayload,
+      customFieldValues = [],
     },
   }) {
+    const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
+      .reduce((acc, f) => {
+        if (f.type === 'extended-option') {
+          acc[f.id] = f.value.value || f.value;
+        } else {
+          acc[f.id] = f.value;
+        }
+        return acc;
+      }, {});
     const model = {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
@@ -716,7 +739,7 @@ class Plugin {
         } : {
           NewBookingInfo: {
             Name: this.escapeInvalidXmlChars(quoteName),
-            QB: 'Q',
+            QB: QB || 'Q',
             ...(directHeaderPayload || {}),
           },
         }),
@@ -757,6 +780,7 @@ class Plugin {
         AgentRef: reference,
         RoomConfigs: this.getRoomConfigs(paxConfigs),
         ...(directLinePayload || {}),
+        ...(cfvPerService || {}),
       },
     };
     const replyObj = await this.callTourplan({
@@ -769,7 +793,7 @@ class Plugin {
       message: R.path(['AddServiceReply', 'Status'], replyObj)
         === 'NO' ? 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)' : '',
       quote: {
-        id: R.path(['AddServiceReply', 'BookingId'], replyObj),
+        id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),
         linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
         lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
@@ -779,14 +803,38 @@ class Plugin {
 
   // eslint-disable-next-line class-methods-use-this
   async getCreateBookingFields({
-    // token: {
-    //   hostConnectAgentID,
-    //   hostConnectAgentPassword,
-    //   hostConnectEndpoint,
-    // },
-    // axios,
+    token: {
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      hostConnectEndpoint,
+    },
+    axios,
   }) {
-    const customFields = [];
+    const model = {
+      GetLocationsRequest: {
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+      },
+    };
+    const GetLocationsReply = await this.cache.getOrExec({
+      fnParams: [model],
+      fn: () => this.callTourplan({
+        model,
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      }),
+      ttl: 60 * 60 * 12, // 2 hours
+    });
+    let locationCodes = R.pathOr([], ['GetLocationsReply', 'Locations', 'Location'], GetLocationsReply);
+    if (!Array.isArray(locationCodes)) locationCodes = [locationCodes];
+    const customFields = [{
+      id: 'LocationCode',
+      label: 'Location Code',
+      type: 'extended-option',
+      isPerService: true,
+      options: locationCodes.map(o => ({ value: o.Code, label: `${o.Name} (${o.Code})` })),
+    }];
     return {
       fields: [],
       customFields,
@@ -866,13 +914,68 @@ class Plugin {
       const getBookingPayload = getPayload('GetBookingRequest', {
         BookingId: R.prop('BookingId', bookingHeader),
         ReturnAccountInfo: 'Y',
+        ReturnRoomConfigs: 'Y',
       });
       const bookingReply = await this.callTourplan(getBookingPayload);
       const booking = R.path(['GetBookingReply'], bookingReply);
-      const Services = R.pathOr([], ['Services', 'Service'], booking);
+      /*
+        booking = {
+          Services: {
+            ...
+            RoomConfigs: {
+              RoomConfig: {
+                Adults: '2',
+                Children: '0',
+                Infants: '0',
+                PaxList: {
+                  PaxDetails: [
+                    {
+                      Age: '37',
+                      DateOfBirth: '1987-09-26',
+                      Forename: 'Chris',
+                      PaxType: 'A',
+                      PersonId: '628206',
+                      Surname: 'Voss'
+                    },
+                    {
+                      Age: '36',
+                      DateOfBirth: '1988-09-26',
+                      Forename: 'Joy',
+                      PaxType: 'A',
+                      PersonId: '628207',
+                      Surname: 'Voss'
+                    }
+                  ]
+                }
+              }
+            },
+            ...
+          }
+        }
+      */
+      let Services = R.pathOr([], ['Services', 'Service'], booking);
+      if (!Array.isArray(Services)) Services = [Services];
+      Services = Services.map(s => {
+        let actualRoomConfigs = s.RoomConfigs.RoomConfig;
+        if (!Array.isArray(actualRoomConfigs)) actualRoomConfigs = [actualRoomConfigs];
+        const paxList = actualRoomConfigs.reduce((acc, roomConfig) => {
+          const paxDetails = R.pathOr([], ['PaxList', 'PaxDetails'], roomConfig);
+          if (!Array.isArray(paxDetails)) return acc;
+          return [...acc, ...paxDetails];
+        }, [])
+          .map(p => ({
+            personId: R.path(['PersonId'], p),
+            firstName: R.path(['Forename'], p),
+            lastName: R.path(['Surname'], p),
+          }));
+        return {
+          ...s,
+          paxList,
+        };
+      });
       return {
         ...booking,
-        Services: Array.isArray(Services) ? Services : [Services],
+        Services,
       };
     }, { concurrency: 10 });
     return {
