@@ -1,6 +1,6 @@
 {
   "name": "ti2-tourplan",
-  "version": "1.0.53",
+  "version": "1.0.54",
   "description": "Tourplan's TI2 Plugin",
   "main": "index.js",
   "scripts": {
