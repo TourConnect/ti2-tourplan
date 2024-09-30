@@ -73,7 +73,7 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
             minAge: R.path(['OptGeneral', 'Infant_From'], option),
             maxAge: R.path(['OptGeneral', 'Infant_To'], option),
           },
-          ...['Single', 'Twin', 'Double', 'Quad'].reduce((acc, roomType) => {
+          ...['Single', 'Twin', 'Triple', 'Double', 'Quad'].reduce((acc, roomType) => {
             const unitAvail = R.path(['OptGeneral', `${roomType}_Avail`], option);
             const unitMax = R.path(['OptGeneral', `${roomType}_Max`], option);
             const unitAdMax = R.path(['OptGeneral', `${roomType}_Ad_Max`], option);
