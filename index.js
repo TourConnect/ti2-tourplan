@@ -478,7 +478,10 @@ class Plugin {
     const replyObj = optionId
       ? await this.callTourplan(payload)
       : await this.cache.getOrExec({
-        fnParams: [model],
+        // goway and pdnz uses the same AgentID and Password for agents
+        // but their endpoint is different
+        // so they had been overwritting each other's cache
+        fnParams: [model, hostConnectEndpoint],
         fn: () => this.callTourplan(payload),
         ttl: 60 * 60 * 2, // 2 hours
         forceRefresh: Boolean(forceRefresh),
