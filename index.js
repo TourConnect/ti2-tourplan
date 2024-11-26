@@ -495,7 +495,7 @@ class Plugin {
         }
         const supplierData = {
           supplierId: R.path(['SupplierId'], OptGeneral),
-          supplierName: supplierName,
+          supplierName,
           supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
           serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
         };

@@ -48,11 +48,14 @@ const translateTPOption = ({ optionsGroupedBySupplierId, supplierData }) => {
       let OptExtras = R.pathOr([], ['OptGeneral', 'OptExtras', 'OptExtra'], option);
       // console.log({ OptExtras })
       if (!Array.isArray(OptExtras)) OptExtras = [OptExtras];
+      const lastUpdateISO = R.path(['OptGeneral', 'LastUpdate'], option);
+      const lastUpdateTimestamp = lastUpdateISO ? new Date(lastUpdateISO).getTime() / 1000 : null;
       const keyData = {
         optionId: R.path(['Opt'], option),
         optionName: `${R.path(['OptGeneral', 'Description'], option)}${
           comment ? `-${comment}` : ''
         }`,
+        lastUpdateTimestamp,
         // Guides, Accommodation, Transfers, Entrance Fees, Meals, Other
         serviceType: typeof st === 'string' ? st : '',
         restrictions: {
