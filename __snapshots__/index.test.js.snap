@@ -3239,3 +3239,211 @@ Object {
   ],
 }
 `;
+
+exports[`search tests searchAvailabilityForItinerary - bookable 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "externalRateText": "Superior Room, 1 King Bed (Room Only)",
+      "rateId": "$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL",
+    },
+    Object {
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Room Only)",
+      "rateId": "$NZDb5354be1c55abc98,4,DOUB,C5 A1INF KGBH DOUB RONL",
+    },
+    Object {
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Breakfast)",
+      "rateId": "$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Superior Room, 1 King Bed (Breakfast)",
+      "rateId": "$NZD934d94ec15053710,4,DOUB,C5 B1INF KGB DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Room Only)",
+      "rateId": "$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL",
+    },
+    Object {
+      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Room Only)",
+      "rateId": "$NZDcf5fef11d058f610,4,DOUB,C5 A1INF KGAEF DOUB RONL",
+    },
+    Object {
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Breakfast)",
+      "rateId": "$NZD3335992e690e5452,4,DOUB,C5 B1INF KGA DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Breakfast)",
+      "rateId": "$NZD65ae38b5586b6211,4,DOUB,C5 B1INF KGAEF DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Luxury Room, Club Millésime Access, 1 King Bed, Marina View (Breakfast)",
+      "rateId": "$NZD1ab26e031623ffae,4,DOUB,C5 B1INF KGAOS DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Junior Suite, Club Millésime Access, 1 King Bed (Breakfast)",
+      "rateId": "$NZD58b063a021d71ea3,4,DOUB,C5 B1INF SKD DOUB BRKF",
+    },
+    Object {
+      "externalRateText": "Deluxe Suite, Club Millésime Access, 1 King Bed (Breakfast)",
+      "rateId": "$NZD48493f27a57b8c65,4,DOUB,C5 B1INF SKB DOUB BRKF",
+    },
+  ],
+}
+`;
+
+exports[`search tests searchItineraries 1`] = `
+Object {
+  "bookings": Array [
+    Object {
+      "agentRef": "2356674/1",
+      "bookingId": "316559",
+      "bookingStatus": "Quotation",
+      "enteredDate": "2024-09-12",
+      "ref": "ALFI393706",
+      "serviceLines": Array [
+        Object {
+          "optionId": "LONHOSANLONBFBDLX",
+          "optionName": "Bed and Full Buffet Breakfast",
+          "paxConfigs": Array [
+            Object {
+              "adults": 1,
+              "children": 0,
+              "infants": 0,
+              "passengers": Array [
+                Object {
+                  "age": null,
+                  "dob": null,
+                  "firstName": "Sean",
+                  "lastName": "Conta",
+                  "passengerType": "Adult",
+                  "personId": "628199",
+                },
+              ],
+              "roomType": "DB",
+            },
+          ],
+          "paxList": Array [
+            Object {
+              "age": null,
+              "dob": null,
+              "firstName": "Sean",
+              "lastName": "Conta",
+              "passengerType": "Adult",
+              "personId": "628199",
+            },
+          ],
+          "serviceLineId": "745684",
+          "startDate": "2025-08-13",
+        },
+      ],
+      "totalPrice": "187795",
+      "travelDate": "2025-08-13",
+    },
+  ],
+}
+`;
+
+exports[`search tests searchProductsForItinerary 1`] = `
+Object {
+  "productFields": Array [],
+  "products": Array [
+    Object {
+      "address": "377 Fulham Palace Road, ,  London, United Kingdom, ",
+      "description": null,
+      "options": Array [
+        Object {
+          "extras": Array [],
+          "lastUpdateTimestamp": 1700750093,
+          "optionId": "LONTRDAVIDSHDWBVC",
+          "optionName": "Half-Day Warner Bros Studios (6-Hours)-FIT- V- Class (1-5 Pax)",
+          "restrictions": Object {
+            "Adult": Object {
+              "allowed": true,
+              "maxAge": 999,
+              "minAge": 16,
+            },
+            "Child": Object {
+              "allowed": true,
+              "maxAge": 15,
+              "minAge": 5,
+            },
+            "Double": Object {
+              "allowed": false,
+              "maxAdults": null,
+              "maxPax": null,
+            },
+            "Infant": Object {
+              "allowed": true,
+              "maxAge": 4,
+              "minAge": 0,
+            },
+            "Quad": Object {
+              "allowed": false,
+              "maxAdults": null,
+              "maxPax": null,
+            },
+            "Single": Object {
+              "allowed": false,
+              "maxAdults": null,
+              "maxPax": null,
+            },
+            "Triple": Object {
+              "allowed": false,
+              "maxAdults": null,
+              "maxPax": null,
+            },
+            "Twin": Object {
+              "allowed": false,
+              "maxAdults": null,
+              "maxPax": null,
+            },
+            "roomTypeRequired": false,
+          },
+          "serviceType": "Transfers",
+          "units": Array [
+            Object {
+              "restrictions": Object {
+                "allowed": null,
+                "maxAdults": null,
+                "maxAge": 999,
+                "maxPax": null,
+                "minAge": 16,
+              },
+              "unitId": "Adults",
+              "unitName": "Adults",
+            },
+            Object {
+              "restrictions": Object {
+                "allowed": null,
+                "maxAdults": null,
+                "maxAge": 15,
+                "maxPax": null,
+                "minAge": 5,
+              },
+              "unitId": "Children",
+              "unitName": "Children",
+            },
+            Object {
+              "restrictions": Object {
+                "allowed": null,
+                "maxAdults": null,
+                "maxAge": 4,
+                "maxPax": null,
+                "minAge": 0,
+              },
+              "unitId": "Infants",
+              "unitName": "Infants",
+            },
+          ],
+        },
+      ],
+      "productId": "6489",
+      "productName": "Davids of London Ltd",
+      "serviceTypes": Array [
+        "Transfers",
+      ],
+    },
+  ],
+}
+`;

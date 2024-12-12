@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Reply SYSTEM "http://localhost:8080/iCom_Test/hostConnect_4_06_009.dtd">
+<Reply>
+    <ListBookingsReply>
+        <BookingHeaders>
+            <BookingHeader>
+                <BookingId>316559</BookingId>
+                <Ref>ALFI393706</Ref>
+                <Name>2356674/1 Sean Conta</Name>
+                <QB>Q</QB>
+                <Consult></Consult>
+                <AgentRef>2356674/1</AgentRef>
+                <TravelDate>2025-08-13</TravelDate>
+                <EnteredDate>2024-09-12</EnteredDate>
+                <BookingStatus>Quotation</BookingStatus>
+                <BookingType>F</BookingType>
+                <IsInternetBooking>Y</IsInternetBooking>
+                <Currency>GBP</Currency>
+                <TotalPrice>187795</TotalPrice>
+            </BookingHeader>
+        </BookingHeaders>
+    </ListBookingsReply>
+</Reply>
