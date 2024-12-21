@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Reply SYSTEM "http://localhost:8080/iCom_Test/hostConnect_4_06_009.dtd">
+<Reply>
+    <GetBookingReply>
+        <BookingId>316559</BookingId>
+        <Ref>ALFI393706</Ref>
+        <BookingUpdateCount>2</BookingUpdateCount>
+        <Name>2356674/1 Sean Conta</Name>
+        <QB>Q</QB>
+        <Consult></Consult>
+        <AgentRef>2356674/1</AgentRef>
+        <Email></Email>
+        <TravelDate>2025-08-13</TravelDate>
+        <EnteredDate>2024-09-12</EnteredDate>
+        <BookingStatus>Quotation</BookingStatus>
+        <ReadOnly>N</ReadOnly>
+        <CanAddServices>Y</CanAddServices>
+        <CanCancel>Y</CanCancel>
+        <BookingType>F</BookingType>
+        <IsInternetBooking>Y</IsInternetBooking>
+        <Currency>GBP</Currency>
+        <TotalPrice>187795</TotalPrice>
+        <Remarks></Remarks>
+        <Dialogue></Dialogue>
+        <AccountingDetails>
+            <InvoicedTotal>0</InvoicedTotal>
+            <ReceivedTotal>0</ReceivedTotal>
+            <CreditsTotal>0</CreditsTotal>
+            <AmountDue>0</AmountDue>
+            <FutureBilling>187795</FutureBilling>
+        </AccountingDetails>
+        <Services>
+            <Service>
+                <ServiceLineId>745684</ServiceLineId>
+                <ServiceLineUpdateCount>1</ServiceLineUpdateCount>
+                <Opt>LONHOSANLONBFBDLX</Opt>
+                <OptionNumber>77490</OptionNumber>
+                <Date>2025-08-13</Date>
+                <SequenceNumber>10</SequenceNumber>
+                <RoomConfigs>
+                    <RoomConfig>
+                        <Adults>1</Adults>
+                        <Children>0</Children>
+                        <Infants>0</Infants>
+                        <RoomType>DB</RoomType>
+                        <PaxList>
+                            <PaxDetails>
+                                <PersonId>628199</PersonId>
+                                <Title>Mr</Title>
+                                <Forename>Sean</Forename>
+                                <Surname>Conta</Surname>
+                                <PaxType>A</PaxType>
+                            </PaxDetails>
+                        </PaxList>
+                    </RoomConfig>
+                </RoomConfigs>
+                <CostedInBooking>Y</CostedInBooking>
+                <LinePrice>187795</LinePrice>
+                <SCU>night</SCU>
+                <SCUqty>4</SCUqty>
+                <Remarks>Passenger Notes: NA.
+          Service Notes: NA.</Remarks>
+                <SupplierName>Sanderson</SupplierName>
+                <Description>Bed and Full Buffet Breakfast</Description>
+                <Comment>Deluxe King Room</Comment>
+                <CancelDeleteStatus>D</CancelDeleteStatus>
+                <CanUpdate>N</CanUpdate>
+                <CanAccept>N</CanAccept>
+                <LocationCode>LON</LocationCode>
+                <ServiceExtras>
+                    <ServiceExtra>
+                        <SequenceNumber>1</SequenceNumber>
+                        <Quantity>1</Quantity>
+                        <Description>Extra Bed</Description>
+                        <IsPricePerPerson>N</IsPricePerPerson>
+                        <ChargeBasis>Room</ChargeBasis>
+                        <IsCompulsory>N</IsCompulsory>
+                    </ServiceExtra>
+                </ServiceExtras>
+            </Service>
+        </Services>
+    </GetBookingReply>
+</Reply>

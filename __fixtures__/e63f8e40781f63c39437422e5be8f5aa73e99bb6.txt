@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>AKLACAKLSOFDYNAMC</Opt>
+            <OptionNumber>46052</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>54900</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>54900</AgentPrice>
+                <RateId>$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>48938</LinePrice>
+                        <AgentPrice>48938</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGB DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>54900</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>54900</AgentPrice>
+                <RateId>$NZDb5354be1c55abc98,4,DOUB,C5 A1INF KGBH DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>48938</LinePrice>
+                        <AgentPrice>48938</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Accessible Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGBH DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>58600</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>58600</AgentPrice>
+                <RateId>$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>52262</LinePrice>
+                        <AgentPrice>52262</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Accessible Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGBH DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>58600</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>58600</AgentPrice>
+                <RateId>$NZD934d94ec15053710,4,DOUB,C5 B1INF KGB DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>52262</LinePrice>
+                        <AgentPrice>52262</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGB DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>61800</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>61800</AgentPrice>
+                <RateId>$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>55170</LinePrice>
+                        <AgentPrice>55170</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Atrium View Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGA DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>65100</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>65100</AgentPrice>
+                <RateId>$NZDcf5fef11d058f610,4,DOUB,C5 A1INF KGAEF DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>58078</LinePrice>
+                        <AgentPrice>58078</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Room With Balcony, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGAEF DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>65600</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>65600</AgentPrice>
+                <RateId>$NZD3335992e690e5452,4,DOUB,C5 B1INF KGA DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>58493</LinePrice>
+                        <AgentPrice>58493</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Atrium View Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGA DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>68800</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>68800</AgentPrice>
+                <RateId>$NZD65ae38b5586b6211,4,DOUB,C5 B1INF KGAEF DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>61401</LinePrice>
+                        <AgentPrice>61401</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Room With Balcony, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGAEF DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>83700</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>83700</AgentPrice>
+                <RateId>$NZD1ab26e031623ffae,4,DOUB,C5 B1INF KGAOS DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>74695</LinePrice>
+                        <AgentPrice>74695</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Room, Club Millésime Access, 1 King Bed, Marina View</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGAOS DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>88400</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>88400</AgentPrice>
+                <RateId>$NZD58b063a021d71ea3,4,DOUB,C5 B1INF SKD DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>78850</LinePrice>
+                        <AgentPrice>78850</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Junior Suite, Club Millésime Access, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF SKD DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>97700</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>97700</AgentPrice>
+                <RateId>$NZD48493f27a57b8c65,4,DOUB,C5 B1INF SKB DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-03-22</DateFrom>
+                        <DateTo>2025-03-22</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>120</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-16T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>87158</LinePrice>
+                        <AgentPrice>87158</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Deluxe Suite, Club Millésime Access, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF SKB DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply>
