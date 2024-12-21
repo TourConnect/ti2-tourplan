@@ -3299,10 +3299,13 @@ Object {
       "agentRef": "2356674/1",
       "bookingId": "316559",
       "bookingStatus": "Quotation",
+      "canEdit": true,
       "enteredDate": "2024-09-12",
+      "name": "2356674/1 Sean Conta",
       "ref": "ALFI393706",
       "serviceLines": Array [
         Object {
+          "linePrice": "187795",
           "optionId": "LONHOSANLONBFBDLX",
           "optionName": "Bed and Full Buffet Breakfast",
           "paxConfigs": Array [
@@ -3320,7 +3323,7 @@ Object {
                   "personId": "628199",
                 },
               ],
-              "roomType": "DB",
+              "roomType": "Double",
             },
           ],
           "paxList": Array [
@@ -3333,8 +3336,11 @@ Object {
               "personId": "628199",
             },
           ],
+          "quantity": 4,
           "serviceLineId": "745684",
           "startDate": "2025-08-13",
+          "supplierId": null,
+          "supplierName": "Sanderson",
         },
       ],
       "totalPrice": "187795",

@@ -14,6 +14,7 @@ const resolvers = {
     totalPrice: R.path(['TotalPrice']),
     travelDate: R.path(['TravelDate']),
     enteredDate: R.path(['EnteredDate']),
+    canEdit: root => root.ReadOnly === 'N' && root.CanAddServices === 'Y',
     serviceLines: booking => {
       let Services = R.pathOr([], ['Services', 'Service'], booking);
       if (!Array.isArray(Services)) Services = [Services];
@@ -35,11 +36,15 @@ const resolvers = {
   },
   ServiceLine: {
     serviceLineId: R.path(['ServiceLineId']),
+    supplierId: R.path(['ProductId']),
+    supplierName: R.path(['SupplierName']),
     optionId: R.path(['Opt']),
     optionName: R.path(['Description']),
     startDate: R.path(['Date']),
     paxList: R.path(['paxList']),
     paxConfigs: R.path(['paxConfigs']),
+    linePrice: R.path(['LinePrice']),
+    quantity: R.path(['SCUqty']),
   },
   PaxConfig: {
     roomType: px => {

@@ -4,10 +4,8 @@ const axios = require('axios');
 const path = require('path');
 const xml2js = require('xml2js');
 const R = require('ramda');
-// const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
-// const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
-const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('../ti2/controllers/graphql-schemas/itinerary-product');
-const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('../ti2/controllers/graphql-schemas/itinerary-booking');
+const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
+const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
 
 const xmlParser = new xml2js.Parser();
 const hash = require('object-hash');
