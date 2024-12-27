@@ -7,6 +7,7 @@ const js2xmlparser = require('js2xmlparser');
 const xml2js = require('xml2js');
 const { XMLParser } = require('fast-xml-parser');
 const { translateTPOption } = require('./resolvers/product');
+const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 const Normalizer = require('./normalizer');
 
@@ -38,38 +39,7 @@ const wildcardMatch = (wildcard, str) => {
   const re = new RegExp(`${w.replace(/\*/g, '.*').replace(/\?/g, '.')}`, 'i');
   return re.test(str.replace(/\s/g, ''));
 };
-
-const convertProductFilters = (productFilters = []) => {
-  /*
-  productFilters: [
-    {
-      place: 'London',
-      filters: ['ACLUXE'],
-    },
-    {
-      place: 'Cambridge',
-      filters: ['LONEFBLEPARFITENT', 'ACLUXE'],
-    },
-  ]
-  result: {
-    filters: ['ACLUXE', 'LONEFBLEPARFITENT'],
-    filterPlaceMap: {
-      ACLUXE: ['London','Cambridge'],
-      LONEFBLEPARFITENT: ['Cambridge'],
-    },
-  }
-  */
-  const groupedByfilter = R.call(R.compose(
-    R.groupBy(R.prop('filter')),
-    R.flatten,
-    R.map(obj => obj.filters.map(str => ({ filter: str, place: obj.place }))),
-  ), productFilters);
-  return {
-    filters: R.keys(groupedByfilter),
-    filterPlaceMap: R.map(arr => arr.map(o => o.place), groupedByfilter),
-  };
-};
-class Plugin {
+class BuyerPlugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
       this[attr] = value;
@@ -105,11 +75,6 @@ class Plugin {
         regExp: /.+/,
       },
     });
-    this.cacheSettings = {
-      bookingsProductSearch: {
-        skipTTL: true,
-      },
-    };
     this.callTourplan = async ({
       model,
       endpoint,
@@ -162,7 +127,7 @@ class Plugin {
               maxBodyLength: Infinity,
             }));
           } catch (err) {
-            console.log('error in calling pyfilematch xml2json', R.pathOr('Nada', ['response', 'data', 'error'], err));
+            console.warn('error in calling pyfilematch xml2json', R.pathOr('Nada', ['response', 'data', 'error'], err));
             errorStr = `error in calling pyfilematch xml2json: ${R.pathOr('Nada', ['response', 'data', 'error'], err)}`;
           }
         }
@@ -193,9 +158,8 @@ class Plugin {
       // add one RoomConfig for each room required (i.e. one for each PaxConfig)
       RoomConfigs.RoomConfig = [];
       let indexRoomConfig = 0;
-      paxConfigs.forEach(({ roomType, passengers = [] }) => {
-        const EachRoomConfig = passengers.reduce((acc, p) => {
-          console.log(JSON.stringify(p));
+      paxConfigs.forEach(({ roomType, adults, children, infants, passengers = [] }) => {
+        const EachRoomConfig = passengers.length ? passengers.reduce((acc, p) => {
           if (p.passengerType === 'Adult') {
             acc.Adults += 1;
           }
@@ -210,7 +174,11 @@ class Plugin {
           Adults: 0,
           Children: 0,
           Infants: 0,
-        });
+        }) : {
+          Adults: adults || 0,
+          Children: children || 0,
+          Infants: infants || 0,
+        };
         const RoomType = ({
           Single: 'SG',
           Double: 'DB',
@@ -444,11 +412,11 @@ class Plugin {
     };
   }
 
-  async searchProducts({
+  async searchProductsForItinerary({
     axios,
     typeDefsAndQueries: {
-      productTypeDefs,
-      productQuery,
+      itineraryProductTypeDefs,
+      itineraryProductQuery,
     },
     token: {
       hostConnectEndpoint,
@@ -486,26 +454,7 @@ class Plugin {
         ttl: 60 * 60 * 2, // 2 hours
         forceRefresh: Boolean(forceRefresh),
       });
-    const products = R.call(R.compose(
-      R.map(optionsGroupedBySupplierId => {
-        const OptGeneral = R.pathOr({}, [0, 'OptGeneral'], optionsGroupedBySupplierId);
-        let supplierName = R.path(['SupplierName'], OptGeneral);
-        if (R.path(['SupplierName'], OptGeneral).toLocaleLowerCase() === 'transfers') {
-          supplierName = `${R.path(['VoucherName'], OptGeneral)} (${R.path(['SupplierName'], OptGeneral)})`;
-        }
-        const supplierData = {
-          supplierId: R.path(['SupplierId'], OptGeneral),
-          supplierName,
-          supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
-          serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
-        };
-        return translateTPOption({
-          supplierData,
-          optionsGroupedBySupplierId,
-          typeDefs: productTypeDefs,
-          query: productQuery,
-        });
-      }),
+    const arrayOfOptionsGroupedBySupplierId = R.call(R.compose(
       R.values,
       R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
       root => {
@@ -529,6 +478,19 @@ class Plugin {
         return [options];
       },
     ), replyObj);
+    const products = await Promise.map(
+      arrayOfOptionsGroupedBySupplierId,
+      optionsGroupedBySupplierId => translateTPOption({
+        rootValue: {
+          optionsGroupedBySupplierId,
+        },
+        typeDefs: itineraryProductTypeDefs,
+        query: itineraryProductQuery,
+      }),
+      {
+        concurrency: 10,
+      },
+    );
     if (!(products && products.length)) {
       throw new Error('No products found');
     }
@@ -540,7 +502,7 @@ class Plugin {
   }
 
 
-  async searchAvailability({
+  async searchAvailabilityForItinerary({
     axios,
     token: {
       hostConnectEndpoint,
@@ -560,7 +522,7 @@ class Plugin {
         in the OptionInfo section). Should only be specified for options that have SCUs.
         Defaults to 1.
       */
-      chargeUnitQuanity,
+      chargeUnitQuantity,
     },
   }) {
     const model = {
@@ -569,7 +531,7 @@ class Plugin {
         Info: 'S',
         DateFrom: startDate,
         SCUqty: (() => {
-          const num = parseInt(chargeUnitQuanity, 10);
+          const num = parseInt(chargeUnitQuantity, 10);
           if (isNaN(num) || num < 1) return 1;
           return num;
         })(),
@@ -688,6 +650,8 @@ class Plugin {
     // };
   }
 
+
+  // TODO: safe to deprecate 7-14 days after release date
   async searchQuote({
     axios,
     token: {
@@ -804,8 +768,124 @@ class Plugin {
     };
   }
 
+  async addServiceToItinerary({
+    axios,
+    token: {
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+    },
+    payload: {
+      quoteName,
+      rateId,
+      quoteId,
+      // existingQuoteId,
+      // existingLineId,
+      optionId,
+      startDate,
+      reference,
+      /*
+      paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
+      */
+      paxConfigs,
+      /*
+        The number of second charge units required (second charge units are discussed
+        in the OptionInfo section). Should only be specified for options that have SCUs.
+        Defaults to 1.
+      */
+      chargeUnitQuantity,
+      extras,
+      puInfo,
+      doInfo,
+      notes,
+      QB,
+      directHeaderPayload,
+      directLinePayload,
+      customFieldValues = [],
+    },
+  }) {
+    const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
+      .reduce((acc, f) => {
+        if (f.type === 'extended-option') {
+          acc[f.id] = f.value.value || f.value;
+        } else {
+          acc[f.id] = f.value;
+        }
+        return acc;
+      }, {});
+    const model = {
+      AddServiceRequest: {
+        AgentID: hostConnectAgentID,
+        Password: hostConnectAgentPassword,
+        ...(quoteId ? {
+          ExistingBookingInfo: { BookingId: quoteId },
+        } : {
+          NewBookingInfo: {
+            Name: this.escapeInvalidXmlChars(quoteName),
+            QB: QB || 'Q',
+            ...(directHeaderPayload || {}),
+          },
+        }),
+        ...(puInfo && (puInfo.time || puInfo.location || puInfo.flightDetails) ? {
+          ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
+            puTime: puInfo.time.replace(/\D/g, ''),
+          } : {}),
+          puRemark: this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
+          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}
+          `),
+        } : {}),
+        ...(doInfo && (doInfo.time || doInfo.location || doInfo.flightDetails) ? {
+          // only get numbers from doInfo.time
+          ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
+            doTime: doInfo.time.replace(/\D/g, ''),
+          } : {}),
+          doRemark: this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
+          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
+          `),
+        } : {}),
+        ...(extras && extras.filter(e => e.selectedExtra && e.selectedExtra.id).length ? {
+          ExtraQuantities: {
+            ExtraQuantityItem: extras.filter(e => e.selectedExtra && e.selectedExtra.id).map(e => ({
+              SequenceNumber: e.selectedExtra.id,
+              ExtraQuantity: e.quantity,
+            })),
+          },
+        } : {}),
+        Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
+        Opt: optionId,
+        DateFrom: startDate,
+        RateId: rateId || 'Default',
+        SCUqty: (() => {
+          const num = parseInt(chargeUnitQuantity, 10);
+          if (isNaN(num) || num < 1) return 1;
+          return num;
+        })(),
+        AgentRef: reference,
+        RoomConfigs: this.getRoomConfigs(paxConfigs),
+        ...(directLinePayload || {}),
+        ...(cfvPerService || {}),
+      },
+    };
+    const replyObj = await this.callTourplan({
+      model,
+      endpoint: hostConnectEndpoint,
+      axios,
+      xmlOptions: hostConnectXmlOptions,
+    });
+    return {
+      message: R.path(['AddServiceReply', 'Status'], replyObj)
+        === 'NO' ? 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)' : '',
+      booking: {
+        id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
+        reference: R.path(['AddServiceReply', 'Ref'], replyObj),
+        linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
+        lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
+      },
+    };
+  }
+
   // eslint-disable-next-line class-methods-use-this
-  async getCreateBookingFields({
+  async getCreateItineraryFields({
     token: {
       hostConnectAgentID,
       hostConnectAgentPassword,
@@ -844,13 +924,18 @@ class Plugin {
     };
   }
 
-  async searchBooking({
+
+  async searchItineraries({
     token: {
       hostConnectAgentID,
       hostConnectAgentPassword,
       hostConnectEndpoint,
     },
     axios,
+    typeDefsAndQueries: {
+      itineraryBookingTypeDefs,
+      itineraryBookingQuery,
+    },
     payload: {
       purchaseDateStart,
       purchaseDateEnd,
@@ -891,7 +976,7 @@ class Plugin {
             throw Error(err);
           }
           // if it's not server error, we just considered as no booking is found
-          console.log('error in searchBooking', err);
+          // console.log('error in searchBooking', err);
           reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
 
@@ -921,41 +1006,12 @@ class Plugin {
       });
       const bookingReply = await this.callTourplan(getBookingPayload);
       const booking = R.path(['GetBookingReply'], bookingReply);
-      /*
-        booking = {
-          Services: {
-            ...
-            RoomConfigs: {
-              RoomConfig: {
-                Adults: '2',
-                Children: '0',
-                Infants: '0',
-                PaxList: {
-                  PaxDetails: [
-                    {
-                      Age: '37',
-                      DateOfBirth: '1987-09-26',
-                      Forename: 'Chris',
-                      PaxType: 'A',
-                      PersonId: '628206',
-                      Surname: 'Voss'
-                    },
-                    {
-                      Age: '36',
-                      DateOfBirth: '1988-09-26',
-                      Forename: 'Joy',
-                      PaxType: 'A',
-                      PersonId: '628207',
-                      Surname: 'Voss'
-                    }
-                  ]
-                }
-              }
-            },
-            ...
-          }
-        }
-      */
+      const newBooking = await translateItineraryBooking({
+        rootValue: booking,
+        typeDefs: itineraryBookingTypeDefs,
+        query: itineraryBookingQuery,
+      });
+      // TODO: safe to deprecate 7-14 days after release date
       let Services = R.pathOr([], ['Services', 'Service'], booking);
       if (!Array.isArray(Services)) Services = [Services];
       Services = Services.map(s => {
@@ -977,6 +1033,7 @@ class Plugin {
         };
       });
       return {
+        ...newBooking,
         ...booking,
         Services,
       };
@@ -987,4 +1044,4 @@ class Plugin {
   }
 }
 
-module.exports = Plugin;
+module.exports = BuyerPlugin;

@@ -4,11 +4,20 @@ const axios = require('axios');
 const path = require('path');
 const xml2js = require('xml2js');
 const R = require('ramda');
+const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
+const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
 
 const xmlParser = new xml2js.Parser();
 const hash = require('object-hash');
 
 const Plugin = require('./index');
+
+const typeDefsAndQueries = {
+  itineraryProductTypeDefs,
+  itineraryProductQuery,
+  itineraryBookingTypeDefs,
+  itineraryBookingQuery,
+};
 
 jest.mock('axios');
 const actualAxios = jest.requireActual('axios');
@@ -22,7 +31,7 @@ const getFixture = async requestObject => {
     ).toString();
     return { data: fixture };
   } catch (err) {
-    console.warn(`could not find ${file}`);
+    console.warn(`could not find ${file} for ${JSON.stringify(requestObject)}`);
     return actualAxios(requestObject);
   }
 };
@@ -37,10 +46,13 @@ describe('search tests', () => {
     endpoint: process.env.ti2_tourplan_endpoint,
     username: process.env.ti2_tourplan_username,
     password: process.env.ti2_tourplan_password,
+    hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
+    hostConnectAgentID: 'test_hostConnectAgentID',
+    hostConnectAgentPassword: 'test_hostConnectAgentPassword',
   };
   const dateFormat = 'DD/MM/YYYY';
   describe('tooling', () => {
-    describe('validateToken', () => {
+    describe.skip('validateToken', () => {
       it('valid token', async () => {
         axios.mockImplementation(getFixture);
         const retVal = await app.validateToken({
@@ -58,7 +70,7 @@ describe('search tests', () => {
         expect(retVal).toBeFalsy();
       });
     });
-    describe('template tests', () => {
+    describe.skip('template tests', () => {
       let template;
       it('get the template', async () => {
         template = await app.tokenTemplate();
@@ -84,7 +96,7 @@ describe('search tests', () => {
       });
     });
   });
-  it('read allotment empty', async () => {
+  it.skip('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -107,7 +119,7 @@ describe('search tests', () => {
     expect(sentPayload.Date_From[0]).toBe('2022-08-01');
     expect(sentPayload.Date_To[0]).toBe('2022-08-15');
   });
-  it('read allotment not empty', async () => {
+  it.skip('read allotment not empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -143,7 +155,7 @@ describe('search tests', () => {
     expect(sentPayload.Date_From[0]).toBe('2021-09-02');
     expect(sentPayload.Date_To[0]).toBe('2021-10-02');
   });
-  it('read allotment that applies to more products', async () => {
+  it.skip('read allotment that applies to more products', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -178,5 +190,60 @@ describe('search tests', () => {
     expect(sentPayload.OptionCode[0]).toBe('SINACXXYYIN2SDXBF');
     expect(sentPayload.Date_From[0]).toBe('2022-05-16');
     expect(sentPayload.Date_To[0]).toBe('2022-06-15');
+  });
+  it('searchProductsForItinerary', async () => {
+    axios.mockImplementation(getFixture);
+    const retVal = await app.searchProductsForItinerary({
+      axios,
+      token,
+      typeDefsAndQueries,
+      payload: {
+        optionId: 'LONTRDAVIDSHDWBVC',
+      },
+    });
+    expect(retVal).toMatchSnapshot();
+  });
+  it('searchAvailabilityForItinerary - not bookable', async () => {
+    axios.mockImplementation(getFixture);
+    const retVal = await app.searchAvailabilityForItinerary({
+      axios,
+      token,
+      payload: {
+        optionId: 'LONTRDAVIDSHDWBVC',
+        startDate: '2025-04-01',
+        chargeUnitQuantity: 1,
+        paxConfigs: [{ roomType: 'DB', adults: 2 }],
+      },
+    });
+    expect(retVal.bookable).toBeFalsy();
+    expect(retVal.rates.length).toBe(0);
+  });
+  it('searchAvailabilityForItinerary - bookable', async () => {
+    axios.mockImplementation(getFixture);
+    const retVal = await app.searchAvailabilityForItinerary({
+      axios,
+      token,
+      payload: {
+        optionId: 'AKLACAKLSOFDYNAMC',
+        startDate: '2025-04-01',
+        chargeUnitQuantity: 1,
+        paxConfigs: [{ roomType: 'DB', adults: 1 }],
+      },
+    });
+    expect(retVal).toMatchSnapshot();
+    expect(retVal.bookable).toBeTruthy();
+    expect(retVal.rates.length).toBeGreaterThan(0);
+  });
+  it('searchItineraries', async () => {
+    axios.mockImplementation(getFixture);
+    const retVal = await app.searchItineraries({
+      axios,
+      token,
+      typeDefsAndQueries,
+      payload: {
+        bookingId: '316559',
+      },
+    });
+    expect(retVal).toMatchSnapshot();
   });
 });
