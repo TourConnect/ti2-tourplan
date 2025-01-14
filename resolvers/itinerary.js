@@ -36,7 +36,11 @@ const resolvers = {
   },
   ServiceLine: {
     serviceLineId: R.path(['ServiceLineId']),
-    supplierId: R.path(['ProductId']),
+    supplierId: sl => {
+      const opt = R.path(['Opt'], sl);
+      if (!opt) return null;
+      return opt.slice(5, 11);
+    },
     supplierName: R.path(['SupplierName']),
     optionId: R.path(['Opt']),
     optionName: R.path(['Description']),
