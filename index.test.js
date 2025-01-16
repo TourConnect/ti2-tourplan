@@ -52,7 +52,7 @@ describe('search tests', () => {
   };
   const dateFormat = 'DD/MM/YYYY';
   describe('tooling', () => {
-    describe.skip('validateToken', () => {
+    describe('validateToken', () => {
       it('valid token', async () => {
         axios.mockImplementation(getFixture);
         const retVal = await app.validateToken({
@@ -70,7 +70,7 @@ describe('search tests', () => {
         expect(retVal).toBeFalsy();
       });
     });
-    describe.skip('template tests', () => {
+    describe('template tests', () => {
       let template;
       it('get the template', async () => {
         template = await app.tokenTemplate();
@@ -96,7 +96,7 @@ describe('search tests', () => {
       });
     });
   });
-  it.skip('read allotment empty', async () => {
+  it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -119,7 +119,7 @@ describe('search tests', () => {
     expect(sentPayload.Date_From[0]).toBe('2022-08-01');
     expect(sentPayload.Date_To[0]).toBe('2022-08-15');
   });
-  it.skip('read allotment not empty', async () => {
+  it('read allotment not empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -155,7 +155,7 @@ describe('search tests', () => {
     expect(sentPayload.Date_From[0]).toBe('2021-09-02');
     expect(sentPayload.Date_To[0]).toBe('2021-10-02');
   });
-  it.skip('read allotment that applies to more products', async () => {
+  it('read allotment that applies to more products', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -218,7 +218,7 @@ describe('search tests', () => {
     expect(retVal.bookable).toBeFalsy();
     expect(retVal.rates.length).toBe(0);
   });
-  it('searchAvailabilityForItinerary - bookable', async () => {
+  it('searchAvailabilityForItinerary - bookable - static with inventory', async () => {
     axios.mockImplementation(getFixture);
     const retVal = await app.searchAvailabilityForItinerary({
       axios,
@@ -233,6 +233,23 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
     expect(retVal.bookable).toBeTruthy();
     expect(retVal.rates.length).toBeGreaterThan(0);
+    expect(retVal.type).toBe('inventory');
+  });
+  it('searchAvailabilityForItinerary - bookable - on request', async () => {
+    axios.mockImplementation(getFixture);
+    const retVal = await app.searchAvailabilityForItinerary({
+      axios,
+      token,
+      payload: {
+        optionId: 'FWMACINVCASFBSB',
+        startDate: '2025-04-01',
+        chargeUnitQuantity: 1,
+        paxConfigs: [{ roomType: 'DB', adults: 1 }],
+      },
+    });
+    expect(retVal).toMatchSnapshot();
+    expect(retVal.bookable).toBeTruthy();
+    expect(retVal.type).toBe('on request');
   });
   it('searchItineraries', async () => {
     axios.mockImplementation(getFixture);

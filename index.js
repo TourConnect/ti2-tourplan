@@ -525,10 +525,14 @@ class BuyerPlugin {
       chargeUnitQuantity,
     },
   }) {
-    const model = {
+    /*
+    Need to S check and A check separately
+    because if A check is onRuest, AS will still result in empty response
+    */
+    const getModel = checkType => ({
       OptionInfoRequest: {
         Opt: optionId,
-        Info: 'S',
+        Info: checkType,
         DateFrom: startDate,
         SCUqty: (() => {
           const num = parseInt(chargeUnitQuantity, 10);
@@ -539,12 +543,15 @@ class BuyerPlugin {
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
       },
-    };
-    const replyObj = await this.callTourplan({
-      model,
-      endpoint: hostConnectEndpoint,
-      axios,
-      xmlOptions: hostConnectXmlOptions,
+    });
+    const [SCheck, ACheck] = await Promise.map(['S', 'A'], async checkType => {
+      const replyObj = await this.callTourplan({
+        model: getModel(checkType),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      });
+      return R.path(['OptionInfoReply', 'Option'], replyObj);
     });
     /*
       If not rates, optionInfoReply is null, meaning it's not bookable
@@ -589,11 +596,55 @@ class BuyerPlugin {
         }
       }
     */
-    const optionInfoReply = R.path(['OptionInfoReply'], replyObj);
-    let OptStayResults = R.pathOr([], ['Option', 'OptStayResults'], optionInfoReply);
+    const SCheckPass = Boolean(SCheck);
+    const ACheckPass = (() => {
+      /*
+        FROM TP DOCS:
+        Each integer in the list gives the availability for one of the days in the range requested,
+        from the start date through to the end date. The integer values are to be interpreted as
+        follows:
+        Greater than 0 means that inventory is available, with the integer specifying the
+        number of units available. For options with a service type of Y , the inventory is in
+        units of rooms. For other service types, the inventory is in units of pax.
+        -1 Not available.
+        -2 Available on free sell.
+        -3 Available on request.
+        Note: A return value of 0 or something less than -3 is impossible.
+      */
+      const optAvail = parseInt(R.pathOr('-4', ['OptAvail'], ACheck), 10);
+      if (optAvail === -1) {
+        return {
+          available: false,
+        };
+      }
+      if (optAvail === -2) {
+        return {
+          available: true,
+          type: 'free sell',
+        };
+      }
+      if (optAvail === -3) {
+        return {
+          available: true,
+          type: 'on request',
+        };
+      }
+      if (optAvail > 0) {
+        return {
+          available: true,
+          type: 'inventory',
+          quantity: optAvail,
+        };
+      }
+      return {
+        available: false,
+      };
+    })();
+    let OptStayResults = R.pathOr([], ['OptStayResults'], SCheck);
     if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
     return {
-      bookable: Boolean(optionInfoReply),
+      bookable: Boolean(SCheckPass || ACheckPass.available),
+      type: ACheckPass.type,
       rates: OptStayResults.map(rate => {
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
@@ -606,48 +657,6 @@ class BuyerPlugin {
         };
       }),
     };
-    // THE BELOW CODE is for A check, might still need it on user's future request
-    // const optAvail = parseInt(R.pathOr('-4', ['OptionInfoReply', 'Option', 'OptAvail'], replyObj), 10);
-    // /*
-    // FROM TP DOCS:
-    // Each integer in the list gives the availability for one of the days in the range requested,
-    // from the start date through to the end date. The integer values are to be interpreted as
-    // follows:
-    // Greater than 0 means that inventory is available, with the integer specifying the
-    // number of units available. For options with a service type of Y , the inventory is in
-    // units of rooms. For other service types, the inventory is in units of pax.
-    // -1 Not available.
-    // -2 Available on free sell.
-    // -3 Available on request.
-    // Note: A return value of 0 or something less than -3 is impossible.
-    // */
-    // if (optAvail === -1) {
-    //   return {
-    //     available: false,
-    //   };
-    // }
-    // if (optAvail === -2) {
-    //   return {
-    //     available: true,
-    //     type: 'free sell',
-    //   };
-    // }
-    // if (optAvail === -3) {
-    //   return {
-    //     available: true,
-    //     type: 'on request',
-    //   };
-    // }
-    // if (optAvail > 0) {
-    //   return {
-    //     available: true,
-    //     type: 'inventory',
-    //     quantity: optAvail,
-    //   };
-    // }
-    // return {
-    //   available: false,
-    // };
   }
 
 
