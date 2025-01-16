@@ -13,7 +13,7 @@ const Normalizer = require('./normalizer');
 
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
-const BAD_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007f-\u0084\u0086-\u009f\uD800-\uDFFF\uFDD0-\uFDFF\uFFFF\uC008\uFEFF]/g;
+const BAD_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007f-\u0084\u0086-\u009f\uD800-\uDFFF\uFDD0-\uFDFF\uFFFF\uC008\uFEFF\u00DF]/g;
 
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
