@@ -65,7 +65,7 @@ describe('search tests', () => {
         axios.mockImplementation(getFixture);
         const retVal = await app.validateToken({
           axios,
-          token: { ...token, username: 'somerandom' },
+          token: { ...token, username: 'somerandom', hostConnectAgentPassword: 'somerandom' },
         });
         expect(retVal).toBeFalsy();
       });
