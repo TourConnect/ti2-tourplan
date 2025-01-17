@@ -644,7 +644,7 @@ class BuyerPlugin {
     if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
     return {
       bookable: Boolean(SCheckPass),
-      // type: ACheckPass.type,
+      type: 'inventory',
       rates: OptStayResults.map(rate => {
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);

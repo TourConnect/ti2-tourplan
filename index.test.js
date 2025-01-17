@@ -233,7 +233,7 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
     expect(retVal.bookable).toBeTruthy();
     expect(retVal.rates.length).toBeGreaterThan(0);
-    // expect(retVal.type).toBe('inventory');
+    expect(retVal.type).toBe('inventory');
   });
   it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
     axios.mockImplementation(getFixture);
