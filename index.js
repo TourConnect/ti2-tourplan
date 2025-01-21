@@ -659,124 +659,6 @@ class BuyerPlugin {
     };
   }
 
-
-  // TODO: safe to deprecate 7-14 days after release date
-  async searchQuote({
-    axios,
-    token: {
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-    },
-    payload: {
-      quoteName,
-      rateId,
-      quoteId,
-      // existingQuoteId,
-      // existingLineId,
-      optionId,
-      startDate,
-      reference,
-      /*
-      paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
-      */
-      paxConfigs,
-      /*
-        The number of second charge units required (second charge units are discussed
-        in the OptionInfo section). Should only be specified for options that have SCUs.
-        Defaults to 1.
-      */
-      chargeUnitQuanity,
-      extras,
-      puInfo,
-      doInfo,
-      notes,
-      QB,
-      directHeaderPayload,
-      directLinePayload,
-      customFieldValues = [],
-    },
-  }) {
-    const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
-      .reduce((acc, f) => {
-        if (f.type === 'extended-option') {
-          acc[f.id] = f.value.value || f.value;
-        } else {
-          acc[f.id] = f.value;
-        }
-        return acc;
-      }, {});
-    const model = {
-      AddServiceRequest: {
-        AgentID: hostConnectAgentID,
-        Password: hostConnectAgentPassword,
-        ...(quoteId ? {
-          ExistingBookingInfo: { BookingId: quoteId },
-        } : {
-          NewBookingInfo: {
-            Name: this.escapeInvalidXmlChars(quoteName),
-            QB: QB || 'Q',
-            ...(directHeaderPayload || {}),
-          },
-        }),
-        ...(puInfo && (puInfo.time || puInfo.location || puInfo.flightDetails) ? {
-          ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
-            puTime: puInfo.time.replace(/\D/g, ''),
-          } : {}),
-          puRemark: this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
-          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}
-          `),
-        } : {}),
-        ...(doInfo && (doInfo.time || doInfo.location || doInfo.flightDetails) ? {
-          // only get numbers from doInfo.time
-          ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
-            doTime: doInfo.time.replace(/\D/g, ''),
-          } : {}),
-          doRemark: this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
-          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
-          `),
-        } : {}),
-        ...(extras && extras.filter(e => e.selectedExtra && e.selectedExtra.id).length ? {
-          ExtraQuantities: {
-            ExtraQuantityItem: extras.filter(e => e.selectedExtra && e.selectedExtra.id).map(e => ({
-              SequenceNumber: e.selectedExtra.id,
-              ExtraQuantity: e.quantity,
-            })),
-          },
-        } : {}),
-        Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
-        Opt: optionId,
-        DateFrom: startDate,
-        RateId: rateId || 'Default',
-        SCUqty: (() => {
-          const num = parseInt(chargeUnitQuanity, 10);
-          if (isNaN(num) || num < 1) return 1;
-          return num;
-        })(),
-        AgentRef: reference,
-        RoomConfigs: this.getRoomConfigs(paxConfigs),
-        ...(directLinePayload || {}),
-        ...(cfvPerService || {}),
-      },
-    };
-    const replyObj = await this.callTourplan({
-      model,
-      endpoint: hostConnectEndpoint,
-      axios,
-      xmlOptions: hostConnectXmlOptions,
-    });
-    return {
-      message: R.path(['AddServiceReply', 'Status'], replyObj)
-        === 'NO' ? 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)' : '',
-      quote: {
-        id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
-        reference: R.path(['AddServiceReply', 'Ref'], replyObj),
-        linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
-        lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
-      },
-    };
-  }
-
   async addServiceToItinerary({
     axios,
     token: {
@@ -1008,47 +890,27 @@ class BuyerPlugin {
     const replyObjs = await Promise.all(allSearches);
     const bookingHeaders = R.flatten(replyObjs.map(o => R.pathOr([], ['ListBookingsReply', 'BookingHeaders', 'BookingHeader'], o)));
     const bookings = await Promise.map(bookingHeaders, async bookingHeader => {
-      const getBookingPayload = getPayload('GetBookingRequest', {
-        BookingId: R.prop('BookingId', bookingHeader),
-        ReturnAccountInfo: 'Y',
-        ReturnRoomConfigs: 'Y',
-      });
-      const bookingReply = await this.callTourplan(getBookingPayload);
-      const booking = R.path(['GetBookingReply'], bookingReply);
-      const newBooking = await translateItineraryBooking({
-        rootValue: booking,
-        typeDefs: itineraryBookingTypeDefs,
-        query: itineraryBookingQuery,
-      });
-      // TODO: safe to deprecate 7-14 days after release date
-      let Services = R.pathOr([], ['Services', 'Service'], booking);
-      if (!Array.isArray(Services)) Services = [Services];
-      Services = Services.map(s => {
-        let actualRoomConfigs = s.RoomConfigs.RoomConfig;
-        if (!Array.isArray(actualRoomConfigs)) actualRoomConfigs = [actualRoomConfigs];
-        const paxList = actualRoomConfigs.reduce((acc, roomConfig) => {
-          const paxDetails = R.pathOr([], ['PaxList', 'PaxDetails'], roomConfig);
-          if (!Array.isArray(paxDetails)) return acc;
-          return [...acc, ...paxDetails];
-        }, [])
-          .map(p => ({
-            personId: R.path(['PersonId'], p),
-            firstName: R.path(['Forename'], p),
-            lastName: R.path(['Surname'], p),
-          }));
-        return {
-          ...s,
-          paxList,
-        };
-      });
-      return {
-        ...newBooking,
-        ...booking,
-        Services,
-      };
+      try {
+        const getBookingPayload = getPayload('GetBookingRequest', {
+          BookingId: R.prop('BookingId', bookingHeader),
+          ReturnAccountInfo: 'Y',
+          ReturnRoomConfigs: 'Y',
+        });
+        const bookingReply = await this.callTourplan(getBookingPayload);
+        const booking = R.path(['GetBookingReply'], bookingReply);
+        const newBooking = await translateItineraryBooking({
+          rootValue: booking,
+          typeDefs: itineraryBookingTypeDefs,
+          query: itineraryBookingQuery,
+        });
+        return newBooking;
+      } catch (err) {
+        console.log('error in searchBooking', err);
+        return null;
+      }
     }, { concurrency: 10 });
     return {
-      bookings,
+      bookings: bookings.filter(b => b),
     };
   }
 }
