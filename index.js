@@ -597,54 +597,54 @@ class BuyerPlugin {
       }
     */
     const SCheckPass = Boolean(SCheck);
-    const ACheckPass = (() => {
-      /*
-        FROM TP DOCS:
-        Each integer in the list gives the availability for one of the days in the range requested,
-        from the start date through to the end date. The integer values are to be interpreted as
-        follows:
-        Greater than 0 means that inventory is available, with the integer specifying the
-        number of units available. For options with a service type of Y , the inventory is in
-        units of rooms. For other service types, the inventory is in units of pax.
-        -1 Not available.
-        -2 Available on free sell.
-        -3 Available on request.
-        Note: A return value of 0 or something less than -3 is impossible.
-      */
-      const optAvail = parseInt(R.pathOr('-4', ['OptAvail'], ACheck), 10);
-      if (optAvail === -1) {
-        return {
-          available: false,
-        };
-      }
-      if (optAvail === -2) {
-        return {
-          available: true,
-          type: 'free sell',
-        };
-      }
-      if (optAvail === -3) {
-        return {
-          available: true,
-          type: 'on request',
-        };
-      }
-      if (optAvail > 0) {
-        return {
-          available: true,
-          type: 'inventory',
-          quantity: optAvail,
-        };
-      }
-      return {
-        available: false,
-      };
-    })();
+    // const ACheckPass = (() => {
+    //   /*
+    //     FROM TP DOCS:
+    //     Each integer in the list gives the availability for one of the days in the range requested,
+    //     from the start date through to the end date. The integer values are to be interpreted as
+    //     follows:
+    //     Greater than 0 means that inventory is available, with the integer specifying the
+    //     number of units available. For options with a service type of Y , the inventory is in
+    //     units of rooms. For other service types, the inventory is in units of pax.
+    //     -1 Not available.
+    //     -2 Available on free sell.
+    //     -3 Available on request.
+    //     Note: A return value of 0 or something less than -3 is impossible.
+    //   */
+    //   const optAvail = parseInt(R.pathOr('-4', ['OptAvail'], ACheck), 10);
+    //   if (optAvail === -1) {
+    //     return {
+    //       available: false,
+    //     };
+    //   }
+    //   if (optAvail === -2) {
+    //     return {
+    //       available: true,
+    //       type: 'free sell',
+    //     };
+    //   }
+    //   if (optAvail === -3) {
+    //     return {
+    //       available: true,
+    //       type: 'on request',
+    //     };
+    //   }
+    //   if (optAvail > 0) {
+    //     return {
+    //       available: true,
+    //       type: 'inventory',
+    //       quantity: optAvail,
+    //     };
+    //   }
+    //   return {
+    //     available: false,
+    //   };
+    // })();
     let OptStayResults = R.pathOr([], ['OptStayResults'], SCheck);
     if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
     return {
-      bookable: Boolean(SCheckPass || ACheckPass.available),
-      type: ACheckPass.type,
+      bookable: Boolean(SCheckPass),
+      type: 'inventory',
       rates: OptStayResults.map(rate => {
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
