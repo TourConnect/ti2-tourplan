@@ -544,7 +544,8 @@ class BuyerPlugin {
         Password: hostConnectAgentPassword,
       },
     });
-    const [SCheck, ACheck] = await Promise.map(['S', 'A'], async checkType => {
+    // const [SCheck, ACheck] = await Promise.map(['S', 'A'], async checkType => {
+    const [SCheck] = await Promise.map(['S'], async checkType => {
       const replyObj = await this.callTourplan({
         model: getModel(checkType),
         endpoint: hostConnectEndpoint,
