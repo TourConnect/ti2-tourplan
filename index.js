@@ -424,7 +424,15 @@ class BuyerPlugin {
       hostConnectAgentPassword,
       configuration,
     },
-    payload: { optionId, forceRefresh, searchInput },
+    payload: {
+      // single optionId or array of optionIds
+      optionId,
+      forceRefresh,
+      searchInput,
+      // lastUpdatedFrom is used to get options that were updated after a certain date in Tourplan
+      // example: lastUpdatedFrom: '2024-04-22 05:17:57.427Z'
+      lastUpdatedFrom,
+    },
   }) {
     const model = {
       OptionInfoRequest: {
@@ -432,6 +440,9 @@ class BuyerPlugin {
         Info: 'G',
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
+        ...(lastUpdatedFrom ? {
+          LastUpdateFrom: lastUpdatedFrom,
+        } : {}),
       },
     };
     const payload = {
