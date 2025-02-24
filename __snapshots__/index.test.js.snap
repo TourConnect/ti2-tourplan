@@ -3309,6 +3309,7 @@ Object {
       "bookingId": "316559",
       "bookingStatus": "Quotation",
       "canEdit": true,
+      "currency": "GBP",
       "enteredDate": "2024-09-12",
       "name": "2356674/1 Sean Conta",
       "ref": "ALFI393706",
@@ -3368,6 +3369,7 @@ Object {
       "description": null,
       "options": Array [
         Object {
+          "comment": "FIT- V- Class (1-5 Pax)",
           "extras": Array [],
           "lastUpdateTimestamp": 1700750093,
           "optionId": "LONTRDAVIDSHDWBVC",

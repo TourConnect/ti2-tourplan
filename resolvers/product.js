@@ -20,6 +20,7 @@ const resolvers = {
         comment ? `-${comment}` : ''
       }`;
     },
+    comment: option => R.path(['OptGeneral', 'Comment'], option),
     lastUpdateTimestamp: option => {
       const lastUpdateISO = R.path(['OptGeneral', 'LastUpdate'], option);
       return lastUpdateISO ? new Date(lastUpdateISO).getTime() / 1000 : null;

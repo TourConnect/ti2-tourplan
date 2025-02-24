@@ -12,6 +12,7 @@ const resolvers = {
     ref: R.path(['Ref']),
     agentRef: R.path(['AgentRef']),
     totalPrice: R.path(['TotalPrice']),
+    currency: R.path(['Currency']),
     travelDate: R.path(['TravelDate']),
     enteredDate: R.path(['EnteredDate']),
     canEdit: root => root.ReadOnly === 'N' && root.CanAddServices === 'Y',
