@@ -302,7 +302,7 @@ class BuyerPlugin {
       assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
-      console.log(err)
+      console.log(err.message);
       return false;
     }
   }
@@ -460,10 +460,11 @@ class BuyerPlugin {
       axios,
       xmlOptions: hostConnectXmlOptions,
     });
-    const serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply).map(s => s.Code);
+    let serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply);
+    if (!Array.isArray(serviceCodes)) serviceCodes = [serviceCodes];
+    serviceCodes = serviceCodes.map(s => s.Code);
     let products = [];
     await Promise.each(serviceCodes, async serviceCode => {
-      console.log(serviceCode);
       const getOptionsModel = {
         OptionInfoRequest: {
           Opt: `???${serviceCode}????????????`,
@@ -923,7 +924,7 @@ class BuyerPlugin {
         });
         return newBooking;
       } catch (err) {
-        console.log('error in searchBooking', err);
+        console.log('error in searchBooking', err.message);
         return null;
       }
     }, { concurrency: 10 });

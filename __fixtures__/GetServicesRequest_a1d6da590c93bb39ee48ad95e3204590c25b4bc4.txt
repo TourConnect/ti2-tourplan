@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Reply SYSTEM "http://localhost:8080/iCom_Test/hostConnect_4_06_009.dtd">
+<Reply>
+    <GetServicesReply>
+        <TPLServices>
+            <TPLService>
+                <Code>AC</Code>
+                <Name>Activity</Name>
+            </TPLService>
+        </TPLServices>
+    </GetServicesReply>
+</Reply>

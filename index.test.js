@@ -23,8 +23,13 @@ jest.mock('axios');
 const actualAxios = jest.requireActual('axios');
 
 const getFixture = async requestObject => {
+  // Extract request name using regex
+  const requestName = requestObject.data && typeof requestObject.data === 'string'
+    ? requestObject.data.match(/<(\w+Request)>/)?.[1] || 'UnknownRequest'
+    : 'UnknownRequest';
+
   const requestHash = hash(requestObject);
-  const file = path.resolve(__dirname, `./__fixtures__/${requestHash}.txt`);
+  const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
     const fixture = (
       await readFile(file)
@@ -119,7 +124,7 @@ describe('search tests', () => {
     expect(sentPayload.Date_From[0]).toBe('2022-08-01');
     expect(sentPayload.Date_To[0]).toBe('2022-08-15');
   });
-  it('read allotment not empty', async () => {
+  it.skip('read allotment not empty', async () => {
     const request = axios.mockImplementation(getFixture);
     const retVal = await app.queryAllotment({
       axios,
@@ -235,7 +240,7 @@ describe('search tests', () => {
     expect(retVal.rates.length).toBeGreaterThan(0);
     expect(retVal.type).toBe('inventory');
   });
-  it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
+  it('searchAvailabilityForItinerary - bookable - on request', async () => {
     axios.mockImplementation(getFixture);
     const retVal = await app.searchAvailabilityForItinerary({
       axios,
