@@ -486,12 +486,12 @@ class BuyerPlugin {
         R.values,
         R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
         root => {
-          const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
+          let options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
           // due to the new parser, single option will be returned as an object
           // instead of an array
-          if (Array.isArray(options)) return options;
+          if (!Array.isArray(options)) options = [options];
           console.log(`got ${options.length} options for serviceCode ${serviceCode}`);
-          return [options];
+          return options;
         },
       ), getOptionsReply);
       const productsForServiceCode = await Promise.map(
