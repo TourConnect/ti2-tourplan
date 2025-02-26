@@ -248,6 +248,12 @@ class BuyerPlugin {
         .replace(BAD_XML_CHARS, '')
     };
 
+    this.cacheSettings = {
+      bookingsProductSearch: {
+        // ttl: 60 * 60 * 24, // 1 day
+      },
+    };
+
     // this.errorPathsAxiosErrors = () => ([ // axios triggered errors
     //   ['response', 'data', 'error'],
     // ]);
@@ -296,7 +302,7 @@ class BuyerPlugin {
       assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
-      console.log(err)
+      console.log(err.message);
       return false;
     }
   }
@@ -434,74 +440,75 @@ class BuyerPlugin {
       lastUpdatedFrom,
     },
   }) {
-    const model = {
-      OptionInfoRequest: {
-        Opt: optionId || '?????????????????',
-        Info: 'G',
+    /*
+      Pseudo
+      1. getServiceCodes -> [AC, BD]
+      2. for each serviceCode getoptions
+      3. convert them to ti2 products structure
+      4. merge all products from all serviceCodes
+    */
+    // getServices
+    const getServicesModel = {
+      GetServicesRequest: {
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
-        ...(lastUpdatedFrom ? {
-          LastUpdateFrom: lastUpdatedFrom,
-        } : {}),
       },
     };
-    const payload = {
-      model,
+    const getServicesReply = await this.callTourplan({
+      model: getServicesModel,
       endpoint: hostConnectEndpoint,
       axios,
       xmlOptions: hostConnectXmlOptions,
-    };
-    // use cache if we are getting the full list
-    // for example: for searchInput (backend search), we shouldn't get the full list from 
-    // tourplan each time user search
-    const replyObj = optionId
-      ? await this.callTourplan(payload)
-      : await this.cache.getOrExec({
-        // goway and pdnz uses the same AgentID and Password for agents
-        // but their endpoint is different
-        // so they had been overwritting each other's cache
-        fnParams: [model, hostConnectEndpoint],
-        fn: () => this.callTourplan(payload),
-        ttl: 60 * 60 * 2, // 2 hours
-        forceRefresh: Boolean(forceRefresh),
-      });
-    const arrayOfOptionsGroupedBySupplierId = R.call(R.compose(
-      R.values,
-      R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-      root => {
-        if (!searchInput) return root;
-        const getFullSearchStr = o => {
-          const fullPptionName = `${R.path(['OptGeneral', 'Description'], o) || ''}-${R.path(['OptGeneral', 'Comment'], o) || ''}`;
-          return `${R.path(['OptGeneral', 'SupplierName'], o) || ''} ${fullPptionName} ${R.path(['Opt'], o)} ${R.path(['OptGeneral', 'SupplierId'], o) || ''}`;
-        };
-        const inputValueLower = searchInput.trim().toLowerCase();
-        const parts = inputValueLower.split(' ').filter(Boolean); // Filter out any empty strings just in case
-        return root.filter(option => {
-          const fullSearchStr = getFullSearchStr(option).toLowerCase();
-          return parts.every(part => fullSearchStr.includes(part));
-        });
-      },
-      root => {
-        const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
-        // due to the new parser, single option will be returned as an object
-        // instead of an array
-        if (Array.isArray(options)) return options;
-        return [options];
-      },
-    ), replyObj);
-    const products = await Promise.map(
-      arrayOfOptionsGroupedBySupplierId,
-      optionsGroupedBySupplierId => translateTPOption({
-        rootValue: {
-          optionsGroupedBySupplierId,
+    });
+    let serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply);
+    if (!Array.isArray(serviceCodes)) serviceCodes = [serviceCodes];
+    serviceCodes = serviceCodes.map(s => s.Code);
+    let products = [];
+    await Promise.each(serviceCodes, async serviceCode => {
+      const getOptionsModel = {
+        OptionInfoRequest: {
+          Opt: `???${serviceCode}????????????`,
+          Info: 'G',
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+          ...(lastUpdatedFrom ? {
+            LastUpdateFrom: lastUpdatedFrom,
+          } : {}),
         },
-        typeDefs: itineraryProductTypeDefs,
-        query: itineraryProductQuery,
-      }),
-      {
-        concurrency: 10,
-      },
-    );
+      };
+      const getOptionsReply = await this.callTourplan({
+        model: getOptionsModel,
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      });
+      const arrayOfOptionsGroupedBySupplierId = R.call(R.compose(
+        R.values,
+        R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
+        root => {
+          const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
+          // due to the new parser, single option will be returned as an object
+          // instead of an array
+          if (Array.isArray(options)) return options;
+          console.log(`got ${options.length} options for serviceCode ${serviceCode}`);
+          return [options];
+        },
+      ), getOptionsReply);
+      const productsForServiceCode = await Promise.map(
+        arrayOfOptionsGroupedBySupplierId,
+        optionsGroupedBySupplierId => translateTPOption({
+          rootValue: {
+            optionsGroupedBySupplierId,
+          },
+          typeDefs: itineraryProductTypeDefs,
+          query: itineraryProductQuery,
+        }),
+        {
+          concurrency: 10,
+        },
+      );
+      products = products.concat(productsForServiceCode);
+    });
     if (!(products && products.length)) {
       throw new Error('No products found');
     }
@@ -917,7 +924,7 @@ class BuyerPlugin {
         });
         return newBooking;
       } catch (err) {
-        console.log('error in searchBooking', err);
+        console.log('error in searchBooking', err.message);
         return null;
       }
     }, { concurrency: 10 });
