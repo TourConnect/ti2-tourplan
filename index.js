@@ -489,8 +489,8 @@ class BuyerPlugin {
           const options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
           // due to the new parser, single option will be returned as an object
           // instead of an array
-          console.log(`got ${options.length} options for serviceCode ${serviceCode}`);
           if (Array.isArray(options)) return options;
+          console.log(`got ${options.length} options for serviceCode ${serviceCode}`);
           return [options];
         },
       ), getOptionsReply);
