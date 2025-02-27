@@ -240,7 +240,7 @@ class BuyerPlugin {
         .replace(/“/g, '"')
         .replace(/”/g, '"')
         .replace(/–/g, '-')
-        .replace(/&/g, '&amp;')
+        .replace(/&/g, 'and')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
