@@ -463,7 +463,7 @@ class BuyerPlugin {
     let serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply);
     if (!Array.isArray(serviceCodes)) serviceCodes = [serviceCodes];
     serviceCodes = serviceCodes.map(s => s.Code);
-    let products = [];
+    let options = [];
     await Promise.each(serviceCodes, async serviceCode => {
       const getOptionsModel = {
         OptionInfoRequest: {
@@ -482,36 +482,33 @@ class BuyerPlugin {
         axios,
         xmlOptions: hostConnectXmlOptions,
       });
-      const arrayOfOptionsGroupedBySupplierId = R.call(R.compose(
-        R.values,
-        R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
-        root => {
-          let options = R.pathOr([], ['OptionInfoReply', 'Option'], root);
-          // due to the new parser, single option will be returned as an object
-          // instead of an array
-          if (!Array.isArray(options)) options = [options];
-          console.log(`got ${options.length} options for serviceCode ${serviceCode}`);
-          return options;
-        },
-      ), getOptionsReply);
-      const productsForServiceCode = await Promise.map(
-        arrayOfOptionsGroupedBySupplierId,
-        optionsGroupedBySupplierId => translateTPOption({
-          rootValue: {
-            optionsGroupedBySupplierId,
-          },
-          typeDefs: itineraryProductTypeDefs,
-          query: itineraryProductQuery,
-        }),
-        {
-          concurrency: 10,
-        },
-      );
-      products = products.concat(productsForServiceCode);
+      let thisOptions = R.pathOr([], ['OptionInfoReply', 'Option'], getOptionsReply);
+      // due to the new parser, single option will be returned as an object
+      // instead of an array
+      if (!Array.isArray(thisOptions)) thisOptions = [thisOptions];
+      console.log(`got ${thisOptions.length} options for serviceCode ${serviceCode}`);
+      options = options.concat(thisOptions);
     });
-    if (!(products && products.length)) {
+    if (!(options && options.length)) {
       throw new Error('No products found');
     }
+    const arrayOfOptionsGroupedBySupplierId = R.call(R.compose(
+      R.values,
+      R.groupBy(R.path(['OptGeneral', 'SupplierId'])),
+    ), options);
+    const products = await Promise.map(
+      arrayOfOptionsGroupedBySupplierId,
+      optionsGroupedBySupplierId => translateTPOption({
+        rootValue: {
+          optionsGroupedBySupplierId,
+        },
+        typeDefs: itineraryProductTypeDefs,
+        query: itineraryProductQuery,
+      }),
+      {
+        concurrency: 10,
+      },
+    );
     return {
       products,
       productFields: [],
