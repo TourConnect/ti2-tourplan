@@ -232,8 +232,20 @@ class BuyerPlugin {
     this.escapeInvalidXmlChars = str => {
       if (!str) return '';
       const convertAccentedChars = s => {
-        return s.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      }
+        // according to TC-143, we will go through one mapping first
+        // for certain accented chars
+        const accentedChars = [
+          ['Ä', 'Ae'],
+          ['Ö', 'Oe'],
+          ['Ü', 'Ue'],
+          ['ä', 'ae'],
+          ['ö', 'oe'],
+          ['ü', 'ue'],
+          ['ß', 'ss'],
+        ];
+        const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
+        return preprocessed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      };
       return convertAccentedChars(str)
         .replace(/’/g, "'")
         .replace(/‘/g, "'")
