@@ -50,6 +50,7 @@ const resolvers = {
     paxConfigs: R.path(['paxConfigs']),
     linePrice: R.path(['LinePrice']),
     quantity: R.path(['SCUqty']),
+    status: R.path(['Status']),
   },
   PaxConfig: {
     roomType: px => {
