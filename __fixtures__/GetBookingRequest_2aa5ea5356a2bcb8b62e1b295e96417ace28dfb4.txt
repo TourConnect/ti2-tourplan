@@ -67,6 +67,7 @@
                 <CanUpdate>N</CanUpdate>
                 <CanAccept>N</CanAccept>
                 <LocationCode>LON</LocationCode>
+                <Status>OK</Status>
                 <ServiceExtras>
                     <ServiceExtra>
                         <SequenceNumber>1</SequenceNumber>
