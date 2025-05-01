@@ -36,6 +36,7 @@
     "jsonwebtoken": "^8.5.1",
     "moment": "^2.29.1",
     "ramda": "^0.27.1",
+    "ti2": "^1.0.92",
     "underscore": "^1.13.4",
     "xml-js": "^1.6.11",
     "xml2js": "^0.4.23"
@@ -48,7 +49,6 @@
     "jest": "^27.4.5",
     "jest-cli": "^27.4.7",
     "jest-diff": "^27.4.2",
-    "object-hash": "^3.0.0",
-    "ti2": "file:../ti2"
+    "object-hash": "^3.0.0"
   }
 }
