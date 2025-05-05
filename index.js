@@ -310,11 +310,10 @@ class BuyerPlugin {
       const replyObj = await this.callTourplan({
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
-      console.log(replyObj)
       assert(R.path(['AuthenticationReply'], replyObj) === '');
       return true;
     } catch (err) {
-      console.log(err.message);
+      console.error(err.message);
       return false;
     }
   }
@@ -933,7 +932,7 @@ class BuyerPlugin {
         });
         return newBooking;
       } catch (err) {
-        console.log('error in searchBooking', err.message);
+        console.error('error in searchBooking', err.message);
         return null;
       }
     }, { concurrency: 10 });
