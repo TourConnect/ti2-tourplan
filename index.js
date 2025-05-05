@@ -84,6 +84,15 @@ class BuyerPlugin {
       let data = Normalizer.stripEnclosingQuotes(
         js2xmlparser.parse('Request', model, xmlOptions),
       );
+      // NOTE: Forward slash is NOT an invalid XML character and hence js2xmlparser
+      // doesn't escape it, however TourPlan needs it to be escaped as '&#47;'
+      // so we need to do it manually after js2xmlparser has done its thing
+      // we need to carefull here because we don't want to escape the forward slash
+      // when it's inside a tag, so we use a negative lookbehind and lookahead to
+      // ensure the forward slash is not inside a tag.
+      // In future if more such characters are found, we can use a more sophisticated
+      // approach to handle them
+      data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
       data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
       let replyObj;
       let errorStr;
@@ -217,7 +226,11 @@ class BuyerPlugin {
             };
             if (p.salutation) EachPaxDetails.Title = this.escapeInvalidXmlChars(p.salutation);
             if (p.dob) EachPaxDetails.DateOfBirth = p.dob;
-            if (!R.isNil(p.age) && !isNaN(p.age)) {
+            // NOTE: TourPlan API doesn't accept age as empty string, i.e. empty XML tag <Age/>
+            // and trhows and error like - "1000 SCN System.InvalidOperationException: There is an
+            // error in XML document (29, 8). (Input string was not in a correct format.)"
+            // The solution is to NOT send the Age tag if it's empty
+            if (!R.isNil(p.age) && !Number.isNaN(p.age) && p.age) {
               if (!(p.passengerType === 'Adult' && p.age === 0)) {
                 EachPaxDetails.Age = p.age;
               }
@@ -225,7 +238,7 @@ class BuyerPlugin {
             return EachPaxDetails;
           });
         }
-        RoomConfigs.RoomConfig[indexRoomConfig++] = EachRoomConfig
+        RoomConfigs.RoomConfig[indexRoomConfig++] = EachRoomConfig;
       });
       return RoomConfigs;
     };
@@ -246,18 +259,16 @@ class BuyerPlugin {
         const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
         return preprocessed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
       };
+      // NOTE: There is no need to sanitize the string for 5 characters (&, <, >, " and ')
+      // because js2xmlparser does that for us. Plus if we use sanitize before calling js2xmlparser
+      // js2xmlparser will escape & to '&amp;' making it invalid XML
       return convertAccentedChars(str)
         .replace(/’/g, "'")
         .replace(/‘/g, "'")
         .replace(/“/g, '"')
         .replace(/”/g, '"')
         .replace(/–/g, '-')
-        .replace(/&/g, 'and')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&apos;')
-        .replace(BAD_XML_CHARS, '')
+        .replace(BAD_XML_CHARS, '');
     };
 
     this.cacheSettings = {
