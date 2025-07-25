@@ -1,0 +1,224 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TESTTOPLEVELCANCELPOLICIES</Opt>
+            <OptionNumber>46052</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>109800</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>109800</AgentPrice>
+                <RateId>$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-04-01</DateFrom>
+                        <DateTo>2025-04-01</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>72</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-29T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>97876</LinePrice>
+                        <AgentPrice>97876</AgentPrice>
+                        <PenaltyDescription>72 hours prior to arrival - 10% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>24</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-31T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>54900</LinePrice>
+                        <AgentPrice>54900</AgentPrice>
+                        <PenaltyDescription>24 hours prior to arrival - 50% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>0</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-04-01T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>109800</LinePrice>
+                        <AgentPrice>109800</AgentPrice>
+                        <PenaltyDescription>No show or same day cancellation - 100% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGB DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                    <ExtStartTimes>
+                        <ExtStartTime>2025-04-01T06:30:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T07:30:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T08:30:00</ExtStartTime>
+                    </ExtStartTimes>
+                    <ExtPickupDetails>
+                        <ExtPickupDetail>
+                            <ExtPointName>Adina/Vibe Waterfront</ExtPointName>
+                            <MinutesPrior>30</MinutesPrior>
+                            <Address>7 Kitchener Dr, Darwin</Address>
+                            <ExtPointInfo>Meet at hotel lobby</ExtPointInfo>
+                        </ExtPickupDetail>
+                        <ExtPickupDetail>
+                            <ExtPointName>Argus Hotel</ExtPointName>
+                            <MinutesPrior>30</MinutesPrior>
+                            <Address>13 Shepherd St, Darwin (Front of Hotel)</Address>
+                            <ExtPointInfo>Additional pickup information</ExtPointInfo>
+                        </ExtPickupDetail>
+                    </ExtPickupDetails>
+                    <ExtDropoffDetails>
+                        <ExtDropoffDetail>
+                            <ExtPointName>Airport Terminal</ExtPointName>
+                            <MinutesPrior>15</MinutesPrior>
+                            <Address>Airport Terminal 1, Darwin</Address>
+                            <ExtPointInfo>Drop at arrivals hall</ExtPointInfo>
+                        </ExtDropoffDetail>
+                    </ExtDropoffDetails>
+                    <CancelPolicies>
+                        <CancelPenalty>
+                            <PenaltyDescription>Cancellation 100% - within 24 hours or no notice</PenaltyDescription>
+                        </CancelPenalty>
+                        <CancelPenalty>
+                            <Deadline>
+                                <OffsetUnitMultiplier>2</OffsetUnitMultiplier>
+                                <OffsetTimeUnit>Day</OffsetTimeUnit>
+                            </Deadline>
+                            <PenaltyDescription>Day Tour Cancellation within 48hrs - 50%</PenaltyDescription>
+                        </CancelPenalty>
+                    </CancelPolicies>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>117200</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>117200</AgentPrice>
+                <RateId>$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-04-01</DateFrom>
+                        <DateTo>2025-04-01</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>48</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-30T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>104524</LinePrice>
+                        <AgentPrice>104524</AgentPrice>
+                        <PenaltyDescription>48 hours prior to arrival - 10% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>0</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-04-01T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>117200</LinePrice>
+                        <AgentPrice>117200</AgentPrice>
+                        <PenaltyDescription>No show or same day cancellation - 100% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Accessible Superior Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 B1INF KGBH DOUB BRKF</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Breakfast</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>123600</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>123600</AgentPrice>
+                <RateId>$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-04-01</DateFrom>
+                        <DateTo>2025-04-01</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>96</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-28T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>110340</LinePrice>
+                        <AgentPrice>110340</AgentPrice>
+                        <PenaltyDescription>96 hours prior to arrival - 10% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>48</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-03-30T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>61800</LinePrice>
+                        <AgentPrice>61800</AgentPrice>
+                        <PenaltyDescription>48 hours prior to arrival - 50% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>0</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-04-01T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>123600</LinePrice>
+                        <AgentPrice>123600</AgentPrice>
+                        <PenaltyDescription>No show or same day cancellation - 100% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000021</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Luxury Atrium View Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>C5 A1INF KGA DOUB RONL</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply> 

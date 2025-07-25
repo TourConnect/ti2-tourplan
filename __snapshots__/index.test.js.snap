@@ -3301,6 +3301,271 @@ Object {
 }
 `;
 
+exports[`search tests searchAvailabilityForItinerary - option cancel policies should handle cancel policies correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 109800,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 97876,
+          "cancelFee": 97876,
+          "cancelNum": 72,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-29T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "72 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 54900,
+          "cancelFee": 54900,
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-31T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "24 hours prior to arrival - 50% cancellation fee",
+        },
+        Object {
+          "agentPrice": 109800,
+          "cancelFee": 109800,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [
+        Object {
+          "Address": "Airport Terminal 1, Darwin",
+          "ExtPointInfo": "Drop at arrivals hall",
+          "ExtPointName": "Airport Terminal",
+          "MinutesPrior": 15,
+        },
+      ],
+      "externalRateText": "Superior Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [
+        Object {
+          "address": "7 Kitchener Dr, Darwin",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby",
+          "pointName": "Adina/Vibe Waterfront",
+        },
+        Object {
+          "address": "13 Shepherd St, Darwin (Front of Hotel)",
+          "minutesPrior": 30,
+          "pointInfo": "Additional pickup information",
+          "pointName": "Argus Hotel",
+        },
+      ],
+      "rateId": "$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL",
+      "startTimes": Array [
+        Object {
+          "startTime": "06:30",
+        },
+        Object {
+          "startTime": "07:30",
+        },
+        Object {
+          "startTime": "08:30",
+        },
+      ],
+      "totalPrice": 109800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 117200,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 104524,
+          "cancelFee": 104524,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 117200,
+          "cancelFee": 117200,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 117200,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 123600,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 110340,
+          "cancelFee": 110340,
+          "cancelNum": 96,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-28T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "96 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 61800,
+          "cancelFee": 61800,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 50% cancellation fee",
+        },
+        Object {
+          "agentPrice": 123600,
+          "cancelFee": 123600,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 123600,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests searchAvailabilityForItinerary - other & external pudo info should handle external pickup, dropoff, and start times correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "Experience the best of our city with this comprehensive tour that includes convenient pickup and dropoff services. This full-day adventure takes you to all the must-see attractions while providing comfortable transportation throughout your journey.",
+          "detailName": "FullDescription",
+        },
+        Object {
+          "detailDescription": "8 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Your tour begins with pickup from your designated location. You'll visit the historic downtown area, explore the cultural district, enjoy lunch at a local restaurant, and conclude with dropoff at your preferred location. The tour includes professional guide services and all entrance fees.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 115450,
+      "cancelHours": 24,
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": "",
+          "cancelFee": "",
+          "cancelNum": "",
+          "cancelTimeUnit": "",
+          "deadlineDateTime": "",
+          "inEffect": false,
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+        Object {
+          "agentPrice": "",
+          "cancelFee": "",
+          "cancelNum": 2,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "",
+          "inEffect": false,
+          "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
+        },
+        Object {
+          "agentPrice": "",
+          "cancelFee": "",
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "",
+          "inEffect": false,
+          "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "address": "Tourist Information Center, City Square",
+          "minutesPrior": 15,
+          "pointInfo": "Drop at main entrance",
+          "pointName": "Tourist Center",
+        },
+        Object {
+          "address": "456 Hotel Boulevard, Luxury District",
+          "minutesPrior": 10,
+          "pointInfo": "Drop at hotel entrance",
+          "pointName": "Hotel District",
+        },
+      ],
+      "externalRateText": "City Tour with Pickup and Dropoff (Full Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "address": "123 Main Street, Downtown",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby entrance",
+          "pointName": "Central Hotel",
+        },
+        Object {
+          "address": "Airport Terminal 1, International Arrivals",
+          "minutesPrior": 45,
+          "pointInfo": "Look for guide with company sign",
+          "pointName": "Airport Terminal",
+        },
+        Object {
+          "address": "Central Station, Platform 3",
+          "minutesPrior": 20,
+          "pointInfo": "Meet at information desk",
+          "pointName": "Train Station",
+        },
+      ],
+      "rateId": "$USDtest123456789,4,DOUB,EXT TEST RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "08:00",
+        },
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "10:00",
+        },
+        Object {
+          "startTime": "11:00",
+        },
+      ],
+      "totalPrice": 150000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
 exports[`search tests searchItineraries 1`] = `
 Object {
   "bookings": Array [

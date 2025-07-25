@@ -1,3 +1,4 @@
+/* eslint-disable max-len */
 const axiosRaw = require('axios');
 const Promise = require('bluebird');
 const R = require('ramda');
@@ -581,8 +582,8 @@ class BuyerPlugin {
         Password: hostConnectAgentPassword,
       },
     });
-    // const [SCheck, ACheck] = await Promise.map(['S', 'A'], async checkType => {
-    const [SCheck] = await Promise.map(['S'], async checkType => {
+    // Always use G (General) & S (Stay & Availability) check types
+    const [SCheck] = await Promise.map(['GS'], async checkType => {
       const replyObj = await this.callTourplan({
         model: getModel(checkType),
         endpoint: hostConnectEndpoint,
@@ -684,14 +685,220 @@ class BuyerPlugin {
       bookable: Boolean(SCheckPass),
       type: 'inventory',
       rates: OptStayResults.map(rate => {
+        const currency = R.pathOr('', ['Currency'], rate);
+        // NOTE: Check if the value is in cents or not
+        const totalPrice = R.pathOr('', ['TotalPrice'], rate);
+        const agentPrice = R.pathOr('', ['AgentPrice'], rate);
+        const totalPriceCurrencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+        // Cancellations within this number of hours of service date incur a cancellation
+        // penalty of some sort.
+        const cancelHours = R.pathOr('', ['CancelHours'], rate);
+        /* Sample data: for cancel policies for the option id (not the external rate)
+          <CancelPolicies>
+            <CancelPenalty>
+                <Deadline>
+                    <OffsetUnitMultiplier>168</OffsetUnitMultiplier>
+                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                    <DeadlineDateTime>2025-07-18T22:00:00Z</DeadlineDateTime>
+                </Deadline>
+                <InEffect>N</InEffect>
+                <LinePrice>1021200</LinePrice>
+                <AgentPrice>1021200</AgentPrice>
+            </CancelPenalty>
+            <CancelPenalty>
+                <Deadline>
+                    <OffsetUnitMultiplier>720</OffsetUnitMultiplier>
+                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                    <DeadlineDateTime>2025-06-25T22:00:00Z</DeadlineDateTime>
+                </Deadline>
+                <InEffect>Y</InEffect>
+                <LinePrice>204240</LinePrice>
+                <AgentPrice>204240</AgentPrice>
+            </CancelPenalty>
+          </CancelPolicies>
+        */
+        let cancelPolicies = (() => {
+          const policies = R.pathOr([], ['CancelPolicies', 'CancelPenalty'], rate);
+          console.log('policies: ', policies);
+          if (!Array.isArray(policies)) {
+            // If single item, convert to array
+            return policies ? [policies] : [];
+          }
+          const allCancelPolicies = policies.map(policy => ({
+            // The description of the penalty
+            penaltyDescription: R.pathOr('', ['PenaltyDescription'], policy),
+            // The absolute deadline, i.e. the final date and time of the deadline.
+            deadlineDateTime: R.pathOr('', ['Deadline', 'DeadlineDateTime'], policy),
+            // The number of OffsetTimeUnit in this relative deadline.
+            cancelNum: R.pathOr('', ['Deadline', 'OffsetUnitMultiplier'], policy),
+            // One of Second, Hour, Day, Week, Month or Year
+            cancelTimeUnit: R.pathOr('', ['Deadline', 'OffsetTimeUnit'], policy),
+            // Y if this penalty is the one used if a service line is cancelled now (N otherwise)
+            inEffect: R.pathOr('', ['InEffect'], policy) === 'Y',
+            // Amount of the cancellation penalty
+            cancelFee: R.pathOr('', ['LinePrice'], policy),
+            // Line price less commission.
+            agentPrice: R.pathOr('', ['AgentPrice'], policy),
+          }));
+          console.log('allCancelPolicies: ', allCancelPolicies);
+          // Return only the policies that are in effect
+          return allCancelPolicies.filter(policy => policy.inEffect === true);
+        })();
+        console.log('cancelPolicies: ', cancelPolicies);
+
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
         if (extRatePlanDescr && !externalRateText.includes(extRatePlanDescr)) {
           externalRateText = `${externalRateText} (${extRatePlanDescr})`;
         }
+
+        /* Sample data: For external start times
+          <ExternalRateDetails>
+            <ExtStartTimes>
+              <ExtStartTime>2026-04-01T06:30:00</ExtStartTime>
+              <ExtStartTime>2026-04-01T07:30:00</ExtStartTime>
+              ...
+            </ExtStartTimes>
+          </ExternalRateDetails>
+        */
+        // Extract external start times
+        const extStartTimes = (() => {
+          // Note: Tourplan expects the start time in HH:MM format, so convert before sending to UI
+          const startTimes = R.pathOr([], ['ExternalRateDetails', 'ExtStartTimes', 'ExtStartTime'], rate);
+          if (!Array.isArray(startTimes)) {
+            // If single item, convert to array
+            return startTimes ? [{ startTime: startTimes.split('T')[1].substring(0, 5) }] : [];
+          }
+          return startTimes.map(startTime => ({ startTime: startTime.split('T')[1].substring(0, 5) }));
+        })();
+
+        /* Sample data: For external pickup and dropoff details
+          Address & ExtPointInfo are optional
+
+          <ExternalRateDetails>
+            <ExtPickupDetails>
+              <ExtPickupDetail>
+                  <ExtPointName>Adina/Vibe Waterfront</ExtPointName>
+                  <MinutesPrior>30</MinutesPrior>
+                  <Address>7 Kitchener Dr, Darwin</Address>
+                  <ExtPointInfo>Additional Info.</ExtPointInfo>
+              </ExtPickupDetail>
+              <ExtPickupDetail>
+                  <ExtPointName>Argus Hotel</ExtPointName>
+                  <MinutesPrior>30</MinutesPrior>
+                  <Address>13 Shepherd St, Darwin (Front of Hotel)</Address>
+                  <ExtPointInfo>Additional Info.</ExtPointInfo>
+              </ExtPickupDetail>
+              ...
+            </ExtDropoffDetails>
+          </ExternalRateDetails>
+        */
+        const extPickupDetails = (() => {
+          const pickupDetails = R.pathOr([], ['ExternalRateDetails', 'ExtPickupDetails', 'ExtPickupDetail'], rate);
+          if (!Array.isArray(pickupDetails)) {
+            // If single item, convert to array
+            return pickupDetails ? [pickupDetails] : [];
+          }
+          return pickupDetails.map(detail => ({
+            pointName: R.pathOr('', ['ExtPointName'], detail),
+            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
+            address: R.pathOr('', ['Address'], detail),
+            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
+          }));
+        })();
+
+        const extDropoffDetails = (() => {
+          const dropoffDetails = R.pathOr([], ['ExternalRateDetails', 'ExtDropoffDetails', 'ExtDropoffDetail'], rate);
+          if (!Array.isArray(dropoffDetails)) {
+            // If single item, convert to array
+            return dropoffDetails ? [dropoffDetails] : [];
+          }
+          return dropoffDetails.map(detail => ({
+            pointName: R.pathOr('', ['ExtPointName'], detail),
+            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
+            address: R.pathOr('', ['Address'], detail),
+            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
+          }));
+        })();
+
+        /* Sample data: for cancel policies for the external rate
+          <ExternalRateDetails>
+            <CancelPolicies>
+                <CancelPenalty>
+                    <PenaltyDescription>Cancellation 100% - within 24 hours or no notice</PenaltyDescription>
+                </CancelPenalty>
+                <CancelPenalty>
+                    <Deadline>
+                        <OffsetUnitMultiplier>2</OffsetUnitMultiplier>
+                        <OffsetTimeUnit>Day</OffsetTimeUnit>
+                    </Deadline>
+                    <PenaltyDescription>Day Tour Cancellation within 48hrs - 50%</PenaltyDescription>
+                </CancelPenalty>
+                <CancelPenalty>
+                    <PenaltyDescription>Day Tour Cancellation within 24hrs - 100%</PenaltyDescription>
+                </CancelPenalty>
+            </CancelPolicies>
+          </ExternalRateDetails>
+        */
+        if (cancelPolicies.length === 0) {
+          // If no cancel policies for the option, check the external rate
+          cancelPolicies = (() => {
+            const policies = R.pathOr([], ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], rate);
+            if (!Array.isArray(policies)) {
+              // If single item, convert to array
+              return policies ? [policies] : [];
+            }
+            return policies.map(policy => ({
+              // The description of the penalty
+              penaltyDescription: R.pathOr('', ['PenaltyDescription'], policy),
+              // The absolute deadline, i.e. the final date and time of the deadline.
+              deadlineDateTime: R.pathOr('', ['Deadline', 'DeadlineDateTime'], policy),
+              // The number of OffsetTimeUnit in this relative deadline.
+              cancelNum: R.pathOr('', ['Deadline', 'OffsetUnitMultiplier'], policy),
+              // One of Second, Hour, Day, Week, Month or Year
+              cancelTimeUnit: R.pathOr('', ['Deadline', 'OffsetTimeUnit'], policy),
+              // Y if this penalty is the one used if a service line is cancelled now
+              inEffect: R.pathOr('', ['InEffect'], policy) === 'Y',
+              // Amount of the cancellation penalty
+              cancelFee: R.pathOr('', ['LinePrice'], policy),
+              // Line price less commission.
+              agentPrice: R.pathOr('', ['AgentPrice'], policy),
+            }));
+          })();
+        }
+        /* Sample data: For additional details
+          <AdditionalDetails>
+            <AdditionalDetail>
+                <DetailName>Keywords</DetailName>
+                <DetailDescription>1|king|bed|classic|non|smoking</DetailDescription>
+            </AdditionalDetail>
+          </AdditionalDetails>
+        */
+        const additionalDetails = (() => {
+          const addDetails = R.pathOr([], ['ExternalRateDetails', 'AdditionalDetails', 'AdditionalDetail'], rate);
+          if (!Array.isArray(addDetails)) {
+            // If single item, convert to array
+            return addDetails ? [addDetails] : [];
+          }
+          return addDetails.map(detail => ({
+            detailName: R.pathOr('', ['DetailName'], detail),
+            detailDescription: R.pathOr('', ['DetailDescription'], detail),
+          }));
+        })();
+
         return {
           rateId: R.path(['RateId'], rate),
+          currency,
+          totalPrice,
+          agentPrice,
+          totalPriceCurrencyPrecision,
+          cancelHours,
           externalRateText,
+          cancelPolicies,
+          startTimes: extStartTimes,
+          puInfoList: extPickupDetails.length ? extPickupDetails : [],
+          doInfoList: extDropoffDetails.length ? extDropoffDetails : [],
+          additionalDetails,
         };
       }),
     };
@@ -724,6 +931,7 @@ class BuyerPlugin {
       */
       chargeUnitQuantity,
       extras,
+      startTime,
       puInfo,
       doInfo,
       notes,
@@ -742,6 +950,48 @@ class BuyerPlugin {
         }
         return acc;
       }, {});
+
+    // if external pickup and dropoff details are provided, use that info
+    // 1. If start time is provided send it in puTime
+    // 2. if extenral details are provided, send them in puRemark in the format:
+    //    (ExtPointName, ExtPointInfo, Address, Minutes prior)
+    // 3. the following shoud be sent:
+    //    puTime: '0930'
+    //    puRemark: 'Airport Pickup,Meet at arrivals hall,Airport Terminal 1,45,'
+    //    doTime: '1130' (Note: this is not used for external dropoff details)
+    //    doRemark: 'Hotel Dropoff,Drop at hotel entrance,456 Downtown Ave, City Center,15,',
+    let puTime = null;
+    let puRemark = null;
+    if (puInfo) {
+      if (puInfo.time || puInfo.location || puInfo.flightDetails) {
+        if (puInfo.time && puInfo.time.replace(/\D/g, '')) {
+          puTime = puInfo.time.replace(/\D/g, '');
+        }
+        puRemark = this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
+          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}`);
+      } else if (puInfo.address || puInfo.pointName || puInfo.pointInfo || puInfo.minutesPrior) {
+        if (startTime) {
+          puTime = startTime.replace(/\D/g, '');
+        }
+        puRemark = this.escapeInvalidXmlChars(`${puInfo.pointName ? `${puInfo.pointName},` : ''}${puInfo.pointInfo ? `${puInfo.pointInfo},` : ''}${puInfo.address ? `${puInfo.address},` : ''}${puInfo.minutesPrior ? `${puInfo.minutesPrior},` : ''}`);
+      }
+    }
+
+    let doTime = null;
+    let doRemark = null;
+    if (doInfo) {
+      if (doInfo.time || doInfo.location || doInfo.flightDetails) {
+        if (doInfo.time && doInfo.time.replace(/\D/g, '')) {
+          doTime = doInfo.time.replace(/\D/g, '');
+        }
+        doRemark = this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
+          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}`);
+      } else if (doInfo.address || doInfo.pointName || doInfo.pointInfo || doInfo.minutesPrior) {
+        // Note: There is no doTime for external dropoff details
+        doRemark = this.escapeInvalidXmlChars(`${doInfo.pointName ? `${doInfo.pointName},` : ''}${doInfo.pointInfo ? `${doInfo.pointInfo},` : ''}${doInfo.address ? `${doInfo.address},` : ''}${doInfo.minutesPrior ? `${doInfo.minutesPrior},` : ''}`);
+      }
+    }
+
     const model = {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
@@ -755,31 +1005,10 @@ class BuyerPlugin {
             ...(directHeaderPayload || {}),
           },
         }),
-        ...(puInfo && (puInfo.time || puInfo.location || puInfo.flightDetails) ? {
-          ...(puInfo.time && puInfo.time.replace(/\D/g, '') ? {
-            puTime: puInfo.time.replace(/\D/g, ''),
-          } : {}),
-          puRemark: this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
-          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}
-          `),
-        } : {}),
-        ...(doInfo && (doInfo.time || doInfo.location || doInfo.flightDetails) ? {
-          // only get numbers from doInfo.time
-          ...(doInfo.time && doInfo.time.replace(/\D/g, '') ? {
-            doTime: doInfo.time.replace(/\D/g, ''),
-          } : {}),
-          doRemark: this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
-          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}
-          `),
-        } : {}),
-        ...(extras && extras.filter(e => e.selectedExtra && e.selectedExtra.id).length ? {
-          ExtraQuantities: {
-            ExtraQuantityItem: extras.filter(e => e.selectedExtra && e.selectedExtra.id).map(e => ({
-              SequenceNumber: e.selectedExtra.id,
-              ExtraQuantity: e.quantity,
-            })),
-          },
-        } : {}),
+        ...(puTime ? { puTime } : {}),
+        ...(puRemark ? { puRemark } : {}),
+        ...(doTime ? { doTime } : {}),
+        ...(doRemark ? { doRemark } : {}),
         Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
         Opt: optionId,
         DateFrom: startDate,
