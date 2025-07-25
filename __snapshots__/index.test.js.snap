@@ -609,6 +609,209 @@ Object {
 }
 `;
 
+exports[`search tests availability tests should handle multiple cancel policies under external rates correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "Experience the best of our city with this comprehensive full-day tour. Includes professional guide, transportation, and all entrance fees.",
+          "detailName": "FullDescription",
+        },
+        Object {
+          "detailDescription": "8 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Your tour begins with pickup from your hotel or designated location. Visit major landmarks, enjoy lunch at a local restaurant, and end with convenient drop-off.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 115450,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "cancelFee": 0,
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
+        },
+        Object {
+          "cancelFee": 75000,
+          "cancelNum": 2,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
+        },
+        Object {
+          "cancelFee": 150000,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "address": "Tourist Information Center, City Square",
+          "minutesPrior": 15,
+          "pointInfo": "Drop at main entrance",
+          "pointName": "Tourist Center",
+        },
+        Object {
+          "address": "456 Hotel Boulevard, Luxury District",
+          "minutesPrior": 10,
+          "pointInfo": "Drop at hotel entrance",
+          "pointName": "Hotel District",
+        },
+      ],
+      "externalRateText": "City Tour with Pickup and Dropoff (Full Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "address": "123 Main Street, Downtown",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby entrance",
+          "pointName": "Central Hotel",
+        },
+        Object {
+          "address": "Airport Terminal 1, International Arrivals",
+          "minutesPrior": 45,
+          "pointInfo": "Look for guide with company sign",
+          "pointName": "Airport Terminal",
+        },
+        Object {
+          "address": "Central Station, Platform 3",
+          "minutesPrior": 20,
+          "pointInfo": "Meet at information desk",
+          "pointName": "Train Station",
+        },
+      ],
+      "rateId": "$USDtest123456789,4,DOUB,EXT TEST RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "08:00",
+        },
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "10:00",
+        },
+        Object {
+          "startTime": "11:00",
+        },
+      ],
+      "totalPrice": 150000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle single cancel policy correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 109800,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 109800,
+          "cancelFee": 27450,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 25% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Standard Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZD9704dbc4eaf60701,4,DOUB,SINGLE CANCEL POLICY TEST",
+      "startTimes": Array [
+        Object {
+          "startTime": "06:00",
+        },
+        Object {
+          "startTime": "07:00",
+        },
+        Object {
+          "startTime": "08:00",
+        },
+      ],
+      "totalPrice": 109800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle single cancel policy under external rates correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "4 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Visit major city landmarks and historical sites with professional guide.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 100000,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "cancelFee": 120000,
+          "cancelNum": 20,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "Address": "Central Plaza, Downtown",
+          "ExtPointInfo": "Drop at main square",
+          "ExtPointName": "City Center",
+          "MinutesPrior": 5,
+        },
+      ],
+      "externalRateText": "Half Day City Tour (Half Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "Address": "100 Downtown Ave, City Center",
+          "ExtPointInfo": "Meet at hotel entrance",
+          "ExtPointName": "Downtown Hotel",
+          "MinutesPrior": 15,
+        },
+      ],
+      "rateId": "$USDsingletest789,4,DOUB,SINGLE EXT RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "14:00",
+        },
+      ],
+      "totalPrice": 120000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
 exports[`search tests read allotment not empty 1`] = `
 Object {
   "allotment": Array [

@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TESTSINGLEEXTERNALCANCEL</Opt>
+            <OptionNumber>46054</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>USD</Currency>
+                <TotalPrice>120000</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>100000</AgentPrice>
+                <RateId>$USDsingletest789,4,DOUB,SINGLE EXT RATE</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-04-01</DateFrom>
+                        <DateTo>2025-04-01</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <ExternalRateDetails>
+                    <ExtSupplierId>US000023</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Half Day City Tour</ExtOptionDescr>
+                    <ExtRatePlanCode>SINGLE EXT RATE</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Half Day Tour</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                    <ExtStartTimes>
+                        <ExtStartTime>2025-04-01T09:00:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T14:00:00</ExtStartTime>
+                    </ExtStartTimes>
+                    <ExtPickupDetails>
+                        <ExtPickupDetail>
+                            <ExtPointName>Downtown Hotel</ExtPointName>
+                            <MinutesPrior>15</MinutesPrior>
+                            <Address>100 Downtown Ave, City Center</Address>
+                            <ExtPointInfo>Meet at hotel entrance</ExtPointInfo>
+                        </ExtPickupDetail>
+                    </ExtPickupDetails>
+                    <ExtDropoffDetails>
+                        <ExtDropoffDetail>
+                            <ExtPointName>City Center</ExtPointName>
+                            <MinutesPrior>5</MinutesPrior>
+                            <Address>Central Plaza, Downtown</Address>
+                            <ExtPointInfo>Drop at main square</ExtPointInfo>
+                        </ExtDropoffDetail>
+                    </ExtDropoffDetails>
+                    <CancelPolicies>
+                        <CancelPenalty>
+                            <PenaltyDescription>No refund for cancellations within 2 hours of tour start</PenaltyDescription>
+                            <Deadline>
+                                <OffsetUnitMultiplier>20</OffsetUnitMultiplier>
+                                <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            </Deadline>
+                            <LinePrice>120000</LinePrice>
+                        </CancelPenalty>
+                    </CancelPolicies>
+                    <AdditionalDetails>
+                        <AdditionalDetail>
+                            <DetailName>TourDuration</DetailName>
+                            <DetailDescription>4 hours</DetailDescription>
+                        </AdditionalDetail>
+                        <AdditionalDetail>
+                            <DetailName>Itinerary</DetailName>
+                            <DetailDescription>Visit major city landmarks and historical sites with professional guide.</DetailDescription>
+                        </AdditionalDetail>
+                    </AdditionalDetails>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply> 

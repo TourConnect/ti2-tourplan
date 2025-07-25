@@ -718,10 +718,12 @@ class BuyerPlugin {
           </CancelPolicies>
         */
         let cancelPolicies = (() => {
-          const policies = R.pathOr([], ['CancelPolicies', 'CancelPenalty'], rate);
-          if (!Array.isArray(policies)) {
-            // If single item, convert to array
-            return policies ? [policies] : [];
+          const rawPolicies = R.pathOr([], ['CancelPolicies', 'CancelPenalty'], rate);
+          let policies = [];
+          if (!Array.isArray(rawPolicies)) {
+            policies = [rawPolicies]; // If single item, convert to array
+          } else {
+            policies = rawPolicies;
           }
           const allCancelPolicies = policies.map(policy => ({
             // The description of the penalty
@@ -840,26 +842,22 @@ class BuyerPlugin {
         if (cancelPolicies.length === 0) {
           // If no cancel policies for the option, check the external rate
           cancelPolicies = (() => {
-            const policies = R.pathOr([], ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], rate);
-            if (!Array.isArray(policies)) {
-              // If single item, convert to array
-              return policies ? [policies] : [];
+            const rawPolicies = R.pathOr([], ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], rate);
+            let policies = [];
+            if (!Array.isArray(rawPolicies)) {
+              policies = [rawPolicies]; // If single item, convert to array
+            } else {
+              policies = rawPolicies;
             }
             return policies.map(policy => ({
               // The description of the penalty
               penaltyDescription: R.pathOr('', ['PenaltyDescription'], policy),
-              // The absolute deadline, i.e. the final date and time of the deadline.
-              deadlineDateTime: R.pathOr('', ['Deadline', 'DeadlineDateTime'], policy),
               // The number of OffsetTimeUnit in this relative deadline.
               cancelNum: R.pathOr('', ['Deadline', 'OffsetUnitMultiplier'], policy),
               // One of Second, Hour, Day, Week, Month or Year
               cancelTimeUnit: R.pathOr('', ['Deadline', 'OffsetTimeUnit'], policy),
-              // Y if this penalty is the one used if a service line is cancelled now
-              inEffect: R.pathOr('', ['InEffect'], policy) === 'Y',
               // Amount of the cancellation penalty
               cancelFee: R.pathOr('', ['LinePrice'], policy),
-              // Line price less commission.
-              agentPrice: R.pathOr('', ['AgentPrice'], policy),
             }));
           })();
         }
