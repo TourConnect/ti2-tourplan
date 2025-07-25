@@ -207,70 +207,71 @@ describe('search tests', () => {
     });
     expect(retVal).toMatchSnapshot();
   });
-  it('searchAvailabilityForItinerary - not bookable', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'LONTRDAVIDSHDWBVC',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 2 }],
-      },
+  describe('availability tests', () => {
+    it('searchAvailabilityForItinerary - not bookable', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'LONTRDAVIDSHDWBVC',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal.bookable).toBeFalsy();
+      expect(retVal.rates.length).toBe(0);
     });
-    expect(retVal.bookable).toBeFalsy();
-    expect(retVal.rates.length).toBe(0);
-  });
-  it('searchAvailabilityForItinerary - bookable - static with inventory', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'AKLACAKLSOFDYNAMC',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 1 }],
-      },
+    it('searchAvailabilityForItinerary - bookable - static with inventory', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'AKLACAKLSOFDYNAMC',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+      expect(retVal.type).toBe('inventory');
     });
-    expect(retVal).toMatchSnapshot();
-    expect(retVal.bookable).toBeTruthy();
-    expect(retVal.rates.length).toBeGreaterThan(0);
-    expect(retVal.type).toBe('inventory');
-  });
-  // Skip this test because we aren't using A check anymore
-  it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'FWMACINVCASFBSB',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 1 }],
-      },
+    // Skip this test because we aren't using A check anymore
+    it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'FWMACINVCASFBSB',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.type).toBe('on request');
     });
-    expect(retVal).toMatchSnapshot();
-    expect(retVal.bookable).toBeTruthy();
-    expect(retVal.type).toBe('on request');
-  });
-  it('searchItineraries', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchItineraries({
-      axios,
-      token,
-      typeDefsAndQueries,
-      payload: {
-        bookingId: '316559',
-      },
+    it('searchItineraries', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingId: '316559',
+        },
+      });
+      expect(retVal).toMatchSnapshot();
     });
-    expect(retVal).toMatchSnapshot();
-  });
-
-  // New test cases for enhanced functionality
-  describe('searchAvailabilityForItinerary - option cancel policies', () => {
+    // Test case to check cancel policies at option level (top level). 
+    // There are cancellation policies under external rate details too, those
+    // are tested in the external pudo info test case.
     it('should handle cancel policies correctly', async () => {
       axios.mockImplementation(getFixture);
       const retVal = await app.searchAvailabilityForItinerary({
@@ -352,9 +353,8 @@ describe('search tests', () => {
         expect(policy.agentPrice).toBe(109800);
       }
     });
-  });
-
-  describe('searchAvailabilityForItinerary - other & external pudo info', () => {
+    // Test case to check additional info like total price, currency, agent price,
+    // start times, etc. Also, external rates - pickup, dropoff, cancel policies etc.
     it('should handle external pickup, dropoff, and start times correctly', async () => {
       axios.mockImplementation(getFixture);
       const retVal = await app.searchAvailabilityForItinerary({

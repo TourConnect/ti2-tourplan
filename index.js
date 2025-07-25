@@ -565,7 +565,7 @@ class BuyerPlugin {
   }) {
     /*
     Need to S check and A check separately
-    because if A check is onRuest, AS will still result in empty response
+    because if A check is onRequest, AS will still result in empty response
     */
     const getModel = checkType => ({
       OptionInfoRequest: {
@@ -583,7 +583,7 @@ class BuyerPlugin {
       },
     });
     // Always use G (General) & S (Stay & Availability) check types
-    const [SCheck] = await Promise.map(['GS'], async checkType => {
+    const [GSCheck] = await Promise.map(['GS'], async checkType => {
       const replyObj = await this.callTourplan({
         model: getModel(checkType),
         endpoint: hostConnectEndpoint,
@@ -635,7 +635,6 @@ class BuyerPlugin {
         }
       }
     */
-    const SCheckPass = Boolean(SCheck);
     // const ACheckPass = (() => {
     //   /*
     //     FROM TP DOCS:
@@ -679,8 +678,9 @@ class BuyerPlugin {
     //     available: false,
     //   };
     // })();
-    let OptStayResults = R.pathOr([], ['OptStayResults'], SCheck);
+    let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
     if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
+    const SCheckPass = Boolean(OptStayResults.length);
     return {
       bookable: Boolean(SCheckPass),
       type: 'inventory',
