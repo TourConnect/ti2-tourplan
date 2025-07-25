@@ -719,7 +719,6 @@ class BuyerPlugin {
         */
         let cancelPolicies = (() => {
           const policies = R.pathOr([], ['CancelPolicies', 'CancelPenalty'], rate);
-          console.log('policies: ', policies);
           if (!Array.isArray(policies)) {
             // If single item, convert to array
             return policies ? [policies] : [];
@@ -740,11 +739,9 @@ class BuyerPlugin {
             // Line price less commission.
             agentPrice: R.pathOr('', ['AgentPrice'], policy),
           }));
-          console.log('allCancelPolicies: ', allCancelPolicies);
           // Return only the policies that are in effect
           return allCancelPolicies.filter(policy => policy.inEffect === true);
         })();
-        console.log('cancelPolicies: ', cancelPolicies);
 
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
