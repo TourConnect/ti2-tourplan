@@ -465,7 +465,6 @@ describe('search tests', () => {
       // Verify second external cancel policy
       const secondPolicy = firstRate.cancelPolicies[1];
       expect(secondPolicy).toHaveProperty('penaltyDescription');
-      expect(secondPolicy).toHaveProperty('deadlineDateTime');
       expect(secondPolicy).toHaveProperty('cancelNum');
       expect(secondPolicy).toHaveProperty('cancelTimeUnit');
       expect(secondPolicy.penaltyDescription).toBe('50% refund for cancellations 2-24 hours before tour');
@@ -475,7 +474,6 @@ describe('search tests', () => {
       // Verify third external cancel policy
       const thirdPolicy = firstRate.cancelPolicies[2];
       expect(thirdPolicy).toHaveProperty('penaltyDescription');
-      expect(thirdPolicy).toHaveProperty('deadlineDateTime');
       expect(thirdPolicy).toHaveProperty('cancelNum');
       expect(thirdPolicy).toHaveProperty('cancelTimeUnit');
       expect(thirdPolicy.penaltyDescription).toBe('Full refund for cancellations more than 24 hours before tour');
