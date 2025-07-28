@@ -402,19 +402,14 @@ Object {
       "cancelHours": 24,
       "cancelPolicies": Array [
         Object {
-          "cancelFee": "",
-          "cancelNum": "",
-          "cancelTimeUnit": "",
           "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
         },
         Object {
-          "cancelFee": "",
           "cancelNum": 2,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
         },
         Object {
-          "cancelFee": "",
           "cancelNum": 24,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
@@ -502,19 +497,16 @@ Object {
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
-          "cancelFee": 0,
           "cancelNum": 24,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
         },
         Object {
-          "cancelFee": 75000,
           "cancelNum": 2,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
         },
         Object {
-          "cancelFee": 150000,
           "cancelNum": 0,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
@@ -641,7 +633,6 @@ Object {
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
-          "cancelFee": 120000,
           "cancelNum": 20,
           "cancelTimeUnit": "Hour",
           "penaltyDescription": "No refund for cancellations within 2 hours of tour start",

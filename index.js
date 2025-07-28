@@ -272,6 +272,40 @@ class BuyerPlugin {
         .replace(BAD_XML_CHARS, '');
     };
 
+    this.extractCancelPolicies = (rate, path, isOptionCancelPolicy) => {
+      const rawPolicies = R.pathOr([], path, rate);
+      let policies = [];
+      if (!Array.isArray(rawPolicies)) {
+        policies = [rawPolicies]; // If single item, convert to array
+      } else {
+        policies = rawPolicies;
+      }
+      return policies.map(policy => {
+        const mappedPolicy = {
+          // The description of the penalty (optional)
+          penaltyDescription: R.path(['PenaltyDescription'], policy),
+          // The number of OffsetTimeUnit in this relative deadline
+          cancelNum: R.path(['Deadline', 'OffsetUnitMultiplier'], policy),
+          // One of Second, Hour, Day, Week, Month or Year
+          cancelTimeUnit: R.path(['Deadline', 'OffsetTimeUnit'], policy),
+        };
+
+        if (isOptionCancelPolicy) {
+          // The absolute deadline, i.e. the final date and time of the deadline. (optional)
+          mappedPolicy.deadlineDateTime = R.path(['Deadline', 'DeadlineDateTime'], policy);
+          // Y if this penalty is the one used if a service line is cancelled now (N otherwise)
+          mappedPolicy.inEffect = R.path(['InEffect'], policy) && R.path(['InEffect'], policy) === 'Y';
+          // Amount of the cancellation penalty
+          mappedPolicy.cancelFee = R.path(['LinePrice'], policy);
+          // Line price less commission.
+          mappedPolicy.agentPrice = R.path(['AgentPrice'], policy);
+        }
+        return Object.fromEntries(
+          Object.entries(mappedPolicy).filter(([_, value]) => value !== undefined),
+        );
+      });
+    };
+
     this.cacheSettings = {
       bookingsProductSearch: {
         // ttl: 60 * 60 * 24, // 1 day
@@ -717,33 +751,8 @@ class BuyerPlugin {
             </CancelPenalty>
           </CancelPolicies>
         */
-        let cancelPolicies = (() => {
-          const rawPolicies = R.pathOr([], ['CancelPolicies', 'CancelPenalty'], rate);
-          let policies = [];
-          if (!Array.isArray(rawPolicies)) {
-            policies = [rawPolicies]; // If single item, convert to array
-          } else {
-            policies = rawPolicies;
-          }
-          const allCancelPolicies = policies.map(policy => ({
-            // The description of the penalty
-            penaltyDescription: R.pathOr('', ['PenaltyDescription'], policy),
-            // The absolute deadline, i.e. the final date and time of the deadline.
-            deadlineDateTime: R.pathOr('', ['Deadline', 'DeadlineDateTime'], policy),
-            // The number of OffsetTimeUnit in this relative deadline.
-            cancelNum: R.pathOr('', ['Deadline', 'OffsetUnitMultiplier'], policy),
-            // One of Second, Hour, Day, Week, Month or Year
-            cancelTimeUnit: R.pathOr('', ['Deadline', 'OffsetTimeUnit'], policy),
-            // Y if this penalty is the one used if a service line is cancelled now (N otherwise)
-            inEffect: R.pathOr('', ['InEffect'], policy) === 'Y',
-            // Amount of the cancellation penalty
-            cancelFee: R.pathOr('', ['LinePrice'], policy),
-            // Line price less commission.
-            agentPrice: R.pathOr('', ['AgentPrice'], policy),
-          }));
-          // Return only the policies that are in effect
-          return allCancelPolicies.filter(policy => policy.inEffect === true);
-        })();
+        let cancelPolicies = this.extractCancelPolicies(rate, ['CancelPolicies', 'CancelPenalty'], true)
+          .filter(policy => policy.inEffect === true);
 
         let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
         const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
@@ -841,25 +850,7 @@ class BuyerPlugin {
         */
         if (cancelPolicies.length === 0) {
           // If no cancel policies for the option, check the external rate
-          cancelPolicies = (() => {
-            const rawPolicies = R.pathOr([], ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], rate);
-            let policies = [];
-            if (!Array.isArray(rawPolicies)) {
-              policies = [rawPolicies]; // If single item, convert to array
-            } else {
-              policies = rawPolicies;
-            }
-            return policies.map(policy => ({
-              // The description of the penalty
-              penaltyDescription: R.pathOr('', ['PenaltyDescription'], policy),
-              // The number of OffsetTimeUnit in this relative deadline.
-              cancelNum: R.pathOr('', ['Deadline', 'OffsetUnitMultiplier'], policy),
-              // One of Second, Hour, Day, Week, Month or Year
-              cancelTimeUnit: R.pathOr('', ['Deadline', 'OffsetTimeUnit'], policy),
-              // Amount of the cancellation penalty
-              cancelFee: R.pathOr('', ['LinePrice'], policy),
-            }));
-          })();
+          cancelPolicies = this.extractCancelPolicies(rate, ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], false);
         }
         /* Sample data: For additional details
           <AdditionalDetails>

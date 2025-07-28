@@ -614,11 +614,9 @@ describe('search tests', () => {
         expect(policy).toHaveProperty('penaltyDescription');
         expect(policy).toHaveProperty('cancelNum');
         expect(policy).toHaveProperty('cancelTimeUnit');
-        expect(policy).toHaveProperty('cancelFee');
         expect(typeof policy.penaltyDescription).toBe('string');
         expect(typeof policy.cancelNum).toBe('number');
         expect(typeof policy.cancelTimeUnit).toBe('string');
-        expect(typeof policy.cancelFee).toBe('number');
       });
 
       // Test specific external cancel policies if they exist
@@ -641,11 +639,6 @@ describe('search tests', () => {
         expect(lastPolicy.cancelNum).toBe(0);
         expect(lastPolicy.cancelTimeUnit).toBe('Hour');
       }
-
-      // Test that all cancel fees are reasonable (not negative)
-      firstRate.cancelPolicies.forEach(policy => {
-        expect(parseFloat(policy.cancelFee)).toBeGreaterThanOrEqual(0);
-      });
     });
 
     // Test case for single cancel policy under external rates
@@ -677,19 +670,14 @@ describe('search tests', () => {
       expect(singlePolicy).toHaveProperty('penaltyDescription');
       expect(singlePolicy).toHaveProperty('cancelNum');
       expect(singlePolicy).toHaveProperty('cancelTimeUnit');
-      expect(singlePolicy).toHaveProperty('cancelFee');
       expect(typeof singlePolicy.penaltyDescription).toBe('string');
       expect(typeof singlePolicy.cancelNum).toBe('number');
       expect(typeof singlePolicy.cancelTimeUnit).toBe('string');
-      expect(typeof singlePolicy.cancelFee).toBe('number');
 
       // Test specific single external cancel policy
       expect(singlePolicy.penaltyDescription).toContain('No refund for cancellations within 2 hours of tour start');
       expect(singlePolicy.cancelNum).toBe(20);
       expect(singlePolicy.cancelTimeUnit).toBe('Hour');
-
-      // Test that cancel fee is reasonable (not negative)
-      expect(parseFloat(singlePolicy.cancelFee)).toBeGreaterThanOrEqual(0);
     });
   });
 });
