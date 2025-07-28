@@ -4,11 +4,11 @@ const axios = require('axios');
 const path = require('path');
 const xml2js = require('xml2js');
 const R = require('ramda');
+const hash = require('object-hash');
 const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
 const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
 
 const xmlParser = new xml2js.Parser();
-const hash = require('object-hash');
 
 const Plugin = require('./index');
 
@@ -207,65 +207,477 @@ describe('search tests', () => {
     });
     expect(retVal).toMatchSnapshot();
   });
-  it('searchAvailabilityForItinerary - not bookable', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'LONTRDAVIDSHDWBVC',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 2 }],
-      },
+
+  describe('availability tests', () => {
+    it('searchAvailabilityForItinerary - not bookable', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'LONTRDAVIDSHDWBVC',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal.bookable).toBeFalsy();
+      expect(retVal.rates.length).toBe(0);
     });
-    expect(retVal.bookable).toBeFalsy();
-    expect(retVal.rates.length).toBe(0);
-  });
-  it('searchAvailabilityForItinerary - bookable - static with inventory', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'AKLACAKLSOFDYNAMC',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 1 }],
-      },
+
+    it('searchAvailabilityForItinerary - bookable - static with inventory', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'AKLACAKLSOFDYNAMC',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+      expect(retVal.type).toBe('inventory');
     });
-    expect(retVal).toMatchSnapshot();
-    expect(retVal.bookable).toBeTruthy();
-    expect(retVal.rates.length).toBeGreaterThan(0);
-    expect(retVal.type).toBe('inventory');
-  });
-  // Skip this test because we aren't using A check anymore
-  it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchAvailabilityForItinerary({
-      axios,
-      token,
-      payload: {
-        optionId: 'FWMACINVCASFBSB',
-        startDate: '2025-04-01',
-        chargeUnitQuantity: 1,
-        paxConfigs: [{ roomType: 'DB', adults: 1 }],
-      },
+
+    // Skip this test because we aren't using A check anymore
+    it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'FWMACINVCASFBSB',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.type).toBe('on request');
     });
-    expect(retVal).toMatchSnapshot();
-    expect(retVal.bookable).toBeTruthy();
-    expect(retVal.type).toBe('on request');
-  });
-  it('searchItineraries', async () => {
-    axios.mockImplementation(getFixture);
-    const retVal = await app.searchItineraries({
-      axios,
-      token,
-      typeDefsAndQueries,
-      payload: {
-        bookingId: '316559',
-      },
+
+    it('searchItineraries', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingId: '316559',
+        },
+      });
+      expect(retVal).toMatchSnapshot();
     });
-    expect(retVal).toMatchSnapshot();
+
+    // Test case to check cancel policies at option level (top level).
+    // There are cancellation policies under external rate details too, those
+    // are tested in the external pudo info test case.
+    it('should handle cancel policies correctly', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTTOPLEVELCANCELPOLICIES',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+
+      const firstRate = retVal.rates[0];
+      // Test cancel policies from external rate details
+      expect(firstRate).toHaveProperty('cancelPolicies');
+      expect(Array.isArray(firstRate.cancelPolicies)).toBeTruthy();
+      expect(firstRate.cancelPolicies.length).toBe(3);
+
+      // Test cancel policies structure
+      if (firstRate.cancelPolicies && firstRate.cancelPolicies.length > 0) {
+        const policy = firstRate.cancelPolicies[0];
+        expect(policy).toHaveProperty('penaltyDescription');
+        expect(policy).toHaveProperty('deadlineDateTime');
+        expect(policy).toHaveProperty('cancelNum');
+        expect(policy).toHaveProperty('cancelTimeUnit');
+        expect(policy).toHaveProperty('inEffect');
+        expect(policy).toHaveProperty('cancelFee');
+        expect(policy).toHaveProperty('agentPrice');
+
+        // Verify cancel policy details
+        expect(policy.penaltyDescription).toBe('72 hours prior to arrival - 10% cancellation fee');
+        expect(policy.deadlineDateTime).toBe('2025-03-29T11:00:00Z');
+        expect(policy.cancelNum).toBe(72);
+        expect(policy.cancelTimeUnit).toBe('Hour');
+        expect(policy.inEffect).toBe(true);
+        expect(policy.cancelFee).toBe(97876);
+        expect(policy.agentPrice).toBe(97876);
+      }
+      if (firstRate.cancelPolicies && firstRate.cancelPolicies.length > 0) {
+        const policy = firstRate.cancelPolicies[1];
+        expect(policy).toHaveProperty('penaltyDescription');
+        expect(policy).toHaveProperty('deadlineDateTime');
+        expect(policy).toHaveProperty('cancelNum');
+        expect(policy).toHaveProperty('cancelTimeUnit');
+        expect(policy).toHaveProperty('inEffect');
+        expect(policy).toHaveProperty('cancelFee');
+        expect(policy).toHaveProperty('agentPrice');
+
+        // Verify cancel policy details
+        expect(policy.penaltyDescription).toBe('24 hours prior to arrival - 50% cancellation fee');
+        expect(policy.deadlineDateTime).toBe('2025-03-31T11:00:00Z');
+        expect(policy.cancelNum).toBe(24);
+        expect(policy.cancelTimeUnit).toBe('Hour');
+        expect(policy.inEffect).toBe(true);
+        expect(policy.cancelFee).toBe(54900);
+        expect(policy.agentPrice).toBe(54900);
+      }
+      if (firstRate.cancelPolicies && firstRate.cancelPolicies.length > 0) {
+        const policy = firstRate.cancelPolicies[2];
+        expect(policy).toHaveProperty('penaltyDescription');
+        expect(policy).toHaveProperty('deadlineDateTime');
+        expect(policy).toHaveProperty('cancelNum');
+        expect(policy).toHaveProperty('cancelTimeUnit');
+        expect(policy).toHaveProperty('inEffect');
+        expect(policy).toHaveProperty('cancelFee');
+        expect(policy).toHaveProperty('agentPrice');
+
+        // Verify cancel policy details
+        expect(policy.penaltyDescription).toBe('No show or same day cancellation - 100% cancellation fee');
+        expect(policy.deadlineDateTime).toBe('2025-04-01T11:00:00Z');
+        expect(policy.cancelNum).toBe(0);
+        expect(policy.cancelTimeUnit).toBe('Hour');
+        expect(policy.inEffect).toBe(true);
+        expect(policy.cancelFee).toBe(109800);
+        expect(policy.agentPrice).toBe(109800);
+      }
+    });
+
+    // Test case to check single cancel policy at option level
+    it('should handle single cancel policy correctly', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTSINGLECANCELPOLICY',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+
+      const firstRate = retVal.rates[0];
+      // Test single cancel policy from option level
+      expect(firstRate).toHaveProperty('cancelPolicies');
+      expect(Array.isArray(firstRate.cancelPolicies)).toBeTruthy();
+      expect(firstRate.cancelPolicies.length).toBe(1);
+
+      // Test single cancel policy structure
+      if (firstRate.cancelPolicies && firstRate.cancelPolicies.length > 0) {
+        const policy = firstRate.cancelPolicies[0];
+        expect(policy).toHaveProperty('penaltyDescription');
+        expect(policy).toHaveProperty('deadlineDateTime');
+        expect(policy).toHaveProperty('cancelNum');
+        expect(policy).toHaveProperty('cancelTimeUnit');
+        expect(policy).toHaveProperty('inEffect');
+        expect(policy).toHaveProperty('cancelFee');
+        expect(policy).toHaveProperty('agentPrice');
+
+        // Verify single cancel policy details
+        expect(policy.penaltyDescription).toBe('48 hours prior to arrival - 25% cancellation fee');
+        expect(policy.deadlineDateTime).toBe('2025-03-30T11:00:00Z');
+        expect(policy.cancelNum).toBe(48);
+        expect(policy.cancelTimeUnit).toBe('Hour');
+        expect(policy.inEffect).toBe(true);
+        expect(policy.cancelFee).toBe(27450);
+        expect(policy.agentPrice).toBe(109800);
+      }
+    });
+
+    // Test case to check additional info like total price, currency, agent price,
+    // start times, etc. Also, external rates - pickup, dropoff, cancel policies etc.
+    it('should handle external pickup, dropoff, and start times correctly', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTEXTPICKUPDROPOFF',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+
+      const firstRate = retVal.rates[0];
+
+      expect(firstRate).toHaveProperty('rateId');
+      expect(firstRate.rateId).toBe('$USDtest123456789,4,DOUB,EXT TEST RATE');
+
+      // Test currency
+      expect(firstRate).toHaveProperty('currency');
+      expect(firstRate.currency).toBe('USD');
+
+      // Test totalPrice
+      expect(firstRate).toHaveProperty('totalPrice');
+      expect(firstRate.totalPrice).toBe(150000);
+
+      // Test agentPrice
+      expect(firstRate).toHaveProperty('agentPrice');
+      expect(firstRate.agentPrice).toBe(115450);
+
+      // Test totalPriceCurrencyPrecision
+      expect(firstRate).toHaveProperty('totalPriceCurrencyPrecision');
+      expect(firstRate.totalPriceCurrencyPrecision).toBe(2);
+
+      // Test CancelHours
+      expect(firstRate).toHaveProperty('cancelHours');
+      expect(firstRate.cancelHours).toBe(24);
+
+      // Test external rate text
+      expect(firstRate).toHaveProperty('externalRateText');
+      expect(typeof firstRate.externalRateText).toBe('string');
+      expect(firstRate.externalRateText).toContain('City Tour with Pickup and Dropoff (Full Day Tour)');
+
+      // Test cancel policies from external rate details
+      expect(firstRate).toHaveProperty('cancelPolicies');
+      expect(Array.isArray(firstRate.cancelPolicies)).toBeTruthy();
+      expect(firstRate.cancelPolicies.length).toBe(3);
+
+      // Verify first external cancel policy
+      const firstPolicy = firstRate.cancelPolicies[0];
+      expect(firstPolicy).toHaveProperty('penaltyDescription');
+      expect(firstPolicy.penaltyDescription).toBe('No refund for cancellations within 2 hours of tour start');
+
+      // Verify second external cancel policy
+      const secondPolicy = firstRate.cancelPolicies[1];
+      expect(secondPolicy).toHaveProperty('penaltyDescription');
+      expect(secondPolicy).toHaveProperty('cancelNum');
+      expect(secondPolicy).toHaveProperty('cancelTimeUnit');
+      expect(secondPolicy.penaltyDescription).toBe('50% refund for cancellations 2-24 hours before tour');
+      expect(secondPolicy.cancelNum).toBe(2);
+      expect(secondPolicy.cancelTimeUnit).toBe('Hour');
+
+      // Verify third external cancel policy
+      const thirdPolicy = firstRate.cancelPolicies[2];
+      expect(thirdPolicy).toHaveProperty('penaltyDescription');
+      expect(thirdPolicy).toHaveProperty('cancelNum');
+      expect(thirdPolicy).toHaveProperty('cancelTimeUnit');
+      expect(thirdPolicy.penaltyDescription).toBe('Full refund for cancellations more than 24 hours before tour');
+      expect(thirdPolicy.cancelNum).toBe(24);
+      expect(thirdPolicy.cancelTimeUnit).toBe('Hour');
+
+      // Test external start times
+      expect(firstRate).toHaveProperty('startTimes');
+      expect(Array.isArray(firstRate.startTimes)).toBeTruthy();
+      expect(firstRate.startTimes.length).toBe(4);
+
+      // Verify start times are in correct format (HH:MM)
+      firstRate.startTimes.forEach(startTime => {
+        expect(startTime).toHaveProperty('startTime');
+        expect(typeof startTime.startTime).toBe('string');
+        expect(startTime.startTime).toMatch(/^\d{2}:\d{2}$/); // HH:MM format
+      });
+
+      // Verify start times conversion from ISO to HH:MM format
+      const startTimeValues = firstRate.startTimes.map(st => st.startTime);
+      expect(startTimeValues).toContain('08:00');
+      expect(startTimeValues).toContain('09:00');
+      expect(startTimeValues).toContain('10:00');
+      expect(startTimeValues).toContain('11:00');
+
+      // Test pickup details
+      expect(firstRate).toHaveProperty('puInfoList');
+      expect(Array.isArray(firstRate.puInfoList)).toBeTruthy();
+      expect(firstRate.puInfoList.length).toBe(3);
+
+      firstRate.puInfoList.forEach(pickup => {
+        expect(pickup).toHaveProperty('pointName');
+        expect(pickup).toHaveProperty('minutesPrior');
+        expect(pickup).toHaveProperty('address');
+        expect(pickup).toHaveProperty('pointInfo');
+        expect(typeof pickup.pointName).toBe('string');
+        expect(typeof pickup.minutesPrior).toBe('number');
+        expect(typeof pickup.address).toBe('string');
+        expect(typeof pickup.pointInfo).toBe('string');
+      });
+
+      // Verify specific pickup data (Central Hotel)
+      const centralHotelPickup = firstRate.puInfoList.find(p => p.pointName === 'Central Hotel');
+      expect(centralHotelPickup).toBeDefined();
+      expect(centralHotelPickup.minutesPrior).toBe(30);
+      expect(centralHotelPickup.address).toBe('123 Main Street, Downtown');
+      expect(centralHotelPickup.pointInfo).toBe('Meet at hotel lobby entrance');
+
+      // Verify other pickup data (Airport Terminal)
+      const argusHotelPickup = firstRate.puInfoList.find(p => p.pointName === 'Airport Terminal');
+      expect(argusHotelPickup).toBeDefined();
+      expect(argusHotelPickup.minutesPrior).toBe(45);
+      expect(argusHotelPickup.address).toBe('Airport Terminal 1, International Arrivals');
+      expect(argusHotelPickup.pointInfo).toBe('Look for guide with company sign');
+
+      // Verify other pickup data (Train Station)
+      const trainStationPickup = firstRate.puInfoList.find(p => p.pointName === 'Train Station');
+      expect(trainStationPickup).toBeDefined();
+      expect(trainStationPickup.minutesPrior).toBe(20);
+      expect(trainStationPickup.address).toBe('Central Station, Platform 3');
+      expect(trainStationPickup.pointInfo).toBe('Meet at information desk');
+
+      // Test dropoff details
+      expect(firstRate).toHaveProperty('doInfoList');
+      expect(Array.isArray(firstRate.doInfoList)).toBeTruthy();
+      expect(firstRate.doInfoList.length).toBe(2);
+
+      firstRate.doInfoList.forEach(dropoff => {
+        expect(dropoff).toHaveProperty('pointName');
+        expect(dropoff).toHaveProperty('minutesPrior');
+        expect(dropoff).toHaveProperty('address');
+        expect(dropoff).toHaveProperty('pointInfo');
+        expect(typeof dropoff.pointName).toBe('string');
+        expect(typeof dropoff.minutesPrior).toBe('number');
+        expect(typeof dropoff.address).toBe('string');
+        expect(typeof dropoff.pointInfo).toBe('string');
+      });
+
+      // Verify specific dropoff data (Tourist Center)
+      const touristCenterDropoff = firstRate.doInfoList.find(d => d.pointName === 'Tourist Center');
+      expect(touristCenterDropoff).toBeDefined();
+      expect(touristCenterDropoff.minutesPrior).toBe(15);
+      expect(touristCenterDropoff.address).toBe('Tourist Information Center, City Square');
+      expect(touristCenterDropoff.pointInfo).toBe('Drop at main entrance');
+
+      // Verify other dropoff data (Hotel District)
+      const hotelDistrictDropoff = firstRate.doInfoList.find(d => d.pointName === 'Hotel District');
+      expect(hotelDistrictDropoff).toBeDefined();
+      expect(hotelDistrictDropoff.minutesPrior).toBe(10);
+      expect(hotelDistrictDropoff.address).toBe('456 Hotel Boulevard, Luxury District');
+      expect(hotelDistrictDropoff.pointInfo).toBe('Drop at hotel entrance');
+
+      // Test AdditionalDetails
+      expect(firstRate).toHaveProperty('additionalDetails');
+      expect(Array.isArray(firstRate.additionalDetails)).toBeTruthy();
+      expect(firstRate.additionalDetails.length).toBe(3);
+
+      // Verify specific additional details
+      const fullDescription = firstRate.additionalDetails.find(d => d.detailName === 'FullDescription');
+      expect(fullDescription).toBeDefined();
+      expect(fullDescription.detailDescription).toContain('Experience the best of our city');
+
+      const tourDuration = firstRate.additionalDetails.find(d => d.detailName === 'TourDuration');
+      expect(tourDuration).toBeDefined();
+      expect(tourDuration.detailDescription).toBe('8 hours');
+
+      const itinerary = firstRate.additionalDetails.find(d => d.detailName === 'Itinerary');
+      expect(itinerary).toBeDefined();
+      expect(itinerary.detailDescription).toContain('Your tour begins with pickup');
+    });
+
+    // Test case specifically for multiple cancel policies under external rates
+    it('should handle multiple cancel policies under external rates correctly', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTMULTIPLEEXTERNALCANCEL',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+
+      const firstRate = retVal.rates[0];
+
+      // Test that external rates have cancel policies
+      expect(firstRate).toHaveProperty('cancelPolicies');
+      expect(Array.isArray(firstRate.cancelPolicies)).toBeTruthy();
+      expect(firstRate.cancelPolicies.length).toBeGreaterThan(0);
+
+      // Test structure of each cancel policy - only the values that are actually returned
+      firstRate.cancelPolicies.forEach(policy => {
+        expect(policy).toHaveProperty('penaltyDescription');
+        expect(policy).toHaveProperty('cancelNum');
+        expect(policy).toHaveProperty('cancelTimeUnit');
+        expect(typeof policy.penaltyDescription).toBe('string');
+        expect(typeof policy.cancelNum).toBe('number');
+        expect(typeof policy.cancelTimeUnit).toBe('string');
+      });
+
+      // Test specific external cancel policies if they exist
+      if (firstRate.cancelPolicies.length >= 3) {
+        // Test first external cancel policy
+        const firstPolicy = firstRate.cancelPolicies[0];
+        expect(firstPolicy.penaltyDescription).toContain('Full refund for cancellations more than 24 hours before tour');
+        expect(firstPolicy.cancelNum).toBe(24);
+        expect(firstPolicy.cancelTimeUnit).toBe('Hour');
+
+        // Test middle external cancel policy
+        const middlePolicy = firstRate.cancelPolicies[1];
+        expect(middlePolicy.penaltyDescription).toContain('50% refund for cancellations 2-24 hours before tour');
+        expect(middlePolicy.cancelNum).toBe(2);
+        expect(middlePolicy.cancelTimeUnit).toBe('Hour');
+
+        // Test last external cancel policy
+        const lastPolicy = firstRate.cancelPolicies[firstRate.cancelPolicies.length - 1];
+        expect(lastPolicy.penaltyDescription).toContain('No refund for cancellations within 2 hours of tour start');
+        expect(lastPolicy.cancelNum).toBe(0);
+        expect(lastPolicy.cancelTimeUnit).toBe('Hour');
+      }
+    });
+
+    // Test case for single cancel policy under external rates
+    it('should handle single cancel policy under external rates correctly', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTSINGLEEXTERNALCANCEL',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 2 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.rates.length).toBeGreaterThan(0);
+
+      const firstRate = retVal.rates[0];
+
+      // Test that external rates have cancel policies
+      expect(firstRate).toHaveProperty('cancelPolicies');
+      expect(Array.isArray(firstRate.cancelPolicies)).toBeTruthy();
+      expect(firstRate.cancelPolicies.length).toBe(1);
+
+      // Test structure of single cancel policy - only the values that are actually returned
+      const singlePolicy = firstRate.cancelPolicies[0];
+      expect(singlePolicy).toHaveProperty('penaltyDescription');
+      expect(singlePolicy).toHaveProperty('cancelNum');
+      expect(singlePolicy).toHaveProperty('cancelTimeUnit');
+      expect(typeof singlePolicy.penaltyDescription).toBe('string');
+      expect(typeof singlePolicy.cancelNum).toBe('number');
+      expect(typeof singlePolicy.cancelTimeUnit).toBe('string');
+
+      // Test specific single external cancel policy
+      expect(singlePolicy.penaltyDescription).toContain('No refund for cancellations within 2 hours of tour start');
+      expect(singlePolicy.cancelNum).toBe(20);
+      expect(singlePolicy.cancelTimeUnit).toBe('Hour');
+    });
   });
 });

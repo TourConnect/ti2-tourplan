@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TESTMULTIPLEEXTERNALCANCEL</Opt>
+            <OptionNumber>46053</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>USD</Currency>
+                <TotalPrice>150000</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>115450</AgentPrice>
+                <RateId>$USDtest123456789,4,DOUB,EXT TEST RATE</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-04-01</DateFrom>
+                        <DateTo>2025-04-01</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <ExternalRateDetails>
+                    <ExtSupplierId>US000022</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>City Tour with Pickup and Dropoff (Full Day Tour)</ExtOptionDescr>
+                    <ExtRatePlanCode>EXT TEST RATE</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Full Day Tour</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                    <ExtStartTimes>
+                        <ExtStartTime>2025-04-01T08:00:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T09:00:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T10:00:00</ExtStartTime>
+                        <ExtStartTime>2025-04-01T11:00:00</ExtStartTime>
+                    </ExtStartTimes>
+                    <ExtPickupDetails>
+                        <ExtPickupDetail>
+                            <ExtPointName>Central Hotel</ExtPointName>
+                            <MinutesPrior>30</MinutesPrior>
+                            <Address>123 Main Street, Downtown</Address>
+                            <ExtPointInfo>Meet at hotel lobby entrance</ExtPointInfo>
+                        </ExtPickupDetail>
+                        <ExtPickupDetail>
+                            <ExtPointName>Airport Terminal</ExtPointName>
+                            <MinutesPrior>45</MinutesPrior>
+                            <Address>Airport Terminal 1, International Arrivals</Address>
+                            <ExtPointInfo>Look for guide with company sign</ExtPointInfo>
+                        </ExtPickupDetail>
+                        <ExtPickupDetail>
+                            <ExtPointName>Train Station</ExtPointName>
+                            <MinutesPrior>20</MinutesPrior>
+                            <Address>Central Station, Platform 3</Address>
+                            <ExtPointInfo>Meet at information desk</ExtPointInfo>
+                        </ExtPickupDetail>
+                    </ExtPickupDetails>
+                    <ExtDropoffDetails>
+                        <ExtDropoffDetail>
+                            <ExtPointName>Tourist Center</ExtPointName>
+                            <MinutesPrior>15</MinutesPrior>
+                            <Address>Tourist Information Center, City Square</Address>
+                            <ExtPointInfo>Drop at main entrance</ExtPointInfo>
+                        </ExtDropoffDetail>
+                        <ExtDropoffDetail>
+                            <ExtPointName>Hotel District</ExtPointName>
+                            <MinutesPrior>10</MinutesPrior>
+                            <Address>456 Hotel Boulevard, Luxury District</Address>
+                            <ExtPointInfo>Drop at hotel entrance</ExtPointInfo>
+                        </ExtDropoffDetail>
+                    </ExtDropoffDetails>
+                    <CancelPolicies>
+                        <CancelPenalty>
+                            <PenaltyDescription>Full refund for cancellations more than 24 hours before tour</PenaltyDescription>
+                            <Deadline>
+                                <OffsetUnitMultiplier>24</OffsetUnitMultiplier>
+                                <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            </Deadline>
+                            <LinePrice>0</LinePrice>
+                        </CancelPenalty>
+                        <CancelPenalty>
+                            <PenaltyDescription>50% refund for cancellations 2-24 hours before tour</PenaltyDescription>
+                            <Deadline>
+                                <OffsetUnitMultiplier>2</OffsetUnitMultiplier>
+                                <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            </Deadline>
+                            <LinePrice>75000</LinePrice>
+                        </CancelPenalty>
+                        <CancelPenalty>
+                            <PenaltyDescription>No refund for cancellations within 2 hours of tour start</PenaltyDescription>
+                            <Deadline>
+                                <OffsetUnitMultiplier>0</OffsetUnitMultiplier>
+                                <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            </Deadline>
+                            <LinePrice>150000</LinePrice>
+                        </CancelPenalty>
+                    </CancelPolicies>
+                    <AdditionalDetails>
+                        <AdditionalDetail>
+                            <DetailName>FullDescription</DetailName>
+                            <DetailDescription>Experience the best of our city with this comprehensive full-day tour. Includes professional guide, transportation, and all entrance fees.</DetailDescription>
+                        </AdditionalDetail>
+                        <AdditionalDetail>
+                            <DetailName>TourDuration</DetailName>
+                            <DetailDescription>8 hours</DetailDescription>
+                        </AdditionalDetail>
+                        <AdditionalDetail>
+                            <DetailName>Itinerary</DetailName>
+                            <DetailDescription>Your tour begins with pickup from your hotel or designated location. Visit major landmarks, enjoy lunch at a local restaurant, and end with convenient drop-off.</DetailDescription>
+                        </AdditionalDetail>
+                    </AdditionalDetails>
+                </ExternalRateDetails>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply> 

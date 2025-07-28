@@ -1,5 +1,678 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`search tests availability tests searchAvailabilityForItinerary - bookable - static with inventory 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 54900,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Superior Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 54900,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 54900,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZDb5354be1c55abc98,4,DOUB,C5 A1INF KGBH DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 54900,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 58600,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 58600,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 58600,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Superior Room, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD934d94ec15053710,4,DOUB,C5 B1INF KGB DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 58600,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 61800,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 61800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 65100,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZDcf5fef11d058f610,4,DOUB,C5 A1INF KGAEF DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 65100,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 65600,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD3335992e690e5452,4,DOUB,C5 B1INF KGA DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 65600,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 68800,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD65ae38b5586b6211,4,DOUB,C5 B1INF KGAEF DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 68800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 83700,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Room, Club Millésime Access, 1 King Bed, Marina View (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD1ab26e031623ffae,4,DOUB,C5 B1INF KGAOS DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 83700,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 88400,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Junior Suite, Club Millésime Access, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD58b063a021d71ea3,4,DOUB,C5 B1INF SKD DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 88400,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 97700,
+      "cancelHours": "",
+      "cancelPolicies": Array [],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Deluxe Suite, Club Millésime Access, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD48493f27a57b8c65,4,DOUB,C5 B1INF SKB DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 97700,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests searchItineraries 1`] = `
+Object {
+  "bookings": Array [
+    Object {
+      "agentRef": "2356674/1",
+      "bookingId": "316559",
+      "bookingStatus": "Quotation",
+      "canEdit": true,
+      "currency": "GBP",
+      "enteredDate": "2024-09-12",
+      "name": "2356674/1 Sean Conta",
+      "ref": "ALFI393706",
+      "serviceLines": Array [
+        Object {
+          "linePrice": "187795",
+          "optionId": "LONHOSANLONBFBDLX",
+          "optionName": "Bed and Full Buffet Breakfast",
+          "paxConfigs": Array [
+            Object {
+              "adults": 1,
+              "children": 0,
+              "infants": 0,
+              "passengers": Array [
+                Object {
+                  "age": null,
+                  "dob": null,
+                  "firstName": "Sean",
+                  "lastName": "Conta",
+                  "passengerType": "Adult",
+                  "personId": "628199",
+                },
+              ],
+              "roomType": "Double",
+            },
+          ],
+          "paxList": Array [
+            Object {
+              "age": null,
+              "dob": null,
+              "firstName": "Sean",
+              "lastName": "Conta",
+              "passengerType": "Adult",
+              "personId": "628199",
+            },
+          ],
+          "quantity": 4,
+          "serviceLineId": "745684",
+          "startDate": "2025-08-13",
+          "status": "OK",
+          "supplierId": "SANLON",
+          "supplierName": "Sanderson",
+        },
+      ],
+      "totalPrice": "187795",
+      "travelDate": "2025-08-13",
+    },
+  ],
+}
+`;
+
+exports[`search tests availability tests should handle cancel policies correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 109800,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 97876,
+          "cancelFee": 97876,
+          "cancelNum": 72,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-29T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "72 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 54900,
+          "cancelFee": 54900,
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-31T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "24 hours prior to arrival - 50% cancellation fee",
+        },
+        Object {
+          "agentPrice": 109800,
+          "cancelFee": 109800,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [
+        Object {
+          "Address": "Airport Terminal 1, Darwin",
+          "ExtPointInfo": "Drop at arrivals hall",
+          "ExtPointName": "Airport Terminal",
+          "MinutesPrior": 15,
+        },
+      ],
+      "externalRateText": "Superior Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [
+        Object {
+          "address": "7 Kitchener Dr, Darwin",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby",
+          "pointName": "Adina/Vibe Waterfront",
+        },
+        Object {
+          "address": "13 Shepherd St, Darwin (Front of Hotel)",
+          "minutesPrior": 30,
+          "pointInfo": "Additional pickup information",
+          "pointName": "Argus Hotel",
+        },
+      ],
+      "rateId": "$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL",
+      "startTimes": Array [
+        Object {
+          "startTime": "06:30",
+        },
+        Object {
+          "startTime": "07:30",
+        },
+        Object {
+          "startTime": "08:30",
+        },
+      ],
+      "totalPrice": 109800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 117200,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 104524,
+          "cancelFee": 104524,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 117200,
+          "cancelFee": 117200,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Accessible Superior Room, 1 King Bed (Breakfast)",
+      "puInfoList": Array [],
+      "rateId": "$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF",
+      "startTimes": Array [],
+      "totalPrice": 117200,
+      "totalPriceCurrencyPrecision": 2,
+    },
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 123600,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 110340,
+          "cancelFee": 110340,
+          "cancelNum": 96,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-28T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "96 hours prior to arrival - 10% cancellation fee",
+        },
+        Object {
+          "agentPrice": 61800,
+          "cancelFee": 61800,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 50% cancellation fee",
+        },
+        Object {
+          "agentPrice": 123600,
+          "cancelFee": 123600,
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-04-01T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL",
+      "startTimes": Array [],
+      "totalPrice": 123600,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle external pickup, dropoff, and start times correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "Experience the best of our city with this comprehensive tour that includes convenient pickup and dropoff services. This full-day adventure takes you to all the must-see attractions while providing comfortable transportation throughout your journey.",
+          "detailName": "FullDescription",
+        },
+        Object {
+          "detailDescription": "8 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Your tour begins with pickup from your designated location. You'll visit the historic downtown area, explore the cultural district, enjoy lunch at a local restaurant, and conclude with dropoff at your preferred location. The tour includes professional guide services and all entrance fees.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 115450,
+      "cancelHours": 24,
+      "cancelPolicies": Array [
+        Object {
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+        Object {
+          "cancelNum": 2,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
+        },
+        Object {
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "address": "Tourist Information Center, City Square",
+          "minutesPrior": 15,
+          "pointInfo": "Drop at main entrance",
+          "pointName": "Tourist Center",
+        },
+        Object {
+          "address": "456 Hotel Boulevard, Luxury District",
+          "minutesPrior": 10,
+          "pointInfo": "Drop at hotel entrance",
+          "pointName": "Hotel District",
+        },
+      ],
+      "externalRateText": "City Tour with Pickup and Dropoff (Full Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "address": "123 Main Street, Downtown",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby entrance",
+          "pointName": "Central Hotel",
+        },
+        Object {
+          "address": "Airport Terminal 1, International Arrivals",
+          "minutesPrior": 45,
+          "pointInfo": "Look for guide with company sign",
+          "pointName": "Airport Terminal",
+        },
+        Object {
+          "address": "Central Station, Platform 3",
+          "minutesPrior": 20,
+          "pointInfo": "Meet at information desk",
+          "pointName": "Train Station",
+        },
+      ],
+      "rateId": "$USDtest123456789,4,DOUB,EXT TEST RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "08:00",
+        },
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "10:00",
+        },
+        Object {
+          "startTime": "11:00",
+        },
+      ],
+      "totalPrice": 150000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle multiple cancel policies under external rates correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "Experience the best of our city with this comprehensive full-day tour. Includes professional guide, transportation, and all entrance fees.",
+          "detailName": "FullDescription",
+        },
+        Object {
+          "detailDescription": "8 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Your tour begins with pickup from your hotel or designated location. Visit major landmarks, enjoy lunch at a local restaurant, and end with convenient drop-off.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 115450,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "cancelNum": 24,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
+        },
+        Object {
+          "cancelNum": 2,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "50% refund for cancellations 2-24 hours before tour",
+        },
+        Object {
+          "cancelNum": 0,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "address": "Tourist Information Center, City Square",
+          "minutesPrior": 15,
+          "pointInfo": "Drop at main entrance",
+          "pointName": "Tourist Center",
+        },
+        Object {
+          "address": "456 Hotel Boulevard, Luxury District",
+          "minutesPrior": 10,
+          "pointInfo": "Drop at hotel entrance",
+          "pointName": "Hotel District",
+        },
+      ],
+      "externalRateText": "City Tour with Pickup and Dropoff (Full Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "address": "123 Main Street, Downtown",
+          "minutesPrior": 30,
+          "pointInfo": "Meet at hotel lobby entrance",
+          "pointName": "Central Hotel",
+        },
+        Object {
+          "address": "Airport Terminal 1, International Arrivals",
+          "minutesPrior": 45,
+          "pointInfo": "Look for guide with company sign",
+          "pointName": "Airport Terminal",
+        },
+        Object {
+          "address": "Central Station, Platform 3",
+          "minutesPrior": 20,
+          "pointInfo": "Meet at information desk",
+          "pointName": "Train Station",
+        },
+      ],
+      "rateId": "$USDtest123456789,4,DOUB,EXT TEST RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "08:00",
+        },
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "10:00",
+        },
+        Object {
+          "startTime": "11:00",
+        },
+      ],
+      "totalPrice": 150000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle single cancel policy correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 109800,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "agentPrice": 109800,
+          "cancelFee": 27450,
+          "cancelNum": 48,
+          "cancelTimeUnit": "Hour",
+          "deadlineDateTime": "2025-03-30T11:00:00Z",
+          "inEffect": true,
+          "penaltyDescription": "48 hours prior to arrival - 25% cancellation fee",
+        },
+      ],
+      "currency": "NZD",
+      "doInfoList": Array [],
+      "externalRateText": "Standard Room, 1 King Bed (Room Only)",
+      "puInfoList": Array [],
+      "rateId": "$NZD9704dbc4eaf60701,4,DOUB,SINGLE CANCEL POLICY TEST",
+      "startTimes": Array [
+        Object {
+          "startTime": "06:00",
+        },
+        Object {
+          "startTime": "07:00",
+        },
+        Object {
+          "startTime": "08:00",
+        },
+      ],
+      "totalPrice": 109800,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should handle single cancel policy under external rates correctly 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [
+        Object {
+          "detailDescription": "4 hours",
+          "detailName": "TourDuration",
+        },
+        Object {
+          "detailDescription": "Visit major city landmarks and historical sites with professional guide.",
+          "detailName": "Itinerary",
+        },
+      ],
+      "agentPrice": 100000,
+      "cancelHours": "",
+      "cancelPolicies": Array [
+        Object {
+          "cancelNum": 20,
+          "cancelTimeUnit": "Hour",
+          "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
+        },
+      ],
+      "currency": "USD",
+      "doInfoList": Array [
+        Object {
+          "Address": "Central Plaza, Downtown",
+          "ExtPointInfo": "Drop at main square",
+          "ExtPointName": "City Center",
+          "MinutesPrior": 5,
+        },
+      ],
+      "externalRateText": "Half Day City Tour (Half Day Tour)",
+      "puInfoList": Array [
+        Object {
+          "Address": "100 Downtown Ave, City Center",
+          "ExtPointInfo": "Meet at hotel entrance",
+          "ExtPointName": "Downtown Hotel",
+          "MinutesPrior": 15,
+        },
+      ],
+      "rateId": "$USDsingletest789,4,DOUB,SINGLE EXT RATE",
+      "startTimes": Array [
+        Object {
+          "startTime": "09:00",
+        },
+        Object {
+          "startTime": "14:00",
+        },
+      ],
+      "totalPrice": 120000,
+      "totalPriceCurrencyPrecision": 2,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
 exports[`search tests read allotment not empty 1`] = `
 Object {
   "allotment": Array [
@@ -3235,127 +3908,6 @@ Object {
       "request": false,
       "splitCode": "ALLAGENT",
       "unitType": "RO",
-    },
-  ],
-}
-`;
-
-exports[`search tests searchAvailabilityForItinerary - bookable - on request 1`] = `
-Object {
-  "bookable": true,
-  "rates": Array [],
-  "type": "on request",
-}
-`;
-
-exports[`search tests searchAvailabilityForItinerary - bookable - static with inventory 1`] = `
-Object {
-  "bookable": true,
-  "rates": Array [
-    Object {
-      "externalRateText": "Superior Room, 1 King Bed (Room Only)",
-      "rateId": "$NZD9704dbc4eaf60700,4,DOUB,C5 A1INF KGB DOUB RONL",
-    },
-    Object {
-      "externalRateText": "Accessible Superior Room, 1 King Bed (Room Only)",
-      "rateId": "$NZDb5354be1c55abc98,4,DOUB,C5 A1INF KGBH DOUB RONL",
-    },
-    Object {
-      "externalRateText": "Accessible Superior Room, 1 King Bed (Breakfast)",
-      "rateId": "$NZD454c5fffb6a75a39,4,DOUB,C5 B1INF KGBH DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Superior Room, 1 King Bed (Breakfast)",
-      "rateId": "$NZD934d94ec15053710,4,DOUB,C5 B1INF KGB DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Room Only)",
-      "rateId": "$NZDdf6f8ddcab337053,4,DOUB,C5 A1INF KGA DOUB RONL",
-    },
-    Object {
-      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Room Only)",
-      "rateId": "$NZDcf5fef11d058f610,4,DOUB,C5 A1INF KGAEF DOUB RONL",
-    },
-    Object {
-      "externalRateText": "Luxury Atrium View Room, 1 King Bed (Breakfast)",
-      "rateId": "$NZD3335992e690e5452,4,DOUB,C5 B1INF KGA DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Luxury Room With Balcony, 1 King Bed (Breakfast)",
-      "rateId": "$NZD65ae38b5586b6211,4,DOUB,C5 B1INF KGAEF DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Luxury Room, Club Millésime Access, 1 King Bed, Marina View (Breakfast)",
-      "rateId": "$NZD1ab26e031623ffae,4,DOUB,C5 B1INF KGAOS DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Junior Suite, Club Millésime Access, 1 King Bed (Breakfast)",
-      "rateId": "$NZD58b063a021d71ea3,4,DOUB,C5 B1INF SKD DOUB BRKF",
-    },
-    Object {
-      "externalRateText": "Deluxe Suite, Club Millésime Access, 1 King Bed (Breakfast)",
-      "rateId": "$NZD48493f27a57b8c65,4,DOUB,C5 B1INF SKB DOUB BRKF",
-    },
-  ],
-  "type": "inventory",
-}
-`;
-
-exports[`search tests searchItineraries 1`] = `
-Object {
-  "bookings": Array [
-    Object {
-      "agentRef": "2356674/1",
-      "bookingId": "316559",
-      "bookingStatus": "Quotation",
-      "canEdit": true,
-      "currency": "GBP",
-      "enteredDate": "2024-09-12",
-      "name": "2356674/1 Sean Conta",
-      "ref": "ALFI393706",
-      "serviceLines": Array [
-        Object {
-          "linePrice": "187795",
-          "optionId": "LONHOSANLONBFBDLX",
-          "optionName": "Bed and Full Buffet Breakfast",
-          "paxConfigs": Array [
-            Object {
-              "adults": 1,
-              "children": 0,
-              "infants": 0,
-              "passengers": Array [
-                Object {
-                  "age": null,
-                  "dob": null,
-                  "firstName": "Sean",
-                  "lastName": "Conta",
-                  "passengerType": "Adult",
-                  "personId": "628199",
-                },
-              ],
-              "roomType": "Double",
-            },
-          ],
-          "paxList": Array [
-            Object {
-              "age": null,
-              "dob": null,
-              "firstName": "Sean",
-              "lastName": "Conta",
-              "passengerType": "Adult",
-              "personId": "628199",
-            },
-          ],
-          "quantity": 4,
-          "serviceLineId": "745684",
-          "startDate": "2025-08-13",
-          "status": "OK",
-          "supplierId": "SANLON",
-          "supplierName": "Sanderson",
-        },
-      ],
-      "totalPrice": "187795",
-      "travelDate": "2025-08-13",
     },
   ],
 }
