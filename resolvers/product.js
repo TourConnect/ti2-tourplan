@@ -30,6 +30,11 @@ const resolvers = {
       const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
       return typeof st === 'string' ? st : '';
     },
+    countChildrenInPaxBreak: option => R.path(['OptGeneral', 'CountChildrenInPaxBreak'], option) === 'Y',
+    countInfantsInPaxBreak: option => R.path(['OptGeneral', 'CountInfantsInPaxBreak'], option) === 'Y',
+    duration: option => R.path(['OptGeneral', 'Periods'], option),
+    chargeMultiplier: option => R.path(['OptGeneral', 'MPFCU'], option),
+    chargeUnit: option => R.path(['OptGeneral', 'SCU'], option),
     units: option => {
       /*
       SType: One character that specifies the service type of the
@@ -91,12 +96,12 @@ const resolvers = {
         maxAge: R.path(['OptGeneral', 'Adult_To'], option),
       },
       Child: {
-        allowed: R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y',
+        allowed: R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y' || R.path(['OptGeneral', 'CountChildrenInPaxBreak'], option) === 'Y',
         minAge: R.path(['OptGeneral', 'Child_From'], option),
         maxAge: R.path(['OptGeneral', 'Child_To'], option),
       },
       Infant: {
-        allowed: R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y',
+        allowed: R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y' || R.path(['OptGeneral', 'CountInfantsInPaxBreak'], option) === 'Y',
         minAge: R.path(['OptGeneral', 'Infant_From'], option),
         maxAge: R.path(['OptGeneral', 'Infant_To'], option),
       },
@@ -162,6 +167,7 @@ const translateTPOption = async ({
     source: query,
   });
   if (retVal.errors) throw new Error(retVal.errors);
+
   return retVal.data;
 };
 
