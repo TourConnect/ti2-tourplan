@@ -995,6 +995,14 @@ class BuyerPlugin {
         ...(puRemark ? { puRemark } : {}),
         ...(doTime ? { doTime } : {}),
         ...(doRemark ? { doRemark } : {}),
+        ...(extras && extras.filter(e => e.selectedExtra && e.selectedExtra.id).length ? {
+          ExtraQuantities: {
+            ExtraQuantityItem: extras.filter(e => e.selectedExtra && e.selectedExtra.id).map(e => ({
+              SequenceNumber: e.selectedExtra.id,
+              ExtraQuantity: e.quantity,
+            })),
+          },
+        } : {}),
         Remarks: this.escapeInvalidXmlChars(notes).slice(0, 220),
         Opt: optionId,
         DateFrom: startDate,
