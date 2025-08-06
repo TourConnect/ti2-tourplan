@@ -30,11 +30,6 @@ const resolvers = {
       const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
       return typeof st === 'string' ? st : '';
     },
-    countChildrenInPaxBreak: option => R.path(['OptGeneral', 'CountChildrenInPaxBreak'], option) === 'Y',
-    countInfantsInPaxBreak: option => R.path(['OptGeneral', 'CountInfantsInPaxBreak'], option) === 'Y',
-    duration: option => R.path(['OptGeneral', 'Periods'], option),
-    chargeMultiplier: option => R.path(['OptGeneral', 'MPFCU'], option),
-    chargeUnit: option => R.path(['OptGeneral', 'SCU'], option),
     units: option => {
       /*
       SType: One character that specifies the service type of the
