@@ -503,7 +503,12 @@ class BuyerPlugin {
         });
         return R.path(['OptionInfoReply', 'Option'], replyObj);
       });
-      /*
+
+      let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
+      if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
+      return OptStayResults;
+
+      /* NOTES On the method data
         If not rates, optionInfoReply is null, meaning it's not bookable
         otherwise, example data:
         {
@@ -589,9 +594,6 @@ class BuyerPlugin {
       //     available: false,
       //   };
       // })();
-      let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
-      if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
-      return OptStayResults;
     };
   }
 
@@ -941,8 +943,8 @@ class BuyerPlugin {
     return {
       bookable: Boolean(SCheckPass),
       type: 'inventory',
-      ...(endDate ? { endDate } : {}),
-      ...(message ? { message } : {}),
+      ...(endDate && SCheckPass ? { endDate } : {}),
+      ...(message && SCheckPass ? { message } : {}),
       rates: OptStayResults.map(rate => {
         const currency = R.pathOr('', ['Currency'], rate);
         // NOTE: Check if the value is in cents or not
