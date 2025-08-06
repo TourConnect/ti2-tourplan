@@ -440,14 +440,31 @@ class BuyerPlugin {
 
       const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GCheck);
       const countChildrenInPaxBreak = R.pathOr(false, ['CountChildrenInPaxBreak'], OptGeneralResult) === 'Y';
+      const childrenAllowed = R.pathOr(false, ['ChildrenAllowed'], OptGeneralResult) === 'Y';
+      const infantsAllowed = R.pathOr(false, ['InfantsAllowed'], OptGeneralResult) === 'Y';
       const countInfantsInPaxBreak = R.pathOr(false, ['CountInfantsInPaxBreak'], OptGeneralResult) === 'Y';
       const duration = R.pathOr(null, ['Periods'], OptGeneralResult);
-      // As per HostConnect documentation, MPFCU is only returned if SType is N or A.
+      /* Charging multiple:
+        As per hostconnect documentation, this field is reported for non-accommodation and apartment
+        options (SType is N or A). However, test cases show that it is reported for accommodation
+        options as well. (SType is Y)
+        1.For apartments it gives the maximum number of adults that one apartment can hold.
+        2.For accommodation options, the same logic applies as for apartments. e.g. entire logde
+        3.For non-accommodation options, if MPFCU has a value of 1 then rates for the option are per-person.
+        MPFCU is greater than one then rates for this option are for a group, and MPFCU is the maximum
+        number of people (adults plus children) that can be booked per AddService call for the option.
+        Hence we need to check if the number of people in the roomConfigs is greater than maxPaxPerCharge.
+        A rental car might have an MPFCU of 4, for example.
+        NOTE: It is possible that we may have to revisit this for cases where the value is 1 (per-person)
+        and could apply to all types of services.
+      */
       const maxPaxPerCharge = R.pathOr(null, ['MPFCU'], OptGeneralResult);
       const chargeUnit = R.pathOr(null, ['SCU'], OptGeneralResult);
 
       return {
         countChildrenInPaxBreak,
+        childrenAllowed,
+        infantsAllowed,
         countInfantsInPaxBreak,
         duration,
         maxPaxPerCharge,
@@ -877,7 +894,9 @@ class BuyerPlugin {
   }) {
     const {
       countChildrenInPaxBreak,
+      childrenAllowed,
       countInfantsInPaxBreak,
+      infantsAllowed,
       duration,
       maxPaxPerCharge,
       chargeUnit,
@@ -892,8 +911,14 @@ class BuyerPlugin {
     */
     const getModifiedPaxConfigs = () => {
       let modifiedPaxConfigs = [];
-      if (countChildrenInPaxBreak) modifiedPaxConfigs = this.convertToAdult(paxConfigs, passengerTypeMap.Child);
-      if (countInfantsInPaxBreak) modifiedPaxConfigs = this.convertToAdult(modifiedPaxConfigs, passengerTypeMap.Infant);
+      if (countChildrenInPaxBreak && !childrenAllowed) {
+        // NOTE: If children are allowed let the availaiblity check happen with children
+        modifiedPaxConfigs = this.convertToAdult(paxConfigs, passengerTypeMap.Child);
+      }
+      if (countInfantsInPaxBreak && !infantsAllowed) {
+        // NOTE: If infants are allowed let the availaiblity check happen with infants
+        modifiedPaxConfigs = this.convertToAdult(modifiedPaxConfigs, passengerTypeMap.Infant);
+      }
       return modifiedPaxConfigs.length ? modifiedPaxConfigs : paxConfigs;
     };
     const roomConfigs = this.getRoomConfigs(getModifiedPaxConfigs(), true);
@@ -904,21 +929,23 @@ class BuyerPlugin {
       exceed the maxPaxPerCharge. And then when the booking is made, the booking fails
       with the error like "002 SCN adults + children exceeds capacity".
      */
-    for (let i = 0; maxPaxPerCharge && (i < roomConfigs.RoomConfig.length); i++) {
-      const room = roomConfigs.RoomConfig[i];
-      const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
-      if (roomPax > maxPaxPerCharge) {
-        /*
-          NOTE: As a long term solution, we need to return the errors per pax config
-          so that the UI can display the errors for the particular pax config.
-          For now we return on the 1st error and show the error in availability check.
-        */
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Pax Config ${i + 1} has ${roomPax} pax.`,
-        };
+    if (maxPaxPerCharge && maxPaxPerCharge > 1) {
+      for (let i = 0; i < roomConfigs.RoomConfig.length; i++) {
+        const room = roomConfigs.RoomConfig[i];
+        const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
+        if (roomPax > maxPaxPerCharge) {
+          /*
+            NOTE: As a long term solution, we need to return the errors per pax config
+            so that the UI can display the errors for the particular pax config.
+            For now we return on the 1st error and show the error in availability check.
+          */
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Pax Config ${i + 1} has ${roomPax} pax.`,
+          };
+        }
       }
     }
 
