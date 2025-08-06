@@ -462,13 +462,22 @@ class BuyerPlugin {
       @param {string} hostConnectEndpoint - The HostConnect endpoint
       @param {string} hostConnectAgentID - The agent ID
       @param {string} hostConnectAgentPassword - The agent password
+      @param {Object} axios - The axios instance
       @param {string} startDate - The start date
       @param {number} chargeUnitQuantity - The number of charge units
       @param {Object} roomConfigs - The room configurations
       @returns {Object} The stay results
     */
-    this.getStayResults = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios,
-      startDate, chargeUnitQuantity, roomConfigs) => {
+    this.getStayResults = async (
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      chargeUnitQuantity,
+      roomConfigs,
+    ) => {
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
