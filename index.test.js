@@ -439,9 +439,9 @@ describe('search tests', () => {
       expect(firstRate).toHaveProperty('agentPrice');
       expect(firstRate.agentPrice).toBe(115450);
 
-      // Test totalPriceCurrencyPrecision
-      expect(firstRate).toHaveProperty('totalPriceCurrencyPrecision');
-      expect(firstRate.totalPriceCurrencyPrecision).toBe(2);
+      // Test currencyPrecision
+      expect(firstRate).toHaveProperty('currencyPrecision');
+      expect(firstRate.currencyPrecision).toBe(2);
 
       // Test CancelHours
       expect(firstRate).toHaveProperty('cancelHours');

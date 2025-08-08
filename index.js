@@ -428,15 +428,13 @@ class BuyerPlugin {
       });
 
       // Use G (General) check type to get the option general information
-      const [GCheck] = await Promise.map(['G'], async checkType => {
-        const replyObj = await this.callTourplan({
-          model: getGeneralModel(checkType),
-          endpoint: hostConnectEndpoint,
-          axios,
-          xmlOptions: hostConnectXmlOptions,
-        });
-        return R.path(['OptionInfoReply', 'Option'], replyObj);
+      const replyObj = await this.callTourplan({
+        model: getGeneralModel('G'),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
       });
+      const GCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
 
       const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GCheck);
       const countChildrenInPaxBreak = R.pathOr(false, ['CountChildrenInPaxBreak'], OptGeneralResult) === 'Y';
@@ -511,16 +509,13 @@ class BuyerPlugin {
         },
       });
       // Always use G (General) & S (Stay & Availability) check types
-      const [GSCheck] = await Promise.map(['GS'], async checkType => {
-        const replyObj = await this.callTourplan({
-          model: getModel(checkType),
-          endpoint: hostConnectEndpoint,
-          axios,
-          xmlOptions: hostConnectXmlOptions,
-        });
-        return R.path(['OptionInfoReply', 'Option'], replyObj);
+      const replyObj = await this.callTourplan({
+        model: getModel('GS'),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
       });
-
+      const GSCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
       let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
       if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
       return OptStayResults;
@@ -977,7 +972,7 @@ class BuyerPlugin {
         // NOTE: Check if the value is in cents or not
         const totalPrice = R.pathOr('', ['TotalPrice'], rate);
         const agentPrice = R.pathOr('', ['AgentPrice'], rate);
-        const totalPriceCurrencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+        const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
         // penalty of some sort.
         const cancelHours = R.pathOr('', ['CancelHours'], rate);
@@ -1131,7 +1126,7 @@ class BuyerPlugin {
           currency,
           totalPrice,
           agentPrice,
-          totalPriceCurrencyPrecision,
+          currencyPrecision,
           cancelHours,
           externalRateText,
           cancelPolicies,
@@ -1179,6 +1174,8 @@ class BuyerPlugin {
       directHeaderPayload,
       directLinePayload,
       customFieldValues = [],
+      currency,
+      currencyPrecision,
     },
   }) {
     const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
@@ -1286,6 +1283,8 @@ class BuyerPlugin {
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),
         linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
         lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
+        ...(currency ? { currency } : {}),
+        ...(currencyPrecision ? { currencyPrecision } : {}),
       },
     };
   }
