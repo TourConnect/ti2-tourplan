@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TESTVALIDATEMAXPAXPERCHARGE</Opt>
+            <OptionNumber>26304</OptionNumber>
+            <OptGeneral>
+                <SupplierId>7318</SupplierId>
+                <SupplierName>Instyle Chauffeured Limousines Australia</SupplierName>
+                <Description>City Hotel to International Airport Transfer</Description>
+                <Description2 />
+                <Comment>Sedan - Private 4.01am – 10.59pm</Comment>
+                <Comment2 />
+                <Locality>SY1</Locality>
+                <LocalityDescription>Sydney Metro</LocalityDescription>
+                <Class>PRI</Class>
+                <ClassDescription>Private</ClassDescription>
+                <SType>N</SType>
+                <MPFCU>2</MPFCU>
+                <VoucherName>Instyle Chauffeured Limousines Australia</VoucherName>
+                <Address1>17/32 Stephen Rd</Address1>
+                <Address2>Botany NSW 2019</Address2>
+                <Address3 />
+                <Address4 />
+                <Address5 />
+                <PostCode />
+                <InfantsAllowed>N</InfantsAllowed>
+                <ChildrenAllowed>N</ChildrenAllowed>
+                <AdultsAllowed>Y</AdultsAllowed>
+                <Adult_From>0</Adult_From>
+                <Adult_To>999</Adult_To>
+                <PromptForPuDo>N</PromptForPuDo>
+                <ButtonName>Transport</ButtonName>
+                <DBAnalysisCode1>PA</DBAnalysisCode1>
+                <DBAnalysisDescription1>Preferred</DBAnalysisDescription1>
+                <DBAnalysisCode2>TR</DBAnalysisCode2>
+                <DBAnalysisDescription2>Private Transfers</DBAnalysisDescription2>
+                <DBAnalysisCode3 />
+                <DBAnalysisDescription3>Unassigned</DBAnalysisDescription3>
+                <DBAnalysisCode4>45</DBAnalysisCode4>
+                <DBAnalysisDescription4>12% mark-up round up</DBAnalysisDescription4>
+                <DBAnalysisCode5 />
+                <DBAnalysisDescription5>Unassigned</DBAnalysisDescription5>
+                <DBAnalysisCode6 />
+                <DBAnalysisDescription6>Unassigned</DBAnalysisDescription6>
+                <LastUpdate>2025-05-21T02:22:18Z</LastUpdate>
+            </OptGeneral>
+            <OptStayResults>
+                <Availability>RQ</Availability>
+                <Currency>AUD</Currency>
+                <TotalPrice>11200</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>11200</AgentPrice>
+                <RateId>Default</RateId>
+                <RateName>Year Round</RateName>
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2025-09-19</DateFrom>
+                        <DateTo>2025-09-19</DateTo>
+                        <RateName>Year Round</RateName>
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelHours>96</CancelHours>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>96</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2025-09-14T14:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>N</InEffect>
+                        <LinePrice>11200</LinePrice>
+                        <AgentPrice>11200</AgentPrice>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <Prefer>0</Prefer>
+                <PriceCode>NN</PriceCode>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply> 

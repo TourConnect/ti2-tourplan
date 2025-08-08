@@ -91,12 +91,16 @@ const resolvers = {
         maxAge: R.path(['OptGeneral', 'Adult_To'], option),
       },
       Child: {
-        allowed: R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y',
+        // NOTE: if CountChildrenInPaxBreak is Y, then also allow children
+        // Reason: The children can be part of the booking if CountChildrenInPaxBreak is Y
+        allowed: R.path(['OptGeneral', 'ChildrenAllowed'], option) === 'Y' || R.path(['OptGeneral', 'CountChildrenInPaxBreak'], option) === 'Y',
         minAge: R.path(['OptGeneral', 'Child_From'], option),
         maxAge: R.path(['OptGeneral', 'Child_To'], option),
       },
       Infant: {
-        allowed: R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y',
+        // NOTE: if CountInfantsInPaxBreak is Y, then also allow infants
+        // Reason: The infants can be part of the booking if CountInfantsInPaxBreak is Y
+        allowed: R.path(['OptGeneral', 'InfantsAllowed'], option) === 'Y' || R.path(['OptGeneral', 'CountInfantsInPaxBreak'], option) === 'Y',
         minAge: R.path(['OptGeneral', 'Infant_From'], option),
         maxAge: R.path(['OptGeneral', 'Infant_To'], option),
       },
@@ -162,6 +166,7 @@ const translateTPOption = async ({
     source: query,
   });
   if (retVal.errors) throw new Error(retVal.errors);
+
   return retVal.data;
 };
 
