@@ -416,6 +416,7 @@ Object {
         },
       ],
       "currency": "USD",
+      "currencyPrecision": 2,
       "doInfoList": Array [
         Object {
           "address": "Tourist Information Center, City Square",
@@ -467,7 +468,6 @@ Object {
         },
       ],
       "totalPrice": 150000,
-      "currencyPrecision": 2,
     },
   ],
   "type": "inventory",
@@ -513,6 +513,7 @@ Object {
         },
       ],
       "currency": "USD",
+      "currencyPrecision": 2,
       "doInfoList": Array [
         Object {
           "address": "Tourist Information Center, City Square",
@@ -564,7 +565,6 @@ Object {
         },
       ],
       "totalPrice": 150000,
-      "currencyPrecision": 2,
     },
   ],
   "type": "inventory",
@@ -591,6 +591,7 @@ Object {
         },
       ],
       "currency": "NZD",
+      "currencyPrecision": 2,
       "doInfoList": Array [],
       "externalRateText": "Standard Room, 1 King Bed (Room Only)",
       "puInfoList": Array [],
@@ -607,7 +608,6 @@ Object {
         },
       ],
       "totalPrice": 109800,
-      "currencyPrecision": 2,
     },
   ],
   "type": "inventory",
@@ -639,6 +639,7 @@ Object {
         },
       ],
       "currency": "USD",
+      "currencyPrecision": 2,
       "doInfoList": Array [
         Object {
           "Address": "Central Plaza, Downtown",
@@ -666,9 +667,49 @@ Object {
         },
       ],
       "totalPrice": 120000,
-      "currencyPrecision": 2,
     },
   ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should modify paxconfigs and return availability 1`] = `
+Object {
+  "bookable": true,
+  "rates": Array [
+    Object {
+      "additionalDetails": Array [],
+      "agentPrice": 1083800,
+      "cancelHours": 744,
+      "cancelPolicies": Array [],
+      "currency": "ZAR",
+      "currencyPrecision": 2,
+      "doInfoList": Array [],
+      "externalRateText": "",
+      "puInfoList": Array [],
+      "rateId": "Default",
+      "startTimes": Array [],
+      "totalPrice": 1083800,
+    },
+  ],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should not modify paxconfigs and return not bookable 1`] = `
+Object {
+  "bookable": false,
+  "message": "Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.",
+  "rates": Array [],
+  "type": "inventory",
+}
+`;
+
+exports[`search tests availability tests should validate max pax per charge and return not bookable 1`] = `
+Object {
+  "bookable": false,
+  "message": "Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.",
+  "rates": Array [],
   "type": "inventory",
 }
 `;

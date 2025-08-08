@@ -471,6 +471,25 @@ class BuyerPlugin {
     };
 
     /*
+      Create modified passenger configurations based on the count flags.
+      This function handles the conversion of children and infants to adults
+      when the respective count flags are enabled, which is necessary for
+      Tourplan API compatibility, see comments for treatChildrenAsAdults
+      and treatInfantsAsAdults for more details.
+    */
+    this.getModifiedPaxConfigs = (countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs) => {
+      let modifiedPaxConfigs = paxConfigs;
+      if (countChildrenInPaxBreak && !childrenAllowed) {
+        // NOTE: If children are allowed let the availaiblity check happen with children
+        modifiedPaxConfigs = this.convertToAdult(paxConfigs, passengerTypeMap.Child);
+      }
+      if (countInfantsInPaxBreak && !infantsAllowed) {
+        // NOTE: If infants are allowed let the availaiblity check happen with infants
+        modifiedPaxConfigs = this.convertToAdult(modifiedPaxConfigs, passengerTypeMap.Infant);
+      }
+      return modifiedPaxConfigs;
+    };
+    /*
       Get the stay results for an option based on start date, charge unit quantity, and room configs.
 
       @param {string} optionId - The option ID
@@ -897,26 +916,8 @@ class BuyerPlugin {
       chargeUnit,
     } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios);
 
-    /*
-      Create modified passenger configurations based on the count flags.
-      This function handles the conversion of children and infants to adults
-      when the respective count flags are enabled, which is necessary for
-      Tourplan API compatibility, see comments for treatChildrenAsAdults
-      and treatInfantsAsAdults for more details.
-    */
-    const getModifiedPaxConfigs = () => {
-      let modifiedPaxConfigs = [];
-      if (countChildrenInPaxBreak && !childrenAllowed) {
-        // NOTE: If children are allowed let the availaiblity check happen with children
-        modifiedPaxConfigs = this.convertToAdult(paxConfigs, passengerTypeMap.Child);
-      }
-      if (countInfantsInPaxBreak && !infantsAllowed) {
-        // NOTE: If infants are allowed let the availaiblity check happen with infants
-        modifiedPaxConfigs = this.convertToAdult(modifiedPaxConfigs, passengerTypeMap.Infant);
-      }
-      return modifiedPaxConfigs.length ? modifiedPaxConfigs : paxConfigs;
-    };
-    const roomConfigs = this.getRoomConfigs(getModifiedPaxConfigs(), true);
+    const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
+    const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
 
     /*
       Verify that each RoomConfig does not exceed maxPaxPerCharge.

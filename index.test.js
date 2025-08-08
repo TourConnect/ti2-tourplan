@@ -679,5 +679,430 @@ describe('search tests', () => {
       expect(singlePolicy.cancelNum).toBe(20);
       expect(singlePolicy.cancelTimeUnit).toBe('Hour');
     });
+
+    it('should modify paxconfigs and return availability', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTMODIFIEDPAXCONFIGS',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 6, children: 3, infants: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeTruthy();
+      expect(retVal.type).toBe('inventory');
+
+      const firstRate = retVal.rates[0];
+      expect(firstRate.currency).toBe('ZAR');
+      expect(firstRate.totalPrice).toBe(1083800);
+      expect(firstRate.agentPrice).toBe(1083800);
+      expect(firstRate.rateId).toBe('Default');
+    });
+
+    it('should not modify paxconfigs and return not bookable', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTNOCHANGETOMAXPAXCONFIGS',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 6, children: 3, infants: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeFalsy();
+    });
+
+    it('should validate max pax per charge and return not bookable', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: {
+          optionId: 'TESTVALIDATEMAXPAXPERCHARGE',
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 1,
+          paxConfigs: [{ roomType: 'DB', adults: 6, children: 3, infants: 1 }],
+        },
+      });
+      expect(retVal).toMatchSnapshot();
+      expect(retVal.bookable).toBeFalsy();
+      expect(retVal.message).toBe('Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.');
+    });
+  });
+
+  describe('getOptionGeneralInfo tests', () => {
+    it('should return correct general option information', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.getOptionGeneralInfo(
+        'TESTGENERALINFO',
+        token.hostConnectEndpoint,
+        token.hostConnectAgentID,
+        token.hostConnectAgentPassword,
+        axios,
+      );
+
+      expect(retVal).toHaveProperty('childrenAllowed');
+      expect(retVal).toHaveProperty('countChildrenInPaxBreak');
+      expect(retVal).toHaveProperty('infantsAllowed');
+      expect(retVal).toHaveProperty('countInfantsInPaxBreak');
+      expect(retVal).toHaveProperty('duration');
+      expect(retVal).toHaveProperty('maxPaxPerCharge');
+      expect(retVal).toHaveProperty('chargeUnit');
+
+      // Verify the values based on the fixture data
+      expect(retVal.childrenAllowed).toBe(true);
+      expect(retVal.countChildrenInPaxBreak).toBe(true);
+      expect(retVal.infantsAllowed).toBe(true);
+      expect(retVal.countInfantsInPaxBreak).toBe(true);
+      expect(retVal.duration).toBe(2);
+      expect(retVal.maxPaxPerCharge).toBe(6);
+      expect(retVal.chargeUnit).toBe('day');
+    });
+  });
+
+  describe('convertToAdult method tests', () => {
+    it('should convert children to adults correctly', () => {
+      const paxConfigs = [
+        {
+          roomType: 'DB',
+          adults: 2,
+          children: 1,
+          infants: 1,
+        },
+        {
+          roomType: 'TW',
+          adults: 1,
+          children: 2,
+          infants: 2,
+        },
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Child');
+
+      expect(result).toEqual([
+        {
+          roomType: 'DB',
+          adults: 3,
+          children: 0,
+          infants: 1,
+        },
+        {
+          roomType: 'TW',
+          adults: 3,
+          children: 0,
+          infants: 2,
+        },
+      ]);
+    });
+
+    it('should convert infants to adults correctly', () => {
+      const paxConfigs = [
+        {
+          roomType: 'DB',
+          adults: 2,
+          children: 1,
+          infants: 1,
+        },
+        {
+          roomType: 'TW',
+          adults: 1,
+          children: 2,
+          infants: 2,
+        },
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Infant');
+
+      expect(result).toEqual([
+        {
+          roomType: 'DB',
+          adults: 3,
+          children: 1,
+          infants: 0,
+        },
+        {
+          roomType: 'TW',
+          adults: 3,
+          children: 2,
+          infants: 0,
+        },
+      ]);
+    });
+
+    it('should handle paxConfigs with passengers array', () => {
+      const paxConfigs = [
+        {
+          roomType: 'DB',
+          adults: 2,
+          children: 1,
+          passengers: [
+            { passengerType: 'Adult', name: 'John' },
+            { passengerType: 'Child', name: 'Jane' }
+          ]
+        }
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Child');
+
+      expect(result).toEqual([
+        {
+          roomType: 'DB',
+          adults: 3,
+          children: 0,
+          passengers: [
+            { passengerType: 'Adult', name: 'John' },
+            { passengerType: 'Adult', name: 'Jane' }
+          ]
+        }
+      ]);
+    });
+
+    it('should handle paxConfigs without the specified type', () => {
+      const paxConfigs = [
+        { roomType: 'DB', adults: 2, children: 0, infants: 1 },
+        { roomType: 'TW', adults: 1, children: 2, infants: 0 }
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Child');
+
+      expect(result).toEqual([
+        { roomType: 'DB', adults: 2, children: 0, infants: 1 },
+        { roomType: 'TW', adults: 3, children: 0, infants: 0 }
+      ]);
+    });
+
+    it('should handle paxConfigs with undefined or null values', () => {
+      const paxConfigs = [
+        { roomType: 'DB', adults: undefined, children: null, infants: 1 },
+        { roomType: 'TW', adults: 1, children: 2, infants: undefined }
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Child');
+
+      expect(result).toEqual([
+        { roomType: 'DB', adults: 0, children: 0, infants: 1 },
+        { roomType: 'TW', adults: 3, children: 0, infants: undefined }
+      ]);
+    });
+
+    it('should return non-array input unchanged', () => {
+      const nonArrayInput = { roomType: 'DB', adults: 2, children: 1 };
+      const result = app.convertToAdult(nonArrayInput, 'Child');
+      expect(result).toBe(nonArrayInput);
+    });
+
+    it('should handle empty array', () => {
+      const result = app.convertToAdult([], 'Child');
+      expect(result).toEqual([]);
+    });
+
+    it('should handle paxConfigs with passengers array containing mixed types', () => {
+      const paxConfigs = [
+        {
+          roomType: 'DB',
+          adults: 1,
+          children: 2,
+          infants: 1,
+          passengers: [
+            { passengerType: 'Adult', name: 'John' },
+            { passengerType: 'Child', name: 'Jane' },
+            { passengerType: 'Child', name: 'Bob' },
+            { passengerType: 'Infant', name: 'Alice' }
+          ]
+        }
+      ];
+
+      const result = app.convertToAdult(paxConfigs, 'Child');
+
+      expect(result).toEqual([
+        {
+          roomType: 'DB',
+          adults: 3,
+          children: 0,
+          infants: 1,
+          passengers: [
+            { passengerType: 'Adult', name: 'John' },
+            { passengerType: 'Adult', name: 'Jane' },
+            { passengerType: 'Adult', name: 'Bob' },
+            { passengerType: 'Infant', name: 'Alice' }
+          ]
+        }
+      ]);
+    });
+  });
+
+  describe('calculateEndDate method tests', () => {
+    it('should calculate end date when duration is provided', () => {
+      const startDate = '2025-01-15';
+      const duration = 5;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-01-20');
+    });
+
+    it('should calculate end date when chargeUnitQuantity is greater than 1', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = 3;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-01-18');
+    });
+
+    it('should prioritize duration over chargeUnitQuantity when both are provided', () => {
+      const startDate = '2025-01-15';
+      const duration = 7;
+      const chargeUnitQuantity = 5;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-01-22');
+    });
+
+    it('should return null when neither duration nor chargeUnitQuantity is provided', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when chargeUnitQuantity is 1 or less', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = 1;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when chargeUnitQuantity is 0', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = 0;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle leap year dates correctly', () => {
+      const startDate = '2024-02-28';
+      const duration = 1;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2024-02-29');
+    });
+
+    it('should handle month boundary transitions correctly', () => {
+      const startDate = '2025-01-31';
+      const duration = 1;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-02-01');
+    });
+
+    it('should handle year boundary transitions correctly', () => {
+      const startDate = '2024-12-31';
+      const duration = 1;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-01-01');
+    });
+
+    it('should handle large duration values correctly', () => {
+      const startDate = '2025-01-15';
+      const duration = 365;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2026-01-15');
+    });
+
+    it('should handle large chargeUnitQuantity values correctly', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = 30;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-02-14');
+    });
+
+    it('should handle undefined duration and chargeUnitQuantity', () => {
+      const startDate = '2025-01-15';
+      const duration = undefined;
+      const chargeUnitQuantity = undefined;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle null duration and chargeUnitQuantity', () => {
+      const startDate = '2025-01-15';
+      const duration = null;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBeNull();
+    });
+
+    it('should handle falsy chargeUnitQuantity values when duration is null', () => {
+      const startDate = '2025-01-15';
+
+      // Test with chargeUnitQuantity = 0
+      expect(app.calculateEndDate(startDate, null, 0)).toBeNull();
+
+      // Test with chargeUnitQuantity = false
+      expect(app.calculateEndDate(startDate, null, false)).toBeNull();
+
+      // Test with chargeUnitQuantity = empty string
+      expect(app.calculateEndDate(startDate, null, '')).toBeNull();
+    });
+
+    it('should handle different date formats correctly', () => {
+      const startDate = '2025-01-15';
+      const duration = 2;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      expect(result).toBe('2025-01-17');
+    });
+
+    it('should handle edge case with very large numbers', () => {
+      const startDate = '2025-01-15';
+      const duration = 999999;
+      const chargeUnitQuantity = null;
+
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+      // This should still work with moment.js
+      expect(result).toBeDefined();
+      expect(typeof result).toBe('string');
+      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    });
   });
 });
