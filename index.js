@@ -15,6 +15,11 @@ const Normalizer = require('./normalizer');
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
 const BAD_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007f-\u0084\u0086-\u009f\uD800-\uDFFF\uFDD0-\uFDFF\uFFFF\uC008\uFEFF\u00DF]/g;
+const passengerTypeMap = {
+  Adult: 'Adult',
+  Child: 'Child',
+  Infant: 'Infant',
+};
 
 const defaultXmlOptions = {
   prettyPrinting: { enabled: false },
@@ -170,13 +175,13 @@ class BuyerPlugin {
       let indexRoomConfig = 0;
       paxConfigs.forEach(({ roomType, adults, children, infants, passengers = [] }) => {
         const EachRoomConfig = passengers.length ? passengers.reduce((acc, p) => {
-          if (p.passengerType === 'Adult') {
+          if (p.passengerType === passengerTypeMap.Adult) {
             acc.Adults += 1;
           }
-          if (p.passengerType === 'Child') {
+          if (p.passengerType === passengerTypeMap.Child) {
             acc.Children += 1;
           }
-          if (p.passengerType === 'Infant') {
+          if (p.passengerType === passengerTypeMap.Infant) {
             acc.Infants += 1;
           }
           return acc;
@@ -232,7 +237,7 @@ class BuyerPlugin {
             // error in XML document (29, 8). (Input string was not in a correct format.)"
             // The solution is to NOT send the Age tag if it's empty
             if (!R.isNil(p.age) && !Number.isNaN(p.age) && p.age) {
-              if (!(p.passengerType === 'Adult' && p.age === 0)) {
+              if (!(p.passengerType === passengerTypeMap.Adult && p.age === 0)) {
                 EachPaxDetails.Age = p.age;
               }
             }
@@ -312,10 +317,315 @@ class BuyerPlugin {
       },
     };
 
-    // this.errorPathsAxiosErrors = () => ([ // axios triggered errors
-    //   ['response', 'data', 'error'],
-    // ]);
-    // this.errorPathsAxiosAny = () => ([]); // 200's that should be errors
+    /*
+      Convert children or infants in the pax configs to adults.
+      Reason: Tourplan API doesn't support children or infants in the availability check
+      when ChildrenAllowed = N & CountChildrenInPaxBreak = Y or InfantsAllowed = N & CountInfantsInPaxBreak = Y.
+
+      Example:
+      const originalPaxConfigs = [
+        { roomType: 'DB', adults: 2, children: 1, infants: 1 },
+        { roomType: 'TW', adults: 1, children: 2, infants: 2 }
+      ];
+
+      OUTPUT:
+      const convertedPaxConfigs = convertToAdult(originalPaxConfigs, passengerTypeMap.Child);
+      Result: [
+        { roomType: 'DB', adults: 3, children: 0, infants: 1 },
+        { roomType: 'TW', adults: 2, children: 0, infants: 2 }
+      ]
+      OR
+      const convertedPaxConfigs = convertToAdult(originalPaxConfigs, passengerTypeMap.Infant);
+      Result: [
+        { roomType: 'DB', adults: 3, children: 1, infants: 0 },
+        { roomType: 'TW', adults: 2, children: 2, infants: 0 }
+      ]
+      NOTE: This method only converts children or infants to adults (based on the type parameter),
+      it doesn't convert the other type to adults.
+    */
+    this.convertToAdult = (paxConfigs, type) => {
+      if (!Array.isArray(paxConfigs)) {
+        return paxConfigs;
+      }
+
+      return paxConfigs.map(paxConfig => {
+        const newPaxConfig = { ...paxConfig };
+
+        // Convert children or infants to adults
+        const typeKey = type === passengerTypeMap.Child ? 'children' : 'infants';
+        const totalAdults = (newPaxConfig.adults || 0) + (newPaxConfig[typeKey] || 0);
+        newPaxConfig.adults = totalAdults;
+        newPaxConfig[typeKey] = 0;
+
+        // now update the type of the passengers to adults
+        if (newPaxConfig.passengers && Array.isArray(newPaxConfig.passengers)) {
+          newPaxConfig.passengers = newPaxConfig.passengers.map(passenger => ({
+            ...passenger,
+            passengerType: passenger.passengerType === type ? passengerTypeMap.Adult : passenger.passengerType,
+          }));
+        }
+
+        return newPaxConfig;
+      });
+    };
+
+    /*
+      Calculate the end date for an option based on start date, duration, and charge unit quantity.
+
+      @param {string} startDate - The start date in YYYY-MM-DD format
+      @param {number|null} duration - The duration in days (optional)
+      @param {number|null} chargeUnitQuantity - The number of charge units (optional)
+      @returns {string|null} The end date in YYYY-MM-DD format or null if not applicable
+    */
+    this.calculateEndDate = (startDate, duration, chargeUnitQuantity) => {
+      const startMoment = moment(startDate, 'YYYY-MM-DD');
+      let endDate = null;
+
+      if (duration) {
+        endDate = startMoment.clone().add(duration, 'days');
+      } else if (chargeUnitQuantity && chargeUnitQuantity > 1) {
+        endDate = startMoment.clone().add(chargeUnitQuantity, 'days');
+      }
+
+      return endDate ? endDate.format('YYYY-MM-DD') : null;
+    };
+
+    /*
+      Get the message for an option based on duration, charge unit quantity, and charge unit.
+
+      @param {number|null} duration - The duration in days (optional)
+      @param {number|null} chargeUnitQuantity - The number of charge units (optional)
+      @param {string|null} chargeUnit - The charge unit type (optional)
+      @returns {string|null} The message or null if not applicable
+    */
+    this.getOptionMessage = (duration, chargeUnitQuantity, chargeUnit) => {
+      const chargeUnitText = chargeUnit || 'Nights/Days';
+      let message = null;
+      if (duration && chargeUnitQuantity && duration !== chargeUnitQuantity) {
+        message = `This option allows exactly ${duration} ${chargeUnitText}. The end date is adjusted accordingly.`;
+      }
+      return message;
+    };
+
+    /*
+      Get general option information from Tourplan API.
+
+      @param {string} optionId - The option ID to get information for
+      @param {string} hostConnectEndpoint - The HostConnect endpoint
+      @param {string} hostConnectAgentID - The agent ID
+      @param {string} hostConnectAgentPassword - The agent password
+      @param {Object} axios - The axios instance
+      @returns {Object} Object containing general option information
+    */
+    this.getOptionGeneralInfo = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios) => {
+      const getGeneralModel = checkType => ({
+        OptionInfoRequest: {
+          Opt: optionId,
+          Info: checkType,
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+        },
+      });
+
+      // Use G (General) check type to get the option general information
+      const replyObj = await this.callTourplan({
+        model: getGeneralModel('G'),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      });
+      const GCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
+
+      const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GCheck);
+      const countChildrenInPaxBreak = R.pathOr(false, ['CountChildrenInPaxBreak'], OptGeneralResult) === 'Y';
+      const childrenAllowed = R.pathOr(false, ['ChildrenAllowed'], OptGeneralResult) === 'Y';
+      const infantsAllowed = R.pathOr(false, ['InfantsAllowed'], OptGeneralResult) === 'Y';
+      const countInfantsInPaxBreak = R.pathOr(false, ['CountInfantsInPaxBreak'], OptGeneralResult) === 'Y';
+      const duration = R.pathOr(null, ['Periods'], OptGeneralResult);
+      /* Charging multiple:
+        As per hostconnect documentation, this field is reported for non-accommodation and apartment
+        options (SType is N or A). However, test cases show that it is reported for accommodation
+        options as well. (SType is Y)
+        1.For apartments it gives the maximum number of adults that one apartment can hold.
+        2.For accommodation options, the same logic applies as for apartments. e.g. entire logde
+        3.For non-accommodation options, if MPFCU has a value of 1 then rates for the option are per-person.
+        MPFCU is greater than one then rates for this option are for a group, and MPFCU is the maximum
+        number of people (adults plus children) that can be booked per AddService call for the option.
+        Hence we need to check if the number of people in the roomConfigs is greater than maxPaxPerCharge.
+        A rental car might have an MPFCU of 4, for example.
+        NOTE: It is possible that we may have to revisit this for cases where the value is 1 (per-person)
+        and could apply to all types of services.
+      */
+      const maxPaxPerCharge = R.pathOr(null, ['MPFCU'], OptGeneralResult);
+      const chargeUnit = R.pathOr(null, ['SCU'], OptGeneralResult);
+
+      return {
+        countChildrenInPaxBreak,
+        childrenAllowed,
+        infantsAllowed,
+        countInfantsInPaxBreak,
+        duration,
+        maxPaxPerCharge,
+        chargeUnit,
+      };
+    };
+
+    /*
+      Create modified passenger configurations based on the count flags.
+      This function handles the conversion of children and infants to adults
+      when the respective count flags are enabled, which is necessary for
+      Tourplan API compatibility, see comments for treatChildrenAsAdults
+      and treatInfantsAsAdults for more details.
+    */
+    this.getModifiedPaxConfigs = (countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs) => {
+      let modifiedPaxConfigs = paxConfigs;
+      if (countChildrenInPaxBreak && !childrenAllowed) {
+        // NOTE: If children are allowed let the availaiblity check happen with children
+        modifiedPaxConfigs = this.convertToAdult(paxConfigs, passengerTypeMap.Child);
+      }
+      if (countInfantsInPaxBreak && !infantsAllowed) {
+        // NOTE: If infants are allowed let the availaiblity check happen with infants
+        modifiedPaxConfigs = this.convertToAdult(modifiedPaxConfigs, passengerTypeMap.Infant);
+      }
+      return modifiedPaxConfigs;
+    };
+    /*
+      Get the stay results for an option based on start date, charge unit quantity, and room configs.
+
+      @param {string} optionId - The option ID
+      @param {string} hostConnectEndpoint - The HostConnect endpoint
+      @param {string} hostConnectAgentID - The agent ID
+      @param {string} hostConnectAgentPassword - The agent password
+      @param {Object} axios - The axios instance
+      @param {string} startDate - The start date
+      @param {number} chargeUnitQuantity - The number of charge units
+      @param {Object} roomConfigs - The room configurations
+      @returns {Object} The stay results
+    */
+    this.getStayResults = async (
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      chargeUnitQuantity,
+      roomConfigs,
+    ) => {
+      const getModel = checkType => ({
+        OptionInfoRequest: {
+          Opt: optionId,
+          Info: checkType,
+          DateFrom: startDate,
+          SCUqty: (() => {
+            const num = parseInt(chargeUnitQuantity, 10);
+            if (isNaN(num) || num < 1) return 1;
+            return num;
+          })(),
+          RoomConfigs: roomConfigs,
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+        },
+      });
+      // Always use G (General) & S (Stay & Availability) check types
+      const replyObj = await this.callTourplan({
+        model: getModel('GS'),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      });
+      const GSCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
+      let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
+      if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
+      return OptStayResults;
+
+      /* NOTES On the method data
+        If not rates, optionInfoReply is null, meaning it's not bookable
+        otherwise, example data:
+        {
+          optionInfoReply: {
+            Option: {
+              Opt: 'LHRTRDAVIDSHABTVC',
+              OptStayResults: {
+                AgentPrice: '51175',
+                Availability: 'RQ',
+                CancelHours: '96',
+                CommissionPercent: '0.00',
+                Currency: 'GBP',
+                PeriodValueAdds: {
+                  PeriodValueAdd: {
+                    DateFrom: '2024-08-10',
+                    DateTo: '2024-08-10',
+                    RateName: 'Std-Mon Sun',
+                    RateText: 'Std'
+                  }
+                },
+                RateId: '$NZD2016b81f44793096,4,DOUB,C5 A1INF KGB DOUB RONL',
+                RateName: 'Std-Mon Sun',
+                RateText: 'Std',
+                SaleFrom: '2023-12-20',
+                TotalPrice: '51175',
+                ExternalRateDetails: {
+                  ExtSupplierId: 'NZ000021',
+                  ExtOptionId: 'DOUB',
+                  ExtOptionDescr: 'Superior Room, 1 King Bed',
+                  ExtRatePlanCode: 'C5 A1INF KGB DOUB RONL',
+                  ExtRatePlanDescr: 'Room Only',
+                  ExtGuarantee: 'N',
+                },
+                RoomList: {
+                  RoomType: 'DB',
+                }
+              },
+              OptionNumber: '70461'
+            }
+          }
+        }
+      */
+      // const ACheckPass = (() => {
+      //   /*
+      //     FROM TP DOCS:
+      //     Each integer in the list gives the availability for one of the days in the range requested,
+      //     from the start date through to the end date. The integer values are to be interpreted as
+      //     follows:
+      //     Greater than 0 means that inventory is available, with the integer specifying the
+      //     number of units available. For options with a service type of Y , the inventory is in
+      //     units of rooms. For other service types, the inventory is in units of pax.
+      //     -1 Not available.
+      //     -2 Available on free sell.
+      //     -3 Available on request.
+      //     Note: A return value of 0 or something less than -3 is impossible.
+      //   */
+      //   const optAvail = parseInt(R.pathOr('-4', ['OptAvail'], ACheck), 10);
+      //   if (optAvail === -1) {
+      //     return {
+      //       available: false,
+      //     };
+      //   }
+      //   if (optAvail === -2) {
+      //     return {
+      //       available: true,
+      //       type: 'free sell',
+      //     };
+      //   }
+      //   if (optAvail === -3) {
+      //     return {
+      //       available: true,
+      //       type: 'on request',
+      //     };
+      //   }
+      //   if (optAvail > 0) {
+      //     return {
+      //       available: true,
+      //       type: 'inventory',
+      //       quantity: optAvail,
+      //     };
+      //   }
+      //   return {
+      //     available: false,
+      //   };
+      // })();
+    };
   }
 
   async validateToken({
@@ -573,7 +883,6 @@ class BuyerPlugin {
     };
   }
 
-
   async searchAvailabilityForItinerary({
     axios,
     token: {
@@ -597,133 +906,74 @@ class BuyerPlugin {
       chargeUnitQuantity,
     },
   }) {
+    const {
+      countChildrenInPaxBreak,
+      childrenAllowed,
+      countInfantsInPaxBreak,
+      infantsAllowed,
+      duration,
+      maxPaxPerCharge,
+      chargeUnit,
+    } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios);
+
+    const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
+    const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
+
     /*
-    Need to S check and A check separately
-    because if A check is onRequest, AS will still result in empty response
-    */
-    const getModel = checkType => ({
-      OptionInfoRequest: {
-        Opt: optionId,
-        Info: checkType,
-        DateFrom: startDate,
-        SCUqty: (() => {
-          const num = parseInt(chargeUnitQuantity, 10);
-          if (isNaN(num) || num < 1) return 1;
-          return num;
-        })(),
-        RoomConfigs: this.getRoomConfigs(paxConfigs, true),
-        AgentID: hostConnectAgentID,
-        Password: hostConnectAgentPassword,
-      },
-    });
-    // Always use G (General) & S (Stay & Availability) check types
-    const [GSCheck] = await Promise.map(['GS'], async checkType => {
-      const replyObj = await this.callTourplan({
-        model: getModel(checkType),
-        endpoint: hostConnectEndpoint,
-        axios,
-        xmlOptions: hostConnectXmlOptions,
-      });
-      return R.path(['OptionInfoReply', 'Option'], replyObj);
-    });
-    /*
-      If not rates, optionInfoReply is null, meaning it's not bookable
-      otherwise, example data:
-      {
-        optionInfoReply: {
-          Option: {
-            Opt: 'LHRTRDAVIDSHABTVC',
-            OptStayResults: {
-              AgentPrice: '51175',
-              Availability: 'RQ',
-              CancelHours: '96',
-              CommissionPercent: '0.00',
-              Currency: 'GBP',
-              PeriodValueAdds: {
-                PeriodValueAdd: {
-                  DateFrom: '2024-08-10',
-                  DateTo: '2024-08-10',
-                  RateName: 'Std-Mon Sun',
-                  RateText: 'Std'
-                }
-              },
-              RateId: '$NZD2016b81f44793096,4,DOUB,C5 A1INF KGB DOUB RONL',
-              RateName: 'Std-Mon Sun',
-              RateText: 'Std',
-              SaleFrom: '2023-12-20',
-              TotalPrice: '51175',
-              ExternalRateDetails: {
-                ExtSupplierId: 'NZ000021',
-                ExtOptionId: 'DOUB',
-                ExtOptionDescr: 'Superior Room, 1 King Bed',
-                ExtRatePlanCode: 'C5 A1INF KGB DOUB RONL',
-                ExtRatePlanDescr: 'Room Only',
-                ExtGuarantee: 'N',
-              },
-              RoomList: {
-                RoomType: 'DB',
-              }
-            },
-            OptionNumber: '70461'
-          }
+      Verify that each RoomConfig does not exceed maxPaxPerCharge.
+      Reason: Tourplan availability check returns success even if the pax configs
+      exceed the maxPaxPerCharge. And then when the booking is made, the booking fails
+      with the error like "002 SCN adults + children exceeds capacity".
+     */
+    if (maxPaxPerCharge && maxPaxPerCharge > 1) {
+      for (let i = 0; i < roomConfigs.RoomConfig.length; i++) {
+        const room = roomConfigs.RoomConfig[i];
+        const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
+        if (roomPax > maxPaxPerCharge) {
+          /*
+            NOTE: As a long term solution, we need to return the errors per pax config
+            so that the UI can display the errors for the particular pax config.
+            For now we return on the 1st error and show the error in availability check.
+          */
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Please update the Pax Config accordingly.`,
+          };
         }
       }
-    */
-    // const ACheckPass = (() => {
-    //   /*
-    //     FROM TP DOCS:
-    //     Each integer in the list gives the availability for one of the days in the range requested,
-    //     from the start date through to the end date. The integer values are to be interpreted as
-    //     follows:
-    //     Greater than 0 means that inventory is available, with the integer specifying the
-    //     number of units available. For options with a service type of Y , the inventory is in
-    //     units of rooms. For other service types, the inventory is in units of pax.
-    //     -1 Not available.
-    //     -2 Available on free sell.
-    //     -3 Available on request.
-    //     Note: A return value of 0 or something less than -3 is impossible.
-    //   */
-    //   const optAvail = parseInt(R.pathOr('-4', ['OptAvail'], ACheck), 10);
-    //   if (optAvail === -1) {
-    //     return {
-    //       available: false,
-    //     };
-    //   }
-    //   if (optAvail === -2) {
-    //     return {
-    //       available: true,
-    //       type: 'free sell',
-    //     };
-    //   }
-    //   if (optAvail === -3) {
-    //     return {
-    //       available: true,
-    //       type: 'on request',
-    //     };
-    //   }
-    //   if (optAvail > 0) {
-    //     return {
-    //       available: true,
-    //       type: 'inventory',
-    //       quantity: optAvail,
-    //     };
-    //   }
-    //   return {
-    //     available: false,
-    //   };
-    // })();
-    let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
-    if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
+    }
+
+    const OptStayResults = await this.getStayResults(
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      chargeUnitQuantity,
+      roomConfigs,
+    );
     const SCheckPass = Boolean(OptStayResults.length);
+
+    // Get the end date
+    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+
+    // Get the message
+    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
+
     return {
       bookable: Boolean(SCheckPass),
       type: 'inventory',
+      ...(endDate && SCheckPass ? { endDate } : {}),
+      ...(message && SCheckPass ? { message } : {}),
       rates: OptStayResults.map(rate => {
         const currency = R.pathOr('', ['Currency'], rate);
         // NOTE: Check if the value is in cents or not
         const totalPrice = R.pathOr('', ['TotalPrice'], rate);
         const agentPrice = R.pathOr('', ['AgentPrice'], rate);
-        const totalPriceCurrencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+        const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
         // penalty of some sort.
         const cancelHours = R.pathOr('', ['CancelHours'], rate);
@@ -877,7 +1127,7 @@ class BuyerPlugin {
           currency,
           totalPrice,
           agentPrice,
-          totalPriceCurrencyPrecision,
+          currencyPrecision,
           cancelHours,
           externalRateText,
           cancelPolicies,
@@ -1075,7 +1325,6 @@ class BuyerPlugin {
       customFields,
     };
   }
-
 
   async searchItineraries({
     token: {
