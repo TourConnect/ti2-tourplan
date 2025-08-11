@@ -733,7 +733,7 @@ describe('search tests', () => {
       });
       expect(retVal).toMatchSnapshot();
       expect(retVal.bookable).toBeFalsy();
-      expect(retVal.message).toBe('Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.');
+      expect(retVal.message).toBe('Maximum 2 pax allowed per Pax Config. Please update the Pax Config accordingly.');
     });
   });
 

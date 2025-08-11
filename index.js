@@ -939,7 +939,7 @@ class BuyerPlugin {
             bookable: false,
             type: 'inventory',
             rates: [],
-            message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Pax Config ${i + 1} has ${roomPax} pax.`,
+            message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Please update the Pax Config accordingly.`,
           };
         }
       }
@@ -1175,8 +1175,6 @@ class BuyerPlugin {
       directHeaderPayload,
       directLinePayload,
       customFieldValues = [],
-      currency,
-      currencyPrecision,
     },
   }) {
     const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
@@ -1284,8 +1282,6 @@ class BuyerPlugin {
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),
         linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
         lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
-        ...(currency ? { currency } : {}),
-        ...(currencyPrecision ? { currencyPrecision } : {}),
       },
     };
   }

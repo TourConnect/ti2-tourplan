@@ -699,7 +699,7 @@ Object {
 exports[`search tests availability tests should not modify paxconfigs and return not bookable 1`] = `
 Object {
   "bookable": false,
-  "message": "Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.",
+  "message": "Maximum 2 pax allowed per Pax Config. Please update the Pax Config accordingly.",
   "rates": Array [],
   "type": "inventory",
 }
@@ -708,7 +708,7 @@ Object {
 exports[`search tests availability tests should validate max pax per charge and return not bookable 1`] = `
 Object {
   "bookable": false,
-  "message": "Maximum 2 pax allowed per Pax Config. Pax Config 1 has 10 pax.",
+  "message": "Maximum 2 pax allowed per Pax Config. Please update the Pax Config accordingly.",
   "rates": Array [],
   "type": "inventory",
 }
