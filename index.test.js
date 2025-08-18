@@ -169,6 +169,87 @@ describe('search tests', () => {
         expect(detectedDtd).toBe('tourConnect_4_00_000.dtd');
       });
     });
+    describe('SSL certificate bypass', () => {
+      it('should not wrap axios when no allow_invalid_cert is configured', () => {
+        const appWithoutSSLBypass = new Plugin({});
+        const mockAxios = jest.fn();
+        
+        const wrappedAxios = appWithoutSSLBypass.wrapAxios(mockAxios);
+        
+        // Should return the original axios
+        expect(wrappedAxios).toBe(mockAxios);
+      });
+      
+      it('should not wrap axios for Jest mock functions', () => {
+        const appWithSSLBypass = new Plugin({
+          allow_invalid_cert: 'stage.example.com'
+        });
+        const mockAxios = jest.fn();
+        mockAxios.mock = {}; // Jest mocks have a mock property
+        
+        const wrappedAxios = appWithSSLBypass.wrapAxios(mockAxios);
+        
+        // Should return the original mock
+        expect(wrappedAxios).toBe(mockAxios);
+      });
+      
+      it('should wrap axios and add httpsAgent for matching domains', () => {
+        const appWithSSLBypass = new Plugin({
+          allow_invalid_cert: 'stage-xml.example.com|test.staging.com'
+        });
+        
+        // Create a real axios-like function (not a Jest mock)
+        const realAxios = (config) => Promise.resolve({ data: 'success', config });
+        
+        const wrappedAxios = appWithSSLBypass.wrapAxios(realAxios);
+        
+        // Should return a wrapper function, not the original
+        expect(wrappedAxios).not.toBe(realAxios);
+        expect(typeof wrappedAxios).toBe('function');
+        
+        // Test that httpsAgent is added for matching domain
+        const config1 = { url: 'https://stage-xml.example.com/api' };
+        wrappedAxios(config1);
+        expect(config1.httpsAgent).toBeDefined();
+        expect(config1.httpsAgent.options.rejectUnauthorized).toBe(false);
+        
+        // Test that httpsAgent is added for another matching domain
+        const config2 = { url: 'https://test.staging.com/api' };
+        wrappedAxios(config2);
+        expect(config2.httpsAgent).toBeDefined();
+        expect(config2.httpsAgent.options.rejectUnauthorized).toBe(false);
+        
+        // Test that httpsAgent is NOT added for non-matching domain
+        const config3 = { url: 'https://production.example.com/api' };
+        wrappedAxios(config3);
+        expect(config3.httpsAgent).toBeUndefined();
+      });
+      
+      it('should parse pipe-separated domain list correctly', () => {
+        const appWithSSLBypass = new Plugin({
+          allow_invalid_cert: 'domain1.com|domain2.com|domain3.com'
+        });
+        
+        expect(appWithSSLBypass.allowInvalidCertDomains).toEqual([
+          'domain1.com',
+          'domain2.com',
+          'domain3.com'
+        ]);
+      });
+      
+      it('should handle empty or whitespace domains correctly', () => {
+        const appWithSSLBypass = new Plugin({
+          allow_invalid_cert: 'domain1.com| |domain2.com||domain3.com'
+        });
+        
+        // Should filter out empty/whitespace domains
+        expect(appWithSSLBypass.allowInvalidCertDomains).toEqual([
+          'domain1.com',
+          'domain2.com',
+          'domain3.com'
+        ]);
+      });
+    });
   });
   it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
