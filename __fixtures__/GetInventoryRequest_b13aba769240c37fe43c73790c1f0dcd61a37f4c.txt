@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "tourConnect_4_00_000.dtd"[]>
+<Reply>
+  <GetInventoryReply>
+    <Allocation>
+      <AllocationName>DLX_XXXXX</AllocationName>
+      <AllocationDescription>Deluxe Room</AllocationDescription>
+      <SupplierCode>XXYYIN</SupplierCode>
+      <AllocationAppliesTo>
+        <AllocationType>O</AllocationType>
+        <OptionCode>SINACXXYYINDLXFBF</OptionCode>
+        <OptionCode>SINACXXYYIN2SDXBF</OptionCode>
+      </AllocationAppliesTo>
+      <Split>
+        <Split_Code>ALLAGENT</Split_Code>
+        <UnitTypeInventory>
+          <Unit_Type>RO</Unit_Type>
+          <PerDayInventory>
+            <Date>2022-06-15</Date>
+            <Max_Qty>0</Max_Qty>
+            <Bkd_Qty>0</Bkd_Qty>
+            <Release_Period>7</Release_Period>
+            <Request_OK>N</Request_OK>
+          </PerDayInventory>
+        </UnitTypeInventory>
+      </Split>
+    </Allocation>
+  </GetInventoryReply>
+</Reply>

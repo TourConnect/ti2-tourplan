@@ -252,6 +252,7 @@ describe('search tests', () => {
       date: '15/06/2022',
       release: '7',
       max: '0',
+      booked: '0',
       request: false,
       keyPaths: ['XXYYIN|SINACXXYYINDLXFBF', 'XXYYIN|SINACXXYYIN2SDXBF'],
     });
