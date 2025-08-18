@@ -399,12 +399,16 @@ class BuyerPlugin {
       });
     };
 
+    // Get DTD cache days from environment variable, default to 7 days
+    const dtdDays = parseInt(this.DTD_DAYS || '7', 10);
+    const dtdCacheTtl = (60 * 60 * 24) * dtdDays; // Convert days to seconds
+    
     this.cacheSettings = {
       bookingsProductSearch: {
         // ttl: 60 * 60 * 24, // 1 day
       },
       dtdVersions: {
-        ttl: 60 * 60 * 24, // 1 day cache for DTD versions
+        ttl: dtdCacheTtl,
       },
     };
 

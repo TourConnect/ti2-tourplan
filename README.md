@@ -8,6 +8,7 @@ Some environment variables are required for this plugin to run it's tests
 
 - apiKey
 - endpoint
+- DTD_DAYS (optional) - Number of days to cache DTD version detection results (default: 7). This helps reduce API calls by caching the correct DTD version for each endpoint.
 
 ## Contributing
 
