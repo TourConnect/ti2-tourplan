@@ -81,14 +81,102 @@ class BuyerPlugin {
         regExp: /.+/,
       },
     });
+    
+    this.getCorrectDtdVersion = async ({ endpoint, axios }) => {
+      const cacheKey = `dtd_version_${endpoint}`;
+      
+      // Try to get from cache first
+      const cachedVersion = await this.cache.getOrExec({
+        fnParams: [cacheKey],
+        fn: async () => {
+          // Try with the default DTD version first
+          const defaultDtd = 'tourConnect_4_00_000.dtd';
+          const testXmlOptions = {
+            prettyPrinting: { enabled: false },
+            dtd: {
+              include: true,
+              name: defaultDtd,
+            },
+          };
+          
+          const model = {
+            AuthenticationRequest: {
+              Login: 'test',
+              Password: 'test',
+            },
+          };
+          
+          let data = Normalizer.stripEnclosingQuotes(
+            js2xmlparser.parse('Request', model, testXmlOptions),
+          );
+          data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
+          data = data.replace(testXmlOptions.dtd.name, `Request SYSTEM "${testXmlOptions.dtd.name}"`);
+          
+          try {
+            const reply = await axios({
+              method: 'post',
+              url: endpoint,
+              data,
+              headers: getHeaders({ length: data.length }),
+            });
+            
+            // Check if we got a DTD version error
+            const responseData = R.path(['data'], reply);
+            if (responseData && responseData.includes('Please use the latest DTD version:')) {
+              // Extract the required DTD version from the error message
+              const match = responseData.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
+              if (match && match[1]) {
+                return match[1];
+              }
+            }
+            
+            // If no error, the default DTD is correct
+            return defaultDtd;
+          } catch (err) {
+            // Check if the error response contains DTD version info
+            const errorResponse = R.path(['response', 'data'], err);
+            if (errorResponse && typeof errorResponse === 'string' && errorResponse.includes('Please use the latest DTD version:')) {
+              const match = errorResponse.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
+              if (match && match[1]) {
+                return match[1];
+              }
+            }
+            // If we can't determine the version, return the default
+            return defaultDtd;
+          }
+        },
+        ttl: this.cacheSettings.dtdVersions.ttl,
+      });
+      
+      return cachedVersion;
+    };
+    
     this.callTourplan = async ({
       model,
       endpoint,
       axios,
       xmlOptions,
     }) => {
+      // Only apply DTD version detection for regular TourPlan API, not HostConnect
+      const isHostConnect = xmlOptions.dtd.name === 'hostConnect_4_06_009.dtd';
+      let updatedXmlOptions = xmlOptions;
+      
+      if (!isHostConnect) {
+        // Get the correct DTD version from cache or detect it for TourPlan API
+        const correctDtd = await this.getCorrectDtdVersion({ endpoint, axios });
+        
+        // Update xmlOptions with the correct DTD version
+        updatedXmlOptions = {
+          ...xmlOptions,
+          dtd: {
+            ...xmlOptions.dtd,
+            name: correctDtd,
+          },
+        };
+      }
+      
       let data = Normalizer.stripEnclosingQuotes(
-        js2xmlparser.parse('Request', model, xmlOptions),
+        js2xmlparser.parse('Request', model, updatedXmlOptions),
       );
       // NOTE: Forward slash is NOT an invalid XML character and hence js2xmlparser
       // doesn't escape it, however TourPlan needs it to be escaped as '&#47;'
@@ -99,7 +187,7 @@ class BuyerPlugin {
       // In future if more such characters are found, we can use a more sophisticated
       // approach to handle them
       data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
-      data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+      data = data.replace(updatedXmlOptions.dtd.name, `Request SYSTEM "${updatedXmlOptions.dtd.name}"`);
       let replyObj;
       let errorStr;
       // can't use proxy because of the static IP thing, darn
@@ -311,9 +399,16 @@ class BuyerPlugin {
       });
     };
 
+    // Get DTD cache days from environment variable, default to 7 days
+    const dtdDays = parseInt(this.DTD_DAYS || '7', 10);
+    const dtdCacheTtl = (60 * 60 * 24) * dtdDays; // Convert days to seconds
+    
     this.cacheSettings = {
       bookingsProductSearch: {
         // ttl: 60 * 60 * 24, // 1 day
+      },
+      dtdVersions: {
+        ttl: dtdCacheTtl,
       },
     };
 

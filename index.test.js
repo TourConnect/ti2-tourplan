@@ -99,6 +99,76 @@ describe('search tests', () => {
         expect(password.test('somepassword')).toBeTruthy();
       });
     });
+    describe('DTD version detection', () => {
+      it('should detect and use correct DTD version from error response', async () => {
+        // Mock cache to test the detection logic
+        const mockCache = {
+          getOrExec: async ({ fn, fnParams }) => {
+            // Execute the function directly without caching for testing
+            return await fn(...fnParams);
+          }
+        };
+        
+        // Create a new instance with mock cache
+        const appWithMockCache = new Plugin(token);
+        appWithMockCache.cache = mockCache;
+        
+        // Mock axios to return DTD version error
+        const dtdErrorResponse = `<?xml version="1.0" encoding="utf-8"?>
+<Error>
+  <Details>Exception: This DTD version tourConnect_4_00_000.dtd is not supported. Please use the latest DTD version: tourConnect_5_05_000.dtd</Details>
+</Error>`;
+        
+        axios.mockImplementationOnce(() => {
+          const error = new Error('Request failed');
+          error.response = {
+            data: dtdErrorResponse,
+            status: 400
+          };
+          throw error;
+        });
+        
+        // Test the DTD detection
+        const detectedDtd = await appWithMockCache.getCorrectDtdVersion({
+          endpoint: token.endpoint,
+          axios
+        });
+        
+        expect(detectedDtd).toBe('tourConnect_5_05_000.dtd');
+      });
+      
+      it('should use default DTD when no error is returned', async () => {
+        // Mock cache to test the detection logic
+        const mockCache = {
+          getOrExec: async ({ fn, fnParams }) => {
+            // Execute the function directly without caching for testing
+            return await fn(...fnParams);
+          }
+        };
+        
+        // Create a new instance with mock cache
+        const appWithMockCache = new Plugin(token);
+        appWithMockCache.cache = mockCache;
+        
+        // Mock axios to return successful response (no DTD error)
+        axios.mockImplementationOnce(() => {
+          return {
+            data: `<?xml version="1.0" encoding="utf-8"?>
+<Reply>
+  <AuthenticationReply></AuthenticationReply>
+</Reply>`
+          };
+        });
+        
+        // Test the DTD detection
+        const detectedDtd = await appWithMockCache.getCorrectDtdVersion({
+          endpoint: token.endpoint,
+          axios
+        });
+        
+        expect(detectedDtd).toBe('tourConnect_4_00_000.dtd');
+      });
+    });
   });
   it('read allotment empty', async () => {
     const request = axios.mockImplementation(getFixture);
