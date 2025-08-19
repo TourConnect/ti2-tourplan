@@ -113,19 +113,15 @@ describe('search tests', () => {
         const appWithMockCache = new Plugin(token);
         appWithMockCache.cache = mockCache;
         
-        // Mock axios to return DTD version error
-        const dtdErrorResponse = `<?xml version="1.0" encoding="utf-8"?>
+        // Mock axios to return 200 with DTD error (real-world scenario)
+        axios.mockImplementationOnce(() => {
+          return {
+            status: 200,
+            data: `<?xml version="1.0" encoding="utf-8"?>
 <Error>
   <Details>Exception: This DTD version tourConnect_4_00_000.dtd is not supported. Please use the latest DTD version: tourConnect_5_05_000.dtd</Details>
-</Error>`;
-        
-        axios.mockImplementationOnce(() => {
-          const error = new Error('Request failed');
-          error.response = {
-            data: dtdErrorResponse,
-            status: 400
+</Error>`
           };
-          throw error;
         });
         
         // Test the DTD detection
@@ -167,6 +163,75 @@ describe('search tests', () => {
         });
         
         expect(detectedDtd).toBe('tourConnect_4_00_000.dtd');
+      });
+      
+      it('should detect DTD version from 200 response with error XML', async () => {
+        // Mock cache to test the detection logic
+        const mockCache = {
+          getOrExec: async ({ fn, fnParams }) => {
+            // Execute the function directly without caching for testing
+            return await fn(...fnParams);
+          }
+        };
+        
+        // Create a new instance with mock cache
+        const appWithMockCache = new Plugin(token);
+        appWithMockCache.cache = mockCache;
+        
+        // Mock axios to return 200 with DTD error in XML (like production)
+        axios.mockImplementationOnce(() => {
+          return {
+            status: 200,
+            data: `<?xml version="1.0" encoding="utf-8"?>
+<Error>
+  <Details>Exception: This DTD version tourConnect_4_00_000.dtd is not supported. Please use the latest DTD version: tourConnect_5_05_000.dtd</Details>
+</Error>`
+          };
+        });
+        
+        // Test the DTD detection
+        const detectedDtd = await appWithMockCache.getCorrectDtdVersion({
+          endpoint: token.endpoint,
+          axios
+        });
+        
+        expect(detectedDtd).toBe('tourConnect_5_05_000.dtd');
+      });
+      
+      it('should handle DTD version when axios throws error', async () => {
+        // Mock cache to test the detection logic
+        const mockCache = {
+          getOrExec: async ({ fn, fnParams }) => {
+            // Execute the function directly without caching for testing
+            return await fn(...fnParams);
+          }
+        };
+        
+        // Create a new instance with mock cache
+        const appWithMockCache = new Plugin(token);
+        appWithMockCache.cache = mockCache;
+        
+        // Mock axios to throw error (non-2xx status)
+        axios.mockImplementationOnce(() => {
+          const error = new Error('Request failed with status code 400');
+          error.response = {
+            status: 400,
+            data: `<?xml version="1.0" encoding="utf-8"?>
+<Error>
+  <Details>Exception: This DTD version tourConnect_4_00_000.dtd is not supported. Please use the latest DTD version: tourConnect_5_05_000.dtd</Details>
+</Error>`
+          };
+          throw error;
+        });
+        
+        // Test the DTD detection - should detect DTD version from error response
+        const detectedDtd = await appWithMockCache.getCorrectDtdVersion({
+          endpoint: token.endpoint,
+          axios
+        });
+        
+        // Should detect the DTD version from the error response
+        expect(detectedDtd).toBe('tourConnect_5_05_000.dtd');
       });
     });
   });
