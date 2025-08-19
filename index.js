@@ -82,73 +82,137 @@ class BuyerPlugin {
       },
     });
     
+    // Get DTD cache days from environment variable, default to 7 days
+    const dtdDays = parseInt(this.DTD_DAYS || '7', 10);
+    const dtdCacheTtl = (60 * 60 * 24) * dtdDays; // Convert days to seconds
+    
+    this.cacheSettings = {
+      bookingsProductSearch: {
+        // ttl: 60 * 60 * 24, // 1 day
+      },
+      dtdVersions: {
+        ttl: dtdCacheTtl,
+      },
+    };
+    
+    // Store DTD versions in memory as a fallback when cache is not available
+    this.dtdVersionCache = {};
+    
     this.getCorrectDtdVersion = async ({ endpoint, axios }) => {
       const cacheKey = `dtd_version_${endpoint}`;
       
-      // Try to get from cache first
-      const cachedVersion = await this.cache.getOrExec({
-        fnParams: [cacheKey],
-        fn: async () => {
-          // Try with the default DTD version first
-          const defaultDtd = 'tourConnect_4_00_000.dtd';
-          const testXmlOptions = {
-            prettyPrinting: { enabled: false },
-            dtd: {
-              include: true,
-              name: defaultDtd,
-            },
-          };
-          
-          const model = {
-            AuthenticationRequest: {
-              Login: 'test',
-              Password: 'test',
-            },
-          };
-          
-          let data = Normalizer.stripEnclosingQuotes(
-            js2xmlparser.parse('Request', model, testXmlOptions),
-          );
-          data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
-          data = data.replace(testXmlOptions.dtd.name, `Request SYSTEM "${testXmlOptions.dtd.name}"`);
-          
-          try {
-            const reply = await axios({
-              method: 'post',
-              url: endpoint,
-              data,
-              headers: getHeaders({ length: data.length }),
-            });
-            
-            // Check if we got a DTD version error
-            const responseData = R.path(['data'], reply);
-            if (responseData && responseData.includes('Please use the latest DTD version:')) {
-              // Extract the required DTD version from the error message
-              const match = responseData.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
-              if (match && match[1]) {
-                return match[1];
-              }
-            }
-            
-            // If no error, the default DTD is correct
-            return defaultDtd;
-          } catch (err) {
-            // Check if the error response contains DTD version info
-            const errorResponse = R.path(['response', 'data'], err);
-            if (errorResponse && typeof errorResponse === 'string' && errorResponse.includes('Please use the latest DTD version:')) {
-              const match = errorResponse.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
-              if (match && match[1]) {
-                return match[1];
-              }
-            }
-            // If we can't determine the version, return the default
-            return defaultDtd;
-          }
-        },
-        ttl: this.cacheSettings.dtdVersions.ttl,
-      });
+      // If cache is available, use it
+      if (this.cache && this.cache.getOrExec) {
+        try {
+          const cachedVersion = await this.cache.getOrExec({
+            fnParams: [cacheKey],
+            fn: async () => this.detectDtdVersion({ endpoint, axios }),
+            ttl: this.cacheSettings.dtdVersions.ttl,
+          });
+          return cachedVersion;
+        } catch (cacheErr) {
+          // Cache error, fall back to memory cache
+        }
+      }
       
-      return cachedVersion;
+      // Fallback to memory cache when cache is not available
+      const now = Date.now();
+      const memoryCached = this.dtdVersionCache[cacheKey];
+      
+      if (memoryCached && memoryCached.expiry > now) {
+        return memoryCached.version;
+      }
+      
+      // Detect the DTD version
+      const detectedVersion = await this.detectDtdVersion({ endpoint, axios });
+      
+      // Store in memory cache
+      this.dtdVersionCache[cacheKey] = {
+        version: detectedVersion,
+        expiry: now + (this.cacheSettings.dtdVersions.ttl * 1000), // Convert seconds to milliseconds
+      };
+      
+      return detectedVersion;
+    };
+    
+    this.detectDtdVersion = async ({ endpoint, axios }) => {
+      // Try with the default DTD version first
+      const defaultDtd = 'tourConnect_4_00_000.dtd';
+      const testXmlOptions = {
+        prettyPrinting: { enabled: false },
+        dtd: {
+          include: true,
+          name: defaultDtd,
+        },
+      };
+      
+      const model = {
+        AuthenticationRequest: {
+          Login: 'test',
+          Password: 'test',
+        },
+      };
+      
+      let data = Normalizer.stripEnclosingQuotes(
+        js2xmlparser.parse('Request', model, testXmlOptions),
+      );
+      data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
+      data = data.replace(testXmlOptions.dtd.name, `Request SYSTEM "${testXmlOptions.dtd.name}"`);
+      
+      try {
+        const reply = await axios({
+          method: 'post',
+          url: endpoint,
+          data,
+          headers: getHeaders({ length: data.length }),
+        });
+        
+        // The API returns 200 even for DTD errors, so check the response content
+        const responseData = R.path(['data'], reply);
+        if (responseData && typeof responseData === 'string') {
+          // Check if this is an XML error response about DTD version
+          if (responseData.includes('<Error>') && responseData.includes('This DTD version')) {
+            // Parse the XML error to extract the required DTD version
+            const match = responseData.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
+            if (match && match[1]) {
+              return match[1];
+            }
+          }
+          
+          // Also try parsing as JSON in case it was already converted
+          try {
+            const parsedResponse = fastParser.parse(responseData);
+            const errorDetails = R.path(['Error', 'Details'], parsedResponse);
+            if (errorDetails && errorDetails.includes('This DTD version')) {
+              const match = errorDetails.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
+              if (match && match[1]) {
+                return match[1];
+              }
+            }
+          } catch (parseErr) {
+            // Not valid XML/JSON, continue
+          }
+        }
+        
+        // If no error, the default DTD is correct
+        return defaultDtd;
+      } catch (err) {
+        // Check if the error response contains DTD version info
+        const errorResponse = R.path(['response', 'data'], err);
+        if (errorResponse && typeof errorResponse === 'string') {
+          // Check if this is an XML error response about DTD version
+          if (errorResponse.includes('<Error>') && errorResponse.includes('This DTD version')) {
+            // Parse the XML error to extract the required DTD version
+            const match = errorResponse.match(/Please use the latest DTD version:\s*([a-zA-Z0-9_]+\.dtd)/);
+            if (match && match[1]) {
+              return match[1];
+            }
+          }
+        }
+        
+        // Network or other errors - use default
+        return defaultDtd;
+      }
     };
     
     this.callTourplan = async ({
@@ -397,19 +461,6 @@ class BuyerPlugin {
           Object.entries(mappedPolicy).filter(([_, value]) => value !== undefined),
         );
       });
-    };
-
-    // Get DTD cache days from environment variable, default to 7 days
-    const dtdDays = parseInt(this.DTD_DAYS || '7', 10);
-    const dtdCacheTtl = (60 * 60 * 24) * dtdDays; // Convert days to seconds
-    
-    this.cacheSettings = {
-      bookingsProductSearch: {
-        // ttl: 60 * 60 * 24, // 1 day
-      },
-      dtdVersions: {
-        ttl: dtdCacheTtl,
-      },
     };
 
     /*
