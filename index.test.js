@@ -249,8 +249,12 @@ describe('search tests', () => {
     });
     expect(Array.isArray(retVal.allotment)).toBeTruthy();
     expect(retVal.allotment.length).toBe(0);
+    // Find the actual GetInventoryRequest call (not the DTD detection call)
+    const inventoryCall = request.mock.calls.find(call => 
+      call[0].data && call[0].data.includes('GetInventoryRequest')
+    );
     let sentPayload = await xmlParser.parseStringPromise(
-      request.mock.calls[0][0].data,
+      inventoryCall[0].data,
     );
     sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('MAGLUX');
@@ -285,8 +289,12 @@ describe('search tests', () => {
       keyPaths: ['MAGLUX|QLDACMAGLUXDELSUI'],
     });
     expect(retVal).toMatchSnapshot();
+    // Find the actual GetInventoryRequest call (not the DTD detection call)
+    const inventoryCall = request.mock.calls.find(call => 
+      call[0].data && call[0].data.includes('GetInventoryRequest')
+    );
     let sentPayload = await xmlParser.parseStringPromise(
-      request.mock.calls[0][0].data,
+      inventoryCall[0].data,
     );
     sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('MAGLUX');
@@ -321,8 +329,12 @@ describe('search tests', () => {
       keyPaths: ['XXYYIN|SINACXXYYINDLXFBF', 'XXYYIN|SINACXXYYIN2SDXBF'],
     });
     expect(retVal).toMatchSnapshot();
+    // Find the actual GetInventoryRequest call (not the DTD detection call)
+    const inventoryCall = request.mock.calls.find(call => 
+      call[0].data && call[0].data.includes('GetInventoryRequest')
+    );
     let sentPayload = await xmlParser.parseStringPromise(
-      request.mock.calls[0][0].data,
+      inventoryCall[0].data,
     );
     sentPayload = R.path(['Request', 'GetInventoryRequest', 0], sentPayload);
     expect(sentPayload.SupplierCode[0]).toBe('XXYYIN');

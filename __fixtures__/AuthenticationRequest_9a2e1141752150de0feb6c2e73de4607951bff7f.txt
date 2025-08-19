@@ -1,0 +1,7 @@
+<!DOCTYPE Reply SYSTEM "tourConnect_5_05_000.dtd"[]>
+<Reply>
+  <Error>
+    <Type>Authentication</Type>
+    <Details>Invalid credentials</Details>
+  </Error>
+</Reply>
