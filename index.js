@@ -861,13 +861,26 @@ class BuyerPlugin {
         Password: password,
       },
     };
+    
+    // Get the correct DTD version for this endpoint
+    const correctDtd = await this.getCorrectDtdVersion({ endpoint, axios });
+    const xmlOptionsWithCorrectDtd = {
+      ...defaultXmlOptions,
+      dtd: {
+        ...defaultXmlOptions.dtd,
+        name: correctDtd,
+      },
+    };
+    
     let data = Normalizer.stripEnclosingQuotes(
-      js2xmlparser.parse('Request', model, defaultXmlOptions),
+      js2xmlparser.parse('Request', model, xmlOptionsWithCorrectDtd),
     );
-    data = data.replace(defaultXmlOptions.dtd.name, `Request SYSTEM "${defaultXmlOptions.dtd.name}"`);
+    // Fix forward slashes like in callTourplan
+    data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
+    data = data.replace(xmlOptionsWithCorrectDtd.dtd.name, `Request SYSTEM "${xmlOptionsWithCorrectDtd.dtd.name}"`);
     if (verbose) console.log('request', cleanLog(data));
     const reply = R.path(['data'], await axios({
-      metod: 'post',
+      method: 'post',
       url: endpoint,
       data,
       headers: getHeaders({ length: data.length }),

@@ -1,0 +1,5 @@
+<!DOCTYPE Reply SYSTEM "tourConnect_4_00_000.dtd"[]>
+<Reply>
+  <GetInventoryReply>
+  </GetInventoryReply>
+</Reply>
