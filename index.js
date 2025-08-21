@@ -413,6 +413,7 @@ class BuyerPlugin {
           ['ö', 'oe'],
           ['ü', 'ue'],
           ['ß', 'ss'],
+          ['ø', 'oe'],
         ];
         const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
         return preprocessed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
@@ -1308,6 +1309,7 @@ class BuyerPlugin {
     },
     payload: {
       quoteName,
+      itineraryOwner,
       rateId,
       quoteId,
       // existingQuoteId,
@@ -1391,6 +1393,10 @@ class BuyerPlugin {
       AddServiceRequest: {
         AgentID: hostConnectAgentID,
         Password: hostConnectAgentPassword,
+        // Note: Consult is optional but if provided is limited to 60 characters.
+        // In some systems is forced to uppercase. It is ignored if the Agent ID supplied is a sub-login.
+        // The field name in XML is Consult but on the TourPlan UI it is called Contact.
+        ...(itineraryOwner ? { Consult: this.escapeInvalidXmlChars(itineraryOwner).substring(0, 60) } : {}),
         ...(quoteId ? {
           ExistingBookingInfo: { BookingId: quoteId },
         } : {
