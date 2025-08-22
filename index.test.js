@@ -1126,14 +1126,16 @@ describe('search tests', () => {
       expect(result).toBeNull();
     });
 
-    it('should return null when chargeUnitQuantity is 1 or less', () => {
+    it('should return end date when chargeUnitQuantity is 1', () => {
       const startDate = '2025-01-15';
       const duration = null;
       const chargeUnitQuantity = 1;
+      const chargeUnit = 'day';
+      const sType = 'Y';
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity, chargeUnit, sType);
 
-      expect(result).toBeNull();
+      expect(result).toBe('2025-01-16');
     });
 
     it('should return null when chargeUnitQuantity is 0', () => {

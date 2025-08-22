@@ -3,6 +3,7 @@
 exports[`search tests availability tests searchAvailabilityForItinerary - bookable - static with inventory 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-02",
   "rates": Array [
     Object {
       "additionalDetails": Array [],
@@ -477,6 +478,7 @@ Object {
 exports[`search tests availability tests should handle multiple cancel policies under external rates correctly 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-02",
   "rates": Array [
     Object {
       "additionalDetails": Array [
@@ -574,6 +576,7 @@ Object {
 exports[`search tests availability tests should handle single cancel policy correctly 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-02",
   "rates": Array [
     Object {
       "additionalDetails": Array [],
@@ -617,6 +620,7 @@ Object {
 exports[`search tests availability tests should handle single cancel policy under external rates correctly 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-02",
   "rates": Array [
     Object {
       "additionalDetails": Array [
