@@ -409,11 +409,12 @@ class BuyerPlugin {
           ['Ä', 'Ae'],
           ['Ö', 'Oe'],
           ['Ü', 'Ue'],
+          ['Ø', 'Oe'],
           ['ä', 'ae'],
           ['ö', 'oe'],
           ['ü', 'ue'],
-          ['ß', 'ss'],
           ['ø', 'oe'],
+          ['ß', 'ss'],
         ];
         const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
         return preprocessed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
