@@ -410,10 +410,14 @@ class BuyerPlugin {
           ['Ö', 'Oe'],
           ['Ü', 'Ue'],
           ['Ø', 'Oe'],
+          ['Å', 'Aa'],
+          ['Æ', 'Ae'],
           ['ä', 'ae'],
           ['ö', 'oe'],
           ['ü', 'ue'],
           ['ø', 'oe'],
+          ['å', 'aa'],
+          ['æ', 'ae'],
           ['ß', 'ss'],
         ];
         const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
