@@ -529,13 +529,21 @@ class BuyerPlugin {
       @param {number|null} chargeUnitQuantity - The number of charge units (optional)
       @returns {string|null} The end date in YYYY-MM-DD format or null if not applicable
     */
-    this.calculateEndDate = (startDate, duration, chargeUnitQuantity) => {
+    this.calculateEndDate = (startDate, duration, chargeUnitQuantity, chargeUnit, sType) => {
+      if (sType && sType.toUpperCase() === 'N') {
+        // As of now do not set any end date for non-accommodation options
+        // There are a few cases where we have to set the end date. But yet
+        // to figure out the logic for that.
+        return null;
+      }
+
       const startMoment = moment(startDate, 'YYYY-MM-DD');
       let endDate = null;
 
       if (duration) {
         endDate = startMoment.clone().add(duration, 'days');
-      } else if (chargeUnitQuantity && chargeUnitQuantity > 1) {
+      } else if (chargeUnitQuantity) {
+        // show the end date even if the charge unit quantity is 1
         endDate = startMoment.clone().add(chargeUnitQuantity, 'days');
       }
 
@@ -610,6 +618,7 @@ class BuyerPlugin {
       */
       const maxPaxPerCharge = R.pathOr(null, ['MPFCU'], OptGeneralResult);
       const chargeUnit = R.pathOr(null, ['SCU'], OptGeneralResult);
+      const sType = R.pathOr(null, ['SType'], OptGeneralResult);
 
       return {
         countChildrenInPaxBreak,
@@ -619,6 +628,7 @@ class BuyerPlugin {
         duration,
         maxPaxPerCharge,
         chargeUnit,
+        sType,
       };
     };
 
@@ -1079,6 +1089,7 @@ class BuyerPlugin {
       duration,
       maxPaxPerCharge,
       chargeUnit,
+      sType,
     } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios);
 
     const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
@@ -1123,7 +1134,7 @@ class BuyerPlugin {
     const SCheckPass = Boolean(OptStayResults.length);
 
     // Get the end date
-    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity, chargeUnit, sType);
 
     // Get the message
     const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
