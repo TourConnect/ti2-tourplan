@@ -663,12 +663,14 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
+      rateConversion,
     ) => {
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
           Info: checkType,
           DateFrom: startDate,
+          RateConvert: rateConversion,
           SCUqty: (() => {
             const num = parseInt(chargeUnitQuantity, 10);
             if (isNaN(num) || num < 1) return 1;
@@ -1069,6 +1071,7 @@ class BuyerPlugin {
         Defaults to 1.
       */
       chargeUnitQuantity,
+      rateConversion = 'Y', // Y = convert to the currency of the company, N = show in original currency
     },
   }) {
     const {
@@ -1119,6 +1122,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
+      rateConversion,
     );
     const SCheckPass = Boolean(OptStayResults.length);
 
