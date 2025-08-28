@@ -53,6 +53,7 @@ describe('search tests', () => {
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
     hostConnectAgentID: 'test_hostConnectAgentID',
     hostConnectAgentPassword: 'test_hostConnectAgentPassword',
+    seeAvailabilityRateInSupplierCurrency: 'Y',
   };
   const dateFormat = 'DD/MM/YYYY';
   describe('tooling', () => {

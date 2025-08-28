@@ -80,6 +80,11 @@ class BuyerPlugin {
         type: 'text',
         regExp: /.+/,
       },
+      seeAvailabilityRateInSupplierCurrency: {
+        type: 'text',
+        regExp: /^(yes|no)$/i,
+        default: 'N',
+      },
     });
     
     // Get DTD cache days from environment variable, default to 7 days
@@ -652,6 +657,7 @@ class BuyerPlugin {
       @param {string} startDate - The start date
       @param {number} chargeUnitQuantity - The number of charge units
       @param {Object} roomConfigs - The room configurations
+      @param {string} seeAvailabilityRateInSupplierCurrency - Whether to see the availability rate in the supplier currency
       @returns {Object} The stay results
     */
     this.getStayResults = async (
@@ -663,12 +669,21 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
+      seeAvailabilityRateInSupplierCurrency,
     ) => {
+      // The rate conversion flag: Y = convert to the currency of the agent, N = show in original currency
+      // From TP DOCS: If the value is Y then all rate information is converted to the currency associated
+      // with the specified agent. If it is false, no rate conversions are performed, and rates are returned
+      // in the currency in which they are stored. If RateConvert is not specified then whether currency
+      // conversion occurs or not is determined by a system default.
+      // Note: has no effect if R or S is not specified in Info.
+      const rateConvert = seeAvailabilityRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
           Info: checkType,
           DateFrom: startDate,
+          RateConvert: rateConvert, // for details see comments in header
           SCUqty: (() => {
             const num = parseInt(chargeUnitQuantity, 10);
             if (isNaN(num) || num < 1) return 1;
@@ -1054,6 +1069,7 @@ class BuyerPlugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
+      seeAvailabilityRateInSupplierCurrency,
     },
     payload: {
       optionId,
@@ -1119,6 +1135,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
+      seeAvailabilityRateInSupplierCurrency,
     );
     const SCheckPass = Boolean(OptStayResults.length);
 
@@ -1366,11 +1383,12 @@ class BuyerPlugin {
     let puRemark = null;
     if (puInfo) {
       if (puInfo.time || puInfo.location || puInfo.flightDetails) {
+        const puLocation = puInfo.location ? `${puInfo.location},` : '';
+        const puFlightDetails = puInfo.flightDetails ? `${puInfo.flightDetails},` : '';
         if (puInfo.time && puInfo.time.replace(/\D/g, '')) {
           puTime = puInfo.time.replace(/\D/g, '');
         }
-        puRemark = this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
-          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}`);
+        puRemark = this.escapeInvalidXmlChars(`${puLocation}${puFlightDetails}`);
       } else if (puInfo.address || puInfo.pointName || puInfo.pointInfo || puInfo.minutesPrior) {
         if (startTime) {
           puTime = startTime.replace(/\D/g, '');
@@ -1383,11 +1401,12 @@ class BuyerPlugin {
     let doRemark = null;
     if (doInfo) {
       if (doInfo.time || doInfo.location || doInfo.flightDetails) {
+        const doLocation = doInfo.location ? `${doInfo.location},` : '';
+        const doFlightDetails = doInfo.flightDetails ? `${doInfo.flightDetails},` : '';
         if (doInfo.time && doInfo.time.replace(/\D/g, '')) {
           doTime = doInfo.time.replace(/\D/g, '');
         }
-        doRemark = this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
-          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}`);
+        doRemark = this.escapeInvalidXmlChars(`${doLocation}${doFlightDetails}`);
       } else if (doInfo.address || doInfo.pointName || doInfo.pointInfo || doInfo.minutesPrior) {
         // Note: There is no doTime for external dropoff details
         doRemark = this.escapeInvalidXmlChars(`${doInfo.pointName ? `${doInfo.pointName},` : ''}${doInfo.pointInfo ? `${doInfo.pointInfo},` : ''}${doInfo.address ? `${doInfo.address},` : ''}${doInfo.minutesPrior ? `${doInfo.minutesPrior},` : ''}`);
