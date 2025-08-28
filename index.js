@@ -677,7 +677,7 @@ class BuyerPlugin {
       // in the currency in which they are stored. If RateConvert is not specified then whether currency
       // conversion occurs or not is determined by a system default.
       // Note: has no effect if R or S is not specified in Info.
-      const rateConvert = seeAvailabilityRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
+      const rateConvert = seeAvailabilityRateInSupplierCurrency && seeAvailabilityRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
