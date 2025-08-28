@@ -80,6 +80,11 @@ class BuyerPlugin {
         type: 'text',
         regExp: /.+/,
       },
+      seeAvailabilityRateInSupplierCurrency: {
+        type: 'text',
+        regExp: /^(yes|no)$/i,
+        default: 'N',
+      },
     });
     
     // Get DTD cache days from environment variable, default to 7 days
@@ -662,12 +667,7 @@ class BuyerPlugin {
       @param {string} startDate - The start date
       @param {number} chargeUnitQuantity - The number of charge units
       @param {Object} roomConfigs - The room configurations
-      @param {string} convertRate - The rate conversion flag: Y = convert to the currency of the agent, N = show in original currency
-                                    From TP DOCS: If the value is Y then all rate information is converted to the currency associated
-                                    with the specified agent. If it is false, no rate conversions are performed, and rates are returned
-                                    in the currency in which they are stored. If RateConvert is not specified then whether currency
-                                    conversion occurs or not is determined by a system default.
-                                    Note: has no effect if R or S is not specified in Info.
+      @param {string} seeAvailabilityRateInSupplierCurrency - Whether to see the availability rate in the supplier currency
       @returns {Object} The stay results
     */
     this.getStayResults = async (
@@ -679,14 +679,21 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      convertRate,
+      seeAvailabilityRateInSupplierCurrency,
     ) => {
+      // The rate conversion flag: Y = convert to the currency of the agent, N = show in original currency
+      // From TP DOCS: If the value is Y then all rate information is converted to the currency associated
+      // with the specified agent. If it is false, no rate conversions are performed, and rates are returned
+      // in the currency in which they are stored. If RateConvert is not specified then whether currency
+      // conversion occurs or not is determined by a system default.
+      // Note: has no effect if R or S is not specified in Info.
+      const rateConvert = seeAvailabilityRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
           Info: checkType,
           DateFrom: startDate,
-          RateConvert: convertRate, // for details see comments in header
+          RateConvert: rateConvert, // for details see comments in header
           SCUqty: (() => {
             const num = parseInt(chargeUnitQuantity, 10);
             if (isNaN(num) || num < 1) return 1;
@@ -1072,6 +1079,7 @@ class BuyerPlugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
+      seeAvailabilityRateInSupplierCurrency,
     },
     payload: {
       optionId,
@@ -1087,7 +1095,6 @@ class BuyerPlugin {
         Defaults to 1.
       */
       chargeUnitQuantity,
-      convertRate = 'Y', // Y = convert to the currency of the agent, N = show in original currency
     },
   }) {
     const {
@@ -1139,7 +1146,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      convertRate,
+      seeAvailabilityRateInSupplierCurrency,
     );
     const SCheckPass = Boolean(OptStayResults.length);
 
