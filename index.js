@@ -1370,11 +1370,12 @@ class BuyerPlugin {
     let puRemark = null;
     if (puInfo) {
       if (puInfo.time || puInfo.location || puInfo.flightDetails) {
+        const puLocation = puInfo.location ? `${puInfo.location},` : '';
+        const puFlightDetails = puInfo.flightDetails ? `${puInfo.flightDetails},` : '';
         if (puInfo.time && puInfo.time.replace(/\D/g, '')) {
           puTime = puInfo.time.replace(/\D/g, '');
         }
-        puRemark = this.escapeInvalidXmlChars(`${puInfo.location ? `Location: ${puInfo.location || 'NA'},` : ''}
-          ${puInfo.flightDetails ? `Flight: ${puInfo.flightDetails || 'NA'},` : ''}`);
+        puRemark = this.escapeInvalidXmlChars(`${puLocation}${puFlightDetails}`);
       } else if (puInfo.address || puInfo.pointName || puInfo.pointInfo || puInfo.minutesPrior) {
         if (startTime) {
           puTime = startTime.replace(/\D/g, '');
@@ -1387,11 +1388,12 @@ class BuyerPlugin {
     let doRemark = null;
     if (doInfo) {
       if (doInfo.time || doInfo.location || doInfo.flightDetails) {
+        const doLocation = doInfo.location ? `${doInfo.location},` : '';
+        const doFlightDetails = doInfo.flightDetails ? `${doInfo.flightDetails},` : '';
         if (doInfo.time && doInfo.time.replace(/\D/g, '')) {
           doTime = doInfo.time.replace(/\D/g, '');
         }
-        doRemark = this.escapeInvalidXmlChars(`${doInfo.location ? `Location: ${doInfo.location || 'NA'},` : ''}
-          ${doInfo.flightDetails ? `Flight: ${doInfo.flightDetails || 'NA'},` : ''}`);
+        doRemark = this.escapeInvalidXmlChars(`${doLocation}${doFlightDetails}`);
       } else if (doInfo.address || doInfo.pointName || doInfo.pointInfo || doInfo.minutesPrior) {
         // Note: There is no doTime for external dropoff details
         doRemark = this.escapeInvalidXmlChars(`${doInfo.pointName ? `${doInfo.pointName},` : ''}${doInfo.pointInfo ? `${doInfo.pointInfo},` : ''}${doInfo.address ? `${doInfo.address},` : ''}${doInfo.minutesPrior ? `${doInfo.minutesPrior},` : ''}`);
