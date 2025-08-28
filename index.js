@@ -652,6 +652,12 @@ class BuyerPlugin {
       @param {string} startDate - The start date
       @param {number} chargeUnitQuantity - The number of charge units
       @param {Object} roomConfigs - The room configurations
+      @param {string} convertRate - The rate conversion flag: Y = convert to the currency of the agent, N = show in original currency
+                                    From TP DOCS: If the value is Y then all rate information is converted to the currency associated
+                                    with the specified agent. If it is false, no rate conversions are performed, and rates are returned
+                                    in the currency in which they are stored. If RateConvert is not specified then whether currency
+                                    conversion occurs or not is determined by a system default.
+                                    Note: has no effect if R or S is not specified in Info.
       @returns {Object} The stay results
     */
     this.getStayResults = async (
@@ -663,14 +669,14 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      rateConversion,
+      convertRate,
     ) => {
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
           Info: checkType,
           DateFrom: startDate,
-          RateConvert: rateConversion,
+          RateConvert: convertRate, // for details see comments in header
           SCUqty: (() => {
             const num = parseInt(chargeUnitQuantity, 10);
             if (isNaN(num) || num < 1) return 1;
@@ -1071,7 +1077,7 @@ class BuyerPlugin {
         Defaults to 1.
       */
       chargeUnitQuantity,
-      rateConversion = 'Y', // Y = convert to the currency of the company, N = show in original currency
+      convertRate = 'Y', // Y = convert to the currency of the agent, N = show in original currency
     },
   }) {
     const {
@@ -1122,7 +1128,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      rateConversion,
+      convertRate,
     );
     const SCheckPass = Boolean(OptStayResults.length);
 
