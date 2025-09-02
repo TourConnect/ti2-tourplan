@@ -12,6 +12,9 @@ const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 const Normalizer = require('./normalizer');
 
+const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
+// const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
+
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
 const BAD_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007f-\u0084\u0086-\u009f\uD800-\uDFFF\uFDD0-\uFDFF\uFFFF\uC008\uFEFF\u00DF]/g;
@@ -84,6 +87,26 @@ class BuyerPlugin {
         type: 'text',
         regExp: /^(yes|no)$/i,
         default: 'N',
+      },
+      enableBookingForCustomRates: {
+        type: 'text',
+        regExp: /^(yes|no)$/i,
+        default: 'No',
+      },
+      customRateMarkupPercentage: {
+        type: 'number',
+        regExp: /^(100|[1-9]?\d)(\.\d{1,2})?$/,
+        default: 10,
+      },
+      // customRateOverrideForRateTypes: {
+      //   type: 'text',
+      //   regExp: /^(Confirmed|Manual|Provisional)$/i,
+      //   default: 'Confirmed',
+      // },
+      useLastYearRateForCustomRates: {
+        type: 'text',
+        regExp: /^(Yes|No)$/i,
+        default: 'No',
       },
     });
     
@@ -572,28 +595,34 @@ class BuyerPlugin {
       @param {string} hostConnectAgentID - The agent ID
       @param {string} hostConnectAgentPassword - The agent password
       @param {Object} axios - The axios instance
+      @param {string} startDate - The start date
+      @param {number} chargeUnitQuantity - The number of charge units
       @returns {Object} Object containing general option information
     */
-    this.getOptionGeneralInfo = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios) => {
+    this.getOptionGeneralInfo = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity) => {
       const getGeneralModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
           Info: checkType,
           AgentID: hostConnectAgentID,
           Password: hostConnectAgentPassword,
+          DateFrom: startDate,
+          SCUqty: chargeUnitQuantity,
         },
       });
 
       // Use G (General) check type to get the option general information
       const replyObj = await this.callTourplan({
-        model: getGeneralModel('G'),
+        model: getGeneralModel('GD'),
         endpoint: hostConnectEndpoint,
         axios,
         xmlOptions: hostConnectXmlOptions,
       });
-      const GCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
+      const GDCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
 
-      const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GCheck);
+      const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GDCheck);
+      const OptDateRangesResult = R.pathOr({}, ['OptDateRanges'], GDCheck);
+      const dateRanges = this.praseDateRanges(OptDateRangesResult);
       const countChildrenInPaxBreak = R.pathOr(false, ['CountChildrenInPaxBreak'], OptGeneralResult) === 'Y';
       const childrenAllowed = R.pathOr(false, ['ChildrenAllowed'], OptGeneralResult) === 'Y';
       const infantsAllowed = R.pathOr(false, ['InfantsAllowed'], OptGeneralResult) === 'Y';
@@ -624,7 +653,48 @@ class BuyerPlugin {
         duration,
         maxPaxPerCharge,
         chargeUnit,
+        dateRanges,
       };
+    };
+
+    /*
+      Get date ranges for an option based on start date, charge unit quantity, and room configs.
+
+      @param {string} optionId - The option ID to get information for
+      @param {string} hostConnectEndpoint - The HostConnect endpoint
+      @param {string} hostConnectAgentID - The agent ID
+      @param {string} hostConnectAgentPassword - The agent password
+      @param {Object} axios - The axios instance
+      @param {string} startDate - The start date
+      @param {number} chargeUnitQuantity - The number of charge units
+      @param {Object} roomConfigs - The room configurations
+      @returns {Object} Object containing general option information
+    */
+    this.getOptionDateRanges = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs) => {
+      const getDateRangesModel = checkType => ({
+        OptionInfoRequest: {
+          Opt: optionId,
+          Info: checkType,
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+          DateFrom: startDate,
+          SCUqty: chargeUnitQuantity,
+          RoomConfig: roomConfigs,
+        },
+      });
+
+      // Use D (Date Ranges) check type to get the option date ranges information
+      const replyObj = await this.callTourplan({
+        model: getDateRangesModel('D'),
+        endpoint: hostConnectEndpoint,
+        axios,
+        xmlOptions: hostConnectXmlOptions,
+      });
+      const DCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
+      const OptDateRangesResult = R.pathOr({}, ['OptDateRanges'], DCheck);
+      const dateRanges = this.praseDateRanges(OptDateRangesResult);
+
+      return dateRanges;
     };
 
     /*
@@ -646,6 +716,51 @@ class BuyerPlugin {
       }
       return modifiedPaxConfigs;
     };
+
+    this.praseDateRanges = dateRanges => {
+      const dateRangesResult = [];
+
+      if (!dateRanges) {
+        return dateRangesResult;
+      }
+
+      // Extract OptDateRange items from the dateRanges object
+      const optDateRanges = R.pathOr([], ['OptDateRange'], dateRanges);
+      const dateRangeArray = Array.isArray(optDateRanges) ? optDateRanges : [optDateRanges];
+
+      dateRangeArray.forEach(dateRange => {
+        const rateSets = R.pathOr({}, ['RateSets', 'RateSet'], dateRange);
+        const rateSet = Array.isArray(rateSets) ? rateSets[0] : rateSets;
+
+        const roomRates = R.pathOr({}, ['OptRate', 'RoomRates'], rateSet);
+        const extrasRates = R.pathOr({}, ['OptRate', 'ExtrasRates', 'ExtrasRate'], rateSet);
+
+        dateRangesResult.push({
+          startDate: dateRange.DateFrom,
+          endDate: dateRange.DateTo,
+          currency: dateRange.Currency,
+          priceCode: dateRange.PriceCode,
+          rateName: rateSet.RateName,
+          rateText: rateSet.RateText,
+          minSCU: rateSet.MinSCU,
+          maxSCU: rateSet.MaxSCU,
+          cancelHours: rateSet.CancelHours,
+          isClosed: rateSet.IsClosed,
+          scuCheckOverlapOnly: rateSet.ScuCheckOverlapOnly,
+          roomRates: {
+            singleRate: roomRates.SingleRate,
+            doubleRate: roomRates.DoubleRate,
+          },
+          extrasRates: {
+            adultRate: extrasRates.AdultRate,
+            childRate: extrasRates.ChildRate,
+            sequenceNumber: extrasRates.SequenceNumber,
+          },
+        });
+      });
+      return dateRangesResult;
+    };
+
     /*
       Get the stay results for an option based on start date, charge unit quantity, and room configs.
 
@@ -792,6 +907,195 @@ class BuyerPlugin {
       //     available: false,
       //   };
       // })();
+    };
+
+    // eslint-disable-next-line arrow-body-style
+    this.getRatesObjectArray = (OptStayResults, markupPercentage = 0, daysToChargeAtLastRate = 0, OptStayResultsForLastDate = []) => {
+      // console.log('getRates::OptStayResults :', OptStayResults);
+      return OptStayResults.map(rate => {
+        const currency = R.pathOr('', ['Currency'], rate);
+        // NOTE: Check if the value is in cents or not
+        const totalPrice = R.pathOr('', ['TotalPrice'], rate);
+        const agentPrice = R.pathOr('', ['AgentPrice'], rate);
+        let finalTotalPrice = Number(totalPrice);
+        let finalAgentPrice = Number(agentPrice);
+
+        if (markupPercentage > 0) {
+          finalTotalPrice = Number(totalPrice) + (Number(totalPrice) * (Number(markupPercentage) / 100));
+          finalAgentPrice = Number(agentPrice) + (Number(agentPrice) * (Number(markupPercentage) / 100));
+        } else if (OptStayResultsForLastDate.length > 0) {
+          const singleDayRate = OptStayResultsForLastDate.find(rate2 => rate2.RateId === rate.RateId);
+          const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
+          const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
+          // console.log('totalPriceNoRatesDays : ', totalPriceNoRatesDays, 'agentPriceNoRatesDays : ', agentPriceNoRatesDays);
+          finalTotalPrice = Number(totalPrice) + (Number(daysToChargeAtLastRate) * Number(totalPriceNoRatesDays));
+          finalAgentPrice = Number(agentPrice) + (Number(daysToChargeAtLastRate) * Number(agentPriceNoRatesDays));
+        }
+        // console.log('finalTotalPrice : ', finalTotalPrice, 'finalAgentPrice : ', finalAgentPrice);
+        const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+        // Cancellations within this number of hours of service date incur a cancellation
+        // penalty of some sort.
+        const cancelHours = R.pathOr('', ['CancelHours'], rate);
+        /* Sample data: for cancel policies for the option id (not the external rate)
+          <CancelPolicies>
+            <CancelPenalty>
+                <Deadline>
+                    <OffsetUnitMultiplier>168</OffsetUnitMultiplier>
+                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                    <DeadlineDateTime>2025-07-18T22:00:00Z</DeadlineDateTime>
+                </Deadline>
+                <InEffect>N</InEffect>
+                <LinePrice>1021200</LinePrice>
+                <AgentPrice>1021200</AgentPrice>
+            </CancelPenalty>
+            <CancelPenalty>
+                <Deadline>
+                    <OffsetUnitMultiplier>720</OffsetUnitMultiplier>
+                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                    <DeadlineDateTime>2025-06-25T22:00:00Z</DeadlineDateTime>
+                </Deadline>
+                <InEffect>Y</InEffect>
+                <LinePrice>204240</LinePrice>
+                <AgentPrice>204240</AgentPrice>
+            </CancelPenalty>
+          </CancelPolicies>
+        */
+        let cancelPolicies = this.extractCancelPolicies(rate, ['CancelPolicies', 'CancelPenalty'], true)
+          .filter(policy => policy.inEffect === true);
+
+        let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
+        const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
+        if (extRatePlanDescr && !externalRateText.includes(extRatePlanDescr)) {
+          externalRateText = `${externalRateText} (${extRatePlanDescr})`;
+        }
+
+        /* Sample data: For external start times
+          <ExternalRateDetails>
+            <ExtStartTimes>
+              <ExtStartTime>2026-04-01T06:30:00</ExtStartTime>
+              <ExtStartTime>2026-04-01T07:30:00</ExtStartTime>
+              ...
+            </ExtStartTimes>
+          </ExternalRateDetails>
+        */
+        // Extract external start times
+        const extStartTimes = (() => {
+          // Note: Tourplan expects the start time in HH:MM format, so convert before sending to UI
+          const startTimes = R.pathOr([], ['ExternalRateDetails', 'ExtStartTimes', 'ExtStartTime'], rate);
+          if (!Array.isArray(startTimes)) {
+            // If single item, convert to array
+            return startTimes ? [{ startTime: startTimes.split('T')[1].substring(0, 5) }] : [];
+          }
+          return startTimes.map(startTime => ({ startTime: startTime.split('T')[1].substring(0, 5) }));
+        })();
+
+        /* Sample data: For external pickup and dropoff details
+          Address & ExtPointInfo are optional
+
+          <ExternalRateDetails>
+            <ExtPickupDetails>
+              <ExtPickupDetail>
+                  <ExtPointName>Adina/Vibe Waterfront</ExtPointName>
+                  <MinutesPrior>30</MinutesPrior>
+                  <Address>7 Kitchener Dr, Darwin</Address>
+                  <ExtPointInfo>Additional Info.</ExtPointInfo>
+              </ExtPickupDetail>
+              <ExtPickupDetail>
+                  <ExtPointName>Argus Hotel</ExtPointName>
+                  <MinutesPrior>30</MinutesPrior>
+                  <Address>13 Shepherd St, Darwin (Front of Hotel)</Address>
+                  <ExtPointInfo>Additional Info.</ExtPointInfo>
+              </ExtPickupDetail>
+              ...
+            </ExtDropoffDetails>
+          </ExternalRateDetails>
+        */
+        const extPickupDetails = (() => {
+          const pickupDetails = R.pathOr([], ['ExternalRateDetails', 'ExtPickupDetails', 'ExtPickupDetail'], rate);
+          if (!Array.isArray(pickupDetails)) {
+            // If single item, convert to array
+            return pickupDetails ? [pickupDetails] : [];
+          }
+          return pickupDetails.map(detail => ({
+            pointName: R.pathOr('', ['ExtPointName'], detail),
+            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
+            address: R.pathOr('', ['Address'], detail),
+            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
+          }));
+        })();
+
+        const extDropoffDetails = (() => {
+          const dropoffDetails = R.pathOr([], ['ExternalRateDetails', 'ExtDropoffDetails', 'ExtDropoffDetail'], rate);
+          if (!Array.isArray(dropoffDetails)) {
+            // If single item, convert to array
+            return dropoffDetails ? [dropoffDetails] : [];
+          }
+          return dropoffDetails.map(detail => ({
+            pointName: R.pathOr('', ['ExtPointName'], detail),
+            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
+            address: R.pathOr('', ['Address'], detail),
+            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
+          }));
+        })();
+
+        /* Sample data: for cancel policies for the external rate
+          <ExternalRateDetails>
+            <CancelPolicies>
+                <CancelPenalty>
+                    <PenaltyDescription>Cancellation 100% - within 24 hours or no notice</PenaltyDescription>
+                </CancelPenalty>
+                <CancelPenalty>
+                    <Deadline>
+                        <OffsetUnitMultiplier>2</OffsetUnitMultiplier>
+                        <OffsetTimeUnit>Day</OffsetTimeUnit>
+                    </Deadline>
+                    <PenaltyDescription>Day Tour Cancellation within 48hrs - 50%</PenaltyDescription>
+                </CancelPenalty>
+                <CancelPenalty>
+                    <PenaltyDescription>Day Tour Cancellation within 24hrs - 100%</PenaltyDescription>
+                </CancelPenalty>
+            </CancelPolicies>
+          </ExternalRateDetails>
+        */
+        if (cancelPolicies.length === 0) {
+          // If no cancel policies for the option, check the external rate
+          cancelPolicies = this.extractCancelPolicies(rate, ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], false);
+        }
+        /* Sample data: For additional details
+          <AdditionalDetails>
+            <AdditionalDetail>
+                <DetailName>Keywords</DetailName>
+                <DetailDescription>1|king|bed|classic|non|smoking</DetailDescription>
+            </AdditionalDetail>
+          </AdditionalDetails>
+        */
+        const additionalDetails = (() => {
+          const addDetails = R.pathOr([], ['ExternalRateDetails', 'AdditionalDetails', 'AdditionalDetail'], rate);
+          if (!Array.isArray(addDetails)) {
+            // If single item, convert to array
+            return addDetails ? [addDetails] : [];
+          }
+          return addDetails.map(detail => ({
+            detailName: R.pathOr('', ['DetailName'], detail),
+            detailDescription: R.pathOr('', ['DetailDescription'], detail),
+          }));
+        })();
+
+        return {
+          rateId: R.path(['RateId'], rate),
+          currency,
+          totalPrice: finalTotalPrice,
+          agentPrice: finalAgentPrice,
+          currencyPrecision,
+          cancelHours,
+          externalRateText,
+          cancelPolicies,
+          startTimes: extStartTimes,
+          puInfoList: extPickupDetails.length ? extPickupDetails : [],
+          doInfoList: extDropoffDetails.length ? extDropoffDetails : [],
+          additionalDetails,
+        };
+      });
     };
   }
 
@@ -1070,6 +1374,10 @@ class BuyerPlugin {
       hostConnectAgentID,
       hostConnectAgentPassword,
       seeAvailabilityRateInSupplierCurrency,
+      enableBookingForCustomRates,
+      customRateMarkupPercentage,
+      customRateOverrideForRateTypes,
+      useLastYearRateForCustomRates,
     },
     payload: {
       optionId,
@@ -1087,6 +1395,20 @@ class BuyerPlugin {
       chargeUnitQuantity,
     },
   }) {
+    const isBookingForCustomRatesEnabled = !!(enableBookingForCustomRates && enableBookingForCustomRates.toUpperCase() === 'YES');
+    const useLastYearRate = !!(useLastYearRateForCustomRates && useLastYearRateForCustomRates.toUpperCase() === 'YES');
+    // Assign default values when parameters are empty, null, undefined, or not a valid number between 1-100
+    const numValue = Number(customRateMarkupPercentage);
+    const markupPercentage = customRateMarkupPercentage && !Number.isNaN(numValue) && numValue >= 1 && numValue <= 100
+      ? numValue
+      : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+    // const finalCustomRateOverrideForRateTypes = customRateOverrideForRateTypes && ['Confirmed', 'Manual', 'Provisional'].includes(customRateOverrideForRateTypes)
+    //   ? customRateOverrideForRateTypes
+    //   : DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES;
+    // console.log('isBookingForCustomRatesEnabled', isBookingForCustomRatesEnabled);
+    // console.log('markupPercentage', markupPercentage);
+    // console.log('customRateOverrideForRateTypes', finalCustomRateOverrideForRateTypes);
+    // console.log('useLastYearRate', useLastYearRate);
     const {
       countChildrenInPaxBreak,
       childrenAllowed,
@@ -1095,7 +1417,8 @@ class BuyerPlugin {
       duration,
       maxPaxPerCharge,
       chargeUnit,
-    } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios);
+      dateRanges,
+    } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity);
 
     const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
     const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
@@ -1126,6 +1449,12 @@ class BuyerPlugin {
       }
     }
 
+    // Get the end date
+    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+    // Get the message
+    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
+
+    // Step 1: Check if rates are available for the given dates
     const OptStayResults = await this.getStayResults(
       optionId,
       hostConnectEndpoint,
@@ -1138,188 +1467,133 @@ class BuyerPlugin {
       seeAvailabilityRateInSupplierCurrency,
     );
     const SCheckPass = Boolean(OptStayResults.length);
+    if (SCheckPass) {
+      // Case 1: Rates are available for the given dates
+      return {
+        bookable: Boolean(SCheckPass),
+        type: 'inventory',
+        ...(endDate && SCheckPass ? { endDate } : {}),
+        ...(message && SCheckPass ? { message } : {}),
+        rates: this.getRatesObjectArray(OptStayResults),
+      };
+    }
 
-    // Get the end date
-    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+    // If rates are not available for the given dates there are twop possible scenarios
+    // Case 2: The rates are not available for any date
+    // Case 3: The rates are available for partial dates
+    // In both cases, if the enableBookingForCustomRates flag is enabled, we can get past rates.
+    if (isBookingForCustomRatesEnabled) {
+      if (dateRanges.length === 0) {
+        // Case 2: The rates are not available for any date
+        // 1. Based on the useLastYearRate flag, get rates for either last year or last period.
+        // 2. In either case the markup percentage is applied to the rates.
 
-    // Get the message
-    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
-
-    return {
-      bookable: Boolean(SCheckPass),
-      type: 'inventory',
-      ...(endDate && SCheckPass ? { endDate } : {}),
-      ...(message && SCheckPass ? { message } : {}),
-      rates: OptStayResults.map(rate => {
-        const currency = R.pathOr('', ['Currency'], rate);
-        // NOTE: Check if the value is in cents or not
-        const totalPrice = R.pathOr('', ['TotalPrice'], rate);
-        const agentPrice = R.pathOr('', ['AgentPrice'], rate);
-        const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
-        // Cancellations within this number of hours of service date incur a cancellation
-        // penalty of some sort.
-        const cancelHours = R.pathOr('', ['CancelHours'], rate);
-        /* Sample data: for cancel policies for the option id (not the external rate)
-          <CancelPolicies>
-            <CancelPenalty>
-                <Deadline>
-                    <OffsetUnitMultiplier>168</OffsetUnitMultiplier>
-                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
-                    <DeadlineDateTime>2025-07-18T22:00:00Z</DeadlineDateTime>
-                </Deadline>
-                <InEffect>N</InEffect>
-                <LinePrice>1021200</LinePrice>
-                <AgentPrice>1021200</AgentPrice>
-            </CancelPenalty>
-            <CancelPenalty>
-                <Deadline>
-                    <OffsetUnitMultiplier>720</OffsetUnitMultiplier>
-                    <OffsetTimeUnit>Hour</OffsetTimeUnit>
-                    <DeadlineDateTime>2025-06-25T22:00:00Z</DeadlineDateTime>
-                </Deadline>
-                <InEffect>Y</InEffect>
-                <LinePrice>204240</LinePrice>
-                <AgentPrice>204240</AgentPrice>
-            </CancelPenalty>
-          </CancelPolicies>
-        */
-        let cancelPolicies = this.extractCancelPolicies(rate, ['CancelPolicies', 'CancelPenalty'], true)
-          .filter(policy => policy.inEffect === true);
-
-        let externalRateText = R.pathOr('', ['ExternalRateDetails', 'ExtOptionDescr'], rate);
-        const extRatePlanDescr = R.pathOr('', ['ExternalRateDetails', 'ExtRatePlanDescr'], rate);
-        if (extRatePlanDescr && !externalRateText.includes(extRatePlanDescr)) {
-          externalRateText = `${externalRateText} (${extRatePlanDescr})`;
+        // Get one year old date to look for past rates
+        let dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
+        if (!useLastYearRate) {
+          // Get the immeidate last date range - for that get rates for the last 1 year
+          const unitQuantity = 365; // to get rates for last 1 year
+          const datePastDateRanges = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
+          if (datePastDateRanges.length === 0) {
+            return {
+              bookable: false,
+              type: 'inventory',
+              rates: [],
+              message: 'No rates are available for the given dates. Please try again with a different date range.',
+            };
+          }
+          const immediateLastDateRange = datePastDateRanges[datePastDateRanges.length - 1];
+          dateFrom = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
         }
 
-        /* Sample data: For external start times
-          <ExternalRateDetails>
-            <ExtStartTimes>
-              <ExtStartTime>2026-04-01T06:30:00</ExtStartTime>
-              <ExtStartTime>2026-04-01T07:30:00</ExtStartTime>
-              ...
-            </ExtStartTimes>
-          </ExternalRateDetails>
-        */
-        // Extract external start times
-        const extStartTimes = (() => {
-          // Note: Tourplan expects the start time in HH:MM format, so convert before sending to UI
-          const startTimes = R.pathOr([], ['ExternalRateDetails', 'ExtStartTimes', 'ExtStartTime'], rate);
-          if (!Array.isArray(startTimes)) {
-            // If single item, convert to array
-            return startTimes ? [{ startTime: startTimes.split('T')[1].substring(0, 5) }] : [];
-          }
-          return startTimes.map(startTime => ({ startTime: startTime.split('T')[1].substring(0, 5) }));
-        })();
-
-        /* Sample data: For external pickup and dropoff details
-          Address & ExtPointInfo are optional
-
-          <ExternalRateDetails>
-            <ExtPickupDetails>
-              <ExtPickupDetail>
-                  <ExtPointName>Adina/Vibe Waterfront</ExtPointName>
-                  <MinutesPrior>30</MinutesPrior>
-                  <Address>7 Kitchener Dr, Darwin</Address>
-                  <ExtPointInfo>Additional Info.</ExtPointInfo>
-              </ExtPickupDetail>
-              <ExtPickupDetail>
-                  <ExtPointName>Argus Hotel</ExtPointName>
-                  <MinutesPrior>30</MinutesPrior>
-                  <Address>13 Shepherd St, Darwin (Front of Hotel)</Address>
-                  <ExtPointInfo>Additional Info.</ExtPointInfo>
-              </ExtPickupDetail>
-              ...
-            </ExtDropoffDetails>
-          </ExternalRateDetails>
-        */
-        const extPickupDetails = (() => {
-          const pickupDetails = R.pathOr([], ['ExternalRateDetails', 'ExtPickupDetails', 'ExtPickupDetail'], rate);
-          if (!Array.isArray(pickupDetails)) {
-            // If single item, convert to array
-            return pickupDetails ? [pickupDetails] : [];
-          }
-          return pickupDetails.map(detail => ({
-            pointName: R.pathOr('', ['ExtPointName'], detail),
-            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
-            address: R.pathOr('', ['Address'], detail),
-            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
-          }));
-        })();
-
-        const extDropoffDetails = (() => {
-          const dropoffDetails = R.pathOr([], ['ExternalRateDetails', 'ExtDropoffDetails', 'ExtDropoffDetail'], rate);
-          if (!Array.isArray(dropoffDetails)) {
-            // If single item, convert to array
-            return dropoffDetails ? [dropoffDetails] : [];
-          }
-          return dropoffDetails.map(detail => ({
-            pointName: R.pathOr('', ['ExtPointName'], detail),
-            minutesPrior: R.pathOr('', ['MinutesPrior'], detail),
-            address: R.pathOr('', ['Address'], detail),
-            pointInfo: R.pathOr('', ['ExtPointInfo'], detail),
-          }));
-        })();
-
-        /* Sample data: for cancel policies for the external rate
-          <ExternalRateDetails>
-            <CancelPolicies>
-                <CancelPenalty>
-                    <PenaltyDescription>Cancellation 100% - within 24 hours or no notice</PenaltyDescription>
-                </CancelPenalty>
-                <CancelPenalty>
-                    <Deadline>
-                        <OffsetUnitMultiplier>2</OffsetUnitMultiplier>
-                        <OffsetTimeUnit>Day</OffsetTimeUnit>
-                    </Deadline>
-                    <PenaltyDescription>Day Tour Cancellation within 48hrs - 50%</PenaltyDescription>
-                </CancelPenalty>
-                <CancelPenalty>
-                    <PenaltyDescription>Day Tour Cancellation within 24hrs - 100%</PenaltyDescription>
-                </CancelPenalty>
-            </CancelPolicies>
-          </ExternalRateDetails>
-        */
-        if (cancelPolicies.length === 0) {
-          // If no cancel policies for the option, check the external rate
-          cancelPolicies = this.extractCancelPolicies(rate, ['ExternalRateDetails', 'CancelPolicies', 'CancelPenalty'], false);
+        const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
+        const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` A mark up has been applied to the ${customPeriodInfoMsg}`;
+        const OptStayResultsForStartDate = await this.getStayResults(
+          optionId,
+          hostConnectEndpoint,
+          hostConnectAgentID,
+          hostConnectAgentPassword,
+          axios,
+          dateFrom,
+          chargeUnitQuantity,
+          roomConfigs,
+          seeAvailabilityRateInSupplierCurrency,
+        );
+        // console.log('OptStayResultsForLastDate', OptStayResultsForLastDate);
+        const SCheckPassForStartDate = Boolean(OptStayResultsForStartDate.length);
+        if (!SCheckPassForStartDate) {
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: 'No rates are available for the given dates. Please try again with a different date range.',
+          };
         }
-        /* Sample data: For additional details
-          <AdditionalDetails>
-            <AdditionalDetail>
-                <DetailName>Keywords</DetailName>
-                <DetailDescription>1|king|bed|classic|non|smoking</DetailDescription>
-            </AdditionalDetail>
-          </AdditionalDetails>
-        */
-        const additionalDetails = (() => {
-          const addDetails = R.pathOr([], ['ExternalRateDetails', 'AdditionalDetails', 'AdditionalDetail'], rate);
-          if (!Array.isArray(addDetails)) {
-            // If single item, convert to array
-            return addDetails ? [addDetails] : [];
-          }
-          return addDetails.map(detail => ({
-            detailName: R.pathOr('', ['DetailName'], detail),
-            detailDescription: R.pathOr('', ['DetailDescription'], detail),
-          }));
-        })();
 
         return {
-          rateId: R.path(['RateId'], rate),
-          currency,
-          totalPrice,
-          agentPrice,
-          currencyPrecision,
-          cancelHours,
-          externalRateText,
-          cancelPolicies,
-          startTimes: extStartTimes,
-          puInfoList: extPickupDetails.length ? extPickupDetails : [],
-          doInfoList: extDropoffDetails.length ? extDropoffDetails : [],
-          additionalDetails,
+          bookable: Boolean(SCheckPassForStartDate),
+          type: 'inventory',
+          ...(endDate && SCheckPassForStartDate ? { endDate } : {}),
+          ...(message && SCheckPassForStartDate ? { message } : {}),
+          rates: this.getRatesObjectArray(OptStayResultsForStartDate, markupPercentage),
+          message: `The rates shown are custom.${customRateInfoMsg}`,
         };
-      }),
-    };
+      }
+
+      // Case 3: The rates are available only for partial dates.
+      // 1. Get the rates for available dates
+      // 2. Add the remaining days at the last rate
+      const lastDateRange = dateRanges[dateRanges.length - 1];
+      const noOfDaysRatesAvailable = moment(lastDateRange.endDate).diff(moment(startDate), 'days') + 1;
+      const daysToChargeAtLastRate = chargeUnitQuantity - noOfDaysRatesAvailable;
+
+      // Get Rate for the last rate set
+      const OptStayResultsForLastDate = await this.getStayResults(
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        lastDateRange.endDate,
+        1,
+        roomConfigs,
+        seeAvailabilityRateInSupplierCurrency,
+      );
+      // console.log('OptStayResultsForLastDate', OptStayResultsForLastDate);
+      const SCheckPassForLastDate = Boolean(OptStayResultsForLastDate.length);
+      if (!SCheckPassForLastDate) {
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: 'No rates are available for the given dates. Please try again with a different date range.',
+        };
+      }
+
+      // Get the rates for the available dates
+      const OptStayResultsForAvailabileDates = await this.getStayResults(
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        startDate,
+        noOfDaysRatesAvailable,
+        roomConfigs,
+        seeAvailabilityRateInSupplierCurrency,
+      );
+      // console.log('OptStayResultsForAvailabileDates', OptStayResultsForAvailabileDates);
+      const SCheckPassForAvailabileDates = Boolean(OptStayResultsForAvailabileDates.length);
+
+      return {
+        bookable: Boolean(SCheckPassForAvailabileDates),
+        type: 'inventory',
+        ...(endDate && SCheckPassForAvailabileDates ? { endDate } : {}),
+        ...(message && SCheckPassForAvailabileDates ? { message } : {}),
+        rates: this.getRatesObjectArray(OptStayResultsForAvailabileDates, 0, daysToChargeAtLastRate, OptStayResultsForLastDate),
+        message: `The rates are only defined till ${moment(lastDateRange.endDate).format('DD-MM-YYYY')}. Rates shown are custom.`,
+      };
+    }
   }
 
   async addServiceToItinerary({
