@@ -1601,8 +1601,11 @@ class BuyerPlugin {
       directHeaderPayload,
       directLinePayload,
       customFieldValues = [],
+      pricing,
     },
   }) {
+    // console.log('pricing: ', pricing);
+    const tourplanServiceStatus = 'IR';
     const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
       .reduce((acc, f) => {
         if (f.type === 'extended-option') {
@@ -1689,6 +1692,8 @@ class BuyerPlugin {
         Opt: optionId,
         DateFrom: startDate,
         RateId: rateId || 'Default',
+        ...(pricing ? { Pricing: pricing } : {}),
+        ...(pricing ? { TourplanServiceStatus: tourplanServiceStatus } : {}),
         SCUqty: (() => {
           const num = parseInt(chargeUnitQuantity, 10);
           if (isNaN(num) || num < 1) return 1;
