@@ -13,6 +13,7 @@ const { translateItineraryBooking } = require('./resolvers/itinerary');
 const Normalizer = require('./normalizer');
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
+const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 // const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
 
 const xmlParser = new xml2js.Parser();
@@ -697,6 +698,18 @@ class BuyerPlugin {
       return dateRanges;
     };
 
+    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs) => {
+      // Get the immeidate last date range - for that get rates for the last 1 year
+      const dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
+      const unitQuantity = 365; // to get rates for last 1 year
+      const datePastDateRanges = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
+      if (datePastDateRanges.length === 0) {
+        return null;
+      }
+      // return the last date range
+      return datePastDateRanges[datePastDateRanges.length - 1];
+    };
+
     /*
       Create modified passenger configurations based on the count flags.
       This function handles the conversion of children and infants to adults
@@ -910,28 +923,20 @@ class BuyerPlugin {
     };
 
     // eslint-disable-next-line arrow-body-style
-    this.getRatesObjectArray = (OptStayResults, markupPercentage = 0, daysToChargeAtLastRate = 0, OptStayResultsForLastDate = []) => {
+    this.getRatesObjectArray = (OptStayResults, markupPercentage = 0) => {
       // console.log('getRates::OptStayResults :', OptStayResults);
       return OptStayResults.map(rate => {
+        const rateId = markupPercentage > 0 ? 'Custom' : R.path(['RateId'], rate);
         const currency = R.pathOr('', ['Currency'], rate);
         // NOTE: Check if the value is in cents or not
         const totalPrice = R.pathOr('', ['TotalPrice'], rate);
         const agentPrice = R.pathOr('', ['AgentPrice'], rate);
         let finalTotalPrice = Number(totalPrice);
         let finalAgentPrice = Number(agentPrice);
-
         if (markupPercentage > 0) {
           finalTotalPrice = Number(totalPrice) + (Number(totalPrice) * (Number(markupPercentage) / 100));
           finalAgentPrice = Number(agentPrice) + (Number(agentPrice) * (Number(markupPercentage) / 100));
-        } else if (OptStayResultsForLastDate.length > 0) {
-          const singleDayRate = OptStayResultsForLastDate.find(rate2 => rate2.RateId === rate.RateId);
-          const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
-          const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
-          // console.log('totalPriceNoRatesDays : ', totalPriceNoRatesDays, 'agentPriceNoRatesDays : ', agentPriceNoRatesDays);
-          finalTotalPrice = Number(totalPrice) + (Number(daysToChargeAtLastRate) * Number(totalPriceNoRatesDays));
-          finalAgentPrice = Number(agentPrice) + (Number(daysToChargeAtLastRate) * Number(agentPriceNoRatesDays));
         }
-        // console.log('finalTotalPrice : ', finalTotalPrice, 'finalAgentPrice : ', finalAgentPrice);
         const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
         // penalty of some sort.
@@ -1082,7 +1087,7 @@ class BuyerPlugin {
         })();
 
         return {
-          rateId: R.path(['RateId'], rate),
+          rateId,
           currency,
           totalPrice: finalTotalPrice,
           agentPrice: finalAgentPrice,
@@ -1402,13 +1407,6 @@ class BuyerPlugin {
     const markupPercentage = customRateMarkupPercentage && !Number.isNaN(numValue) && numValue >= 1 && numValue <= 100
       ? numValue
       : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
-    // const finalCustomRateOverrideForRateTypes = customRateOverrideForRateTypes && ['Confirmed', 'Manual', 'Provisional'].includes(customRateOverrideForRateTypes)
-    //   ? customRateOverrideForRateTypes
-    //   : DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES;
-    // console.log('isBookingForCustomRatesEnabled', isBookingForCustomRatesEnabled);
-    // console.log('markupPercentage', markupPercentage);
-    // console.log('customRateOverrideForRateTypes', finalCustomRateOverrideForRateTypes);
-    // console.log('useLastYearRate', useLastYearRate);
     const {
       countChildrenInPaxBreak,
       childrenAllowed,
@@ -1422,6 +1420,11 @@ class BuyerPlugin {
 
     const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
     const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
+
+    // Get the end date
+    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+    // Get the message
+    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
 
     /*
       Verify that each RoomConfig does not exceed maxPaxPerCharge.
@@ -1449,10 +1452,93 @@ class BuyerPlugin {
       }
     }
 
-    // Get the end date
-    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
-    // Get the message
-    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
+    if (dateRanges.length === 0) {
+      if (!isBookingForCustomRatesEnabled) {
+        let errorMessage = GENERIC_AVALABILITY_CHK_ERROR_MESSAGE;
+        const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs);
+        const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
+        if (dateTill) {
+          errorMessage = `Rates are only available till ${dateTill}. Please change the date and try again.`;
+        }
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: errorMessage,
+        };
+      }
+
+      // If rates are not available for any date in the booking period
+      // and if enableBookingForCustomRates flag is enabled, we can get past rates
+      // based on the useLastYearRate flag. If true we use last year's rates, otherwise
+      // we use last period's rates.
+      if (isBookingForCustomRatesEnabled) {
+        // Get one year old date to look for past rates
+        let dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
+        if (!useLastYearRate) {
+          const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs);
+          dateFrom = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
+        }
+
+        const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
+        const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` A mark up has been applied to the ${customPeriodInfoMsg}`;
+        const successMessage = message ? `${message}. The rates shown are custom.${customRateInfoMsg}` : `The rates shown are custom.${customRateInfoMsg}`;
+        const OptStayResultsForStartDate = await this.getStayResults(
+          optionId,
+          hostConnectEndpoint,
+          hostConnectAgentID,
+          hostConnectAgentPassword,
+          axios,
+          dateFrom,
+          chargeUnitQuantity,
+          roomConfigs,
+          seeAvailabilityRateInSupplierCurrency,
+        );
+        const SCheckPassForStartDate = Boolean(OptStayResultsForStartDate.length);
+        return {
+          bookable: Boolean(SCheckPassForStartDate),
+          type: 'inventory',
+          ...(endDate && SCheckPassForStartDate ? { endDate } : {}),
+          ...(successMessage && SCheckPassForStartDate ? { message: successMessage } : {}),
+          rates: this.getRatesObjectArray(OptStayResultsForStartDate, markupPercentage),
+        };
+      }
+    }
+
+    // for the given dates, check if any rate set is closed
+    if (dateRanges.some(dateRange => dateRange.isClosed === 'Y')) {
+      const closedDateRanges = dateRanges.filter(dateRange => dateRange.isClosed === 'Y');
+      const closedDateRangesText = closedDateRanges.map(dateRange => `${dateRange.startDate} to ${dateRange.endDate}`).join(', ');
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: `The rates are closed for the given dates: ${closedDateRangesText}. Please try again with a different dates range.`,
+      };
+    }
+
+    // for the given dates, check if any rate set has a minimum stay length
+    if (dateRanges.some(dateRange => dateRange.minSCU > 1)) {
+      const dateRangesWithMinSCUGreaterThanOne = dateRanges.filter(dateRange => dateRange.minSCU > 1);
+      const minSCUDateRangesText = [];
+
+      dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
+        const daysBeforeDateRange = moment(dateRange.startDate).diff(moment(startDate), 'days');
+        const daysAfterDateRange = chargeUnitQuantity - daysBeforeDateRange;
+        if (daysAfterDateRange < dateRange.minSCU) {
+          minSCUDateRangesText.push(`The date range ${dateRange.startDate} to ${dateRange.endDate} has a minimum stay length of ${dateRange.minSCU}`);
+        }
+      });
+
+      if (minSCUDateRangesText.length > 0) {
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: `${minSCUDateRangesText.join(', ')}. Please adjust the stay length and try again.`,
+        };
+      }
+    }
 
     // Step 1: Check if rates are available for the given dates
     const OptStayResults = await this.getStayResults(
@@ -1475,123 +1561,6 @@ class BuyerPlugin {
         ...(endDate && SCheckPass ? { endDate } : {}),
         ...(message && SCheckPass ? { message } : {}),
         rates: this.getRatesObjectArray(OptStayResults),
-      };
-    }
-
-    // If rates are not available for the given dates there are twop possible scenarios
-    // Case 2: The rates are not available for any date
-    // Case 3: The rates are available for partial dates
-    // In both cases, if the enableBookingForCustomRates flag is enabled, we can get past rates.
-    if (isBookingForCustomRatesEnabled) {
-      if (dateRanges.length === 0) {
-        // Case 2: The rates are not available for any date
-        // 1. Based on the useLastYearRate flag, get rates for either last year or last period.
-        // 2. In either case the markup percentage is applied to the rates.
-
-        // Get one year old date to look for past rates
-        let dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
-        if (!useLastYearRate) {
-          // Get the immeidate last date range - for that get rates for the last 1 year
-          const unitQuantity = 365; // to get rates for last 1 year
-          const datePastDateRanges = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
-          if (datePastDateRanges.length === 0) {
-            return {
-              bookable: false,
-              type: 'inventory',
-              rates: [],
-              message: 'No rates are available for the given dates. Please try again with a different date range.',
-            };
-          }
-          const immediateLastDateRange = datePastDateRanges[datePastDateRanges.length - 1];
-          dateFrom = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
-        }
-
-        const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
-        const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` A mark up has been applied to the ${customPeriodInfoMsg}`;
-        const OptStayResultsForStartDate = await this.getStayResults(
-          optionId,
-          hostConnectEndpoint,
-          hostConnectAgentID,
-          hostConnectAgentPassword,
-          axios,
-          dateFrom,
-          chargeUnitQuantity,
-          roomConfigs,
-          seeAvailabilityRateInSupplierCurrency,
-        );
-        // console.log('OptStayResultsForLastDate', OptStayResultsForLastDate);
-        const SCheckPassForStartDate = Boolean(OptStayResultsForStartDate.length);
-        if (!SCheckPassForStartDate) {
-          return {
-            bookable: false,
-            type: 'inventory',
-            rates: [],
-            message: 'No rates are available for the given dates. Please try again with a different date range.',
-          };
-        }
-
-        return {
-          bookable: Boolean(SCheckPassForStartDate),
-          type: 'inventory',
-          ...(endDate && SCheckPassForStartDate ? { endDate } : {}),
-          ...(message && SCheckPassForStartDate ? { message } : {}),
-          rates: this.getRatesObjectArray(OptStayResultsForStartDate, markupPercentage),
-          message: `The rates shown are custom.${customRateInfoMsg}`,
-        };
-      }
-
-      // Case 3: The rates are available only for partial dates.
-      // 1. Get the rates for available dates
-      // 2. Add the remaining days at the last rate
-      const lastDateRange = dateRanges[dateRanges.length - 1];
-      const noOfDaysRatesAvailable = moment(lastDateRange.endDate).diff(moment(startDate), 'days') + 1;
-      const daysToChargeAtLastRate = chargeUnitQuantity - noOfDaysRatesAvailable;
-
-      // Get Rate for the last rate set
-      const OptStayResultsForLastDate = await this.getStayResults(
-        optionId,
-        hostConnectEndpoint,
-        hostConnectAgentID,
-        hostConnectAgentPassword,
-        axios,
-        lastDateRange.endDate,
-        1,
-        roomConfigs,
-        seeAvailabilityRateInSupplierCurrency,
-      );
-      // console.log('OptStayResultsForLastDate', OptStayResultsForLastDate);
-      const SCheckPassForLastDate = Boolean(OptStayResultsForLastDate.length);
-      if (!SCheckPassForLastDate) {
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: 'No rates are available for the given dates. Please try again with a different date range.',
-        };
-      }
-
-      // Get the rates for the available dates
-      const OptStayResultsForAvailabileDates = await this.getStayResults(
-        optionId,
-        hostConnectEndpoint,
-        hostConnectAgentID,
-        hostConnectAgentPassword,
-        axios,
-        startDate,
-        noOfDaysRatesAvailable,
-        roomConfigs,
-        seeAvailabilityRateInSupplierCurrency,
-      );
-      // console.log('OptStayResultsForAvailabileDates', OptStayResultsForAvailabileDates);
-      const SCheckPassForAvailabileDates = Boolean(OptStayResultsForAvailabileDates.length);
-
-      return {
-        bookable: Boolean(SCheckPassForAvailabileDates),
-        type: 'inventory',
-        ...(endDate && SCheckPassForAvailabileDates ? { endDate } : {}),
-        ...(message && SCheckPassForAvailabileDates ? { message } : {}),
-        rates: this.getRatesObjectArray(OptStayResultsForAvailabileDates, 0, daysToChargeAtLastRate, OptStayResultsForLastDate),
-        message: `The rates are only defined till ${moment(lastDateRange.endDate).format('DD-MM-YYYY')}. Rates shown are custom.`,
       };
     }
   }
