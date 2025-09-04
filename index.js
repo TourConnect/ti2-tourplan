@@ -612,7 +612,8 @@ class BuyerPlugin {
         },
       });
 
-      // Use G (General) check type to get the option general information
+      // Use G (General) & D (Date Ranges) check type to get the option general information
+      // and date ranges information
       const replyObj = await this.callTourplan({
         model: getGeneralModel('GD'),
         endpoint: hostConnectEndpoint,

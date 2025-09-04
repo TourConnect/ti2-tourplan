@@ -350,7 +350,7 @@ describe('search tests', () => {
       token,
       typeDefsAndQueries,
       payload: {
-        optionId: 'LONTRDAVIDSHDWBVC',
+        optionId: 'LONTRDAVIDSHDWBVD',
       },
     });
     expect(retVal).toMatchSnapshot();
@@ -381,7 +381,7 @@ describe('search tests', () => {
         payload: {
           optionId: 'AKLACAKLSOFDYNAMC',
           startDate: '2025-04-01',
-          chargeUnitQuantity: 1,
+          chargeUnitQuantity: 2,
           paxConfigs: [{ roomType: 'DB', adults: 1 }],
         },
       });

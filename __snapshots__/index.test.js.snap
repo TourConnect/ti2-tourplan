@@ -3,6 +3,7 @@
 exports[`search tests availability tests searchAvailabilityForItinerary - bookable - static with inventory 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-03",
   "rates": Array [
     Object {
       "additionalDetails": Array [],

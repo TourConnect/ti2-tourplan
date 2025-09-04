@@ -1,11 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<!DOCTYPE Reply SYSTEM "hostConnect_5_05_000.dtd">
 <Reply>
-    <OptionInfoReply>
-        <Option>
-            <Opt>AKLACAKLSOFDYNAMC</Opt>
-            <OptionNumber>46052</OptionNumber>
-            <OptStayResults>
+	<OptionInfoReply>
+		<Option>
+			<Opt>AKLACAKLSOFDYNAMC</Opt>
+			<OptionNumber>46052</OptionNumber>
+			<OptAvail>3</OptAvail>
+			<OptStayResults>
                 <Availability>OK</Availability>
                 <Currency>NZD</Currency>
                 <TotalPrice>54900</TotalPrice>
@@ -434,6 +435,6 @@
                     <RoomType>DB</RoomType>
                 </RoomList>
             </OptStayResults>
-        </Option>
-    </OptionInfoReply>
+		</Option>
+	</OptionInfoReply>
 </Reply>

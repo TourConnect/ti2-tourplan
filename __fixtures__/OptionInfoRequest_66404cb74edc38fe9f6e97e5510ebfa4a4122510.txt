@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE Reply SYSTEM "http://localhost:8080/iCom_Test/hostConnect_4_06_009.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>LONTRDAVIDSHDWBVD</Opt>
+            <OptionNumber>70820</OptionNumber>
+            <OptGeneral>
+                <SupplierId>6489</SupplierId>
+                <SupplierName>Davids of London Ltd</SupplierName>
+                <Description>Half-Day Warner Bros Studios (6-Hours)</Description>
+                <Comment>FIT- V- Class (1-5 Pax)</Comment>
+                <Locality>LON</Locality>
+                <LocalityDescription>London</LocalityDescription>
+                <SType>N</SType>
+                <MPFCU>5</MPFCU>
+                <SCU>day</SCU>
+                <MinSCU>1</MinSCU>
+                <MaxSCU>9999</MaxSCU>
+                <VoucherName>Davids of London Ltd</VoucherName>
+                <Address1>377 Fulham Palace Road</Address1>
+                <Address2></Address2>
+                <Address3>London</Address3>
+                <Address4>United Kingdom</Address4>
+                <Address5></Address5>
+                <PostCode>SW6 6TA</PostCode>
+                <InfantsAllowed>Y</InfantsAllowed>
+                <Infant_From>0</Infant_From>
+                <Infant_To>4</Infant_To>
+                <ChildrenAllowed>Y</ChildrenAllowed>
+                <Child_From>5</Child_From>
+                <Child_To>15</Child_To>
+                <AdultsAllowed>Y</AdultsAllowed>
+                <Adult_From>16</Adult_From>
+                <Adult_To>999</Adult_To>
+                <ButtonName>Transfers</ButtonName>
+                <DBAnalysisCode1>FI</DBAnalysisCode1>
+                <DBAnalysisDescription1>FIT</DBAnalysisDescription1>
+                <DBAnalysisCode2>GB</DBAnalysisCode2>
+                <DBAnalysisDescription2>United Kingdom</DBAnalysisDescription2>
+                <DBAnalysisCode3>20</DBAnalysisCode3>
+                <DBAnalysisDescription3>VAT 20%</DBAnalysisDescription3>
+                <DBAnalysisCode4></DBAnalysisCode4>
+                <DBAnalysisDescription4>Unassigned</DBAnalysisDescription4>
+                <DBAnalysisCode5></DBAnalysisCode5>
+                <DBAnalysisDescription5>Unassigned</DBAnalysisDescription5>
+                <DBAnalysisCode6></DBAnalysisCode6>
+                <DBAnalysisDescription6>Unassigned</DBAnalysisDescription6>
+                <LastUpdate>2023-11-23T14:34:53Z</LastUpdate>
+            </OptGeneral>
+        </Option>
+    </OptionInfoReply>
+</Reply>
