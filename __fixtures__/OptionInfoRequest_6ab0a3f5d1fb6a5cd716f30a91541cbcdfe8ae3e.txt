@@ -46,6 +46,38 @@
                 <DBAnalysisDescription6>Unassigned</DBAnalysisDescription6>
                 <LastUpdate>2025-05-21T02:22:18Z</LastUpdate>
             </OptGeneral>
+            <OptDateRanges>
+                <OptDateRange>
+                    <DateFrom>2025-03-22</DateFrom>
+                    <DateTo>2025-04-30</DateTo>
+                    <Currency>NZD</Currency>
+                    <PriceCode>STANDARD</PriceCode>
+                    <RateSets>
+                        <RateSet>
+                            <RateName>Standard Rate</RateName>
+                            <RateText>Standard accommodation rate</RateText>
+                            <MinSCU>1</MinSCU>
+                            <MaxSCU>14</MaxSCU>
+                            <CancelHours>48</CancelHours>
+                            <IsClosed>N</IsClosed>
+                            <ScuCheckOverlapOnly>N</ScuCheckOverlapOnly>
+                            <OptRate>
+                                <RoomRates>
+                                    <SingleRate>54900</SingleRate>
+                                    <DoubleRate>54900</DoubleRate>
+                                </RoomRates>
+                                <ExtrasRates>
+                                    <ExtrasRate>
+                                        <AdultRate>0</AdultRate>
+                                        <ChildRate>0</ChildRate>
+                                        <SequenceNumber>1</SequenceNumber>
+                                    </ExtrasRate>
+                                </ExtrasRates>
+                            </OptRate>
+                        </RateSet>
+                    </RateSets>
+                </OptDateRange>
+            </OptDateRanges>
             <OptStayResults>
                 <Availability>RQ</Availability>
                 <Currency>AUD</Currency>
