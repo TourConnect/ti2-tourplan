@@ -350,7 +350,7 @@ describe('search tests', () => {
       token,
       typeDefsAndQueries,
       payload: {
-        optionId: 'LONTRDAVIDSHDWBVC',
+        optionId: 'LONTRDAVIDSHDWBVD',
       },
     });
     expect(retVal).toMatchSnapshot();
@@ -381,7 +381,7 @@ describe('search tests', () => {
         payload: {
           optionId: 'AKLACAKLSOFDYNAMC',
           startDate: '2025-04-01',
-          chargeUnitQuantity: 1,
+          chargeUnitQuantity: 2,
           paxConfigs: [{ roomType: 'DB', adults: 1 }],
         },
       });
@@ -885,15 +885,17 @@ describe('search tests', () => {
     });
   });
 
-  describe('getOptionGeneralInfo tests', () => {
+  describe('getGeneralAndDateRangesInfo tests', () => {
     it('should return correct general option information', async () => {
       axios.mockImplementation(getFixture);
-      const retVal = await app.getOptionGeneralInfo(
+      const retVal = await app.getGeneralAndDateRangesInfo(
         'TESTGENERALINFO',
         token.hostConnectEndpoint,
         token.hostConnectAgentID,
         token.hostConnectAgentPassword,
         axios,
+        '2024-09-01',
+        1,
       );
 
       expect(retVal).toHaveProperty('childrenAllowed');

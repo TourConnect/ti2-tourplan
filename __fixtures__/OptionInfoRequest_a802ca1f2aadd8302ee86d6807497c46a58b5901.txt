@@ -1,1 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?><!DOCTYPE Reply SYSTEM "hostConnect_5_05_000.dtd"><Reply><OptionInfoReply><Option><Opt>AKLACAKLSOFDYNAMC</Opt><OptionNumber>46052</OptionNumber><OptAvail>3</OptAvail></Option></OptionInfoReply></Reply>

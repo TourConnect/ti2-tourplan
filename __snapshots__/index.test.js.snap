@@ -3,6 +3,7 @@
 exports[`search tests availability tests searchAvailabilityForItinerary - bookable - static with inventory 1`] = `
 Object {
   "bookable": true,
+  "endDate": "2025-04-03",
   "rates": Array [
     Object {
       "additionalDetails": Array [],
@@ -3966,7 +3967,7 @@ Object {
           "comment": "FIT- V- Class (1-5 Pax)",
           "extras": Array [],
           "lastUpdateTimestamp": 1700750093,
-          "optionId": "LONTRDAVIDSHDWBVC",
+          "optionId": "LONTRDAVIDSHDWBVD",
           "optionName": "Half-Day Warner Bros Studios (6-Hours)-FIT- V- Class (1-5 Pax)",
           "restrictions": Object {
             "Adult": Object {

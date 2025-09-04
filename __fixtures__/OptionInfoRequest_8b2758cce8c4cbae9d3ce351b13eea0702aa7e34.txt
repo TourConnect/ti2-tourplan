@@ -3,8 +3,8 @@
 <Reply>
     <OptionInfoReply>
         <Option>
-            <Opt>TESTEXTPICKUPDROPOFF</Opt>
-            <OptionNumber>12345</OptionNumber>
+            <Opt>TESTMODIFIEDPAXCONFIGS</Opt>
+            <OptionNumber>46052</OptionNumber>
             <OptGeneral>
                 <SupplierId>4109</SupplierId>
                 <SupplierName>Test External Supplier</SupplierName>
@@ -23,10 +23,12 @@
                 <Address4 />
                 <Address5 />
                 <PostCode>12345</PostCode>
-                <InfantsAllowed>Y</InfantsAllowed>
+                <InfantsAllowed>N</InfantsAllowed>
+                <CountInfantsInPaxBreak>Y</CountInfantsInPaxBreak>
                 <Infant_From>0</Infant_From>
                 <Infant_To>1</Infant_To>
-                <ChildrenAllowed>Y</ChildrenAllowed>
+                <ChildrenAllowed>N</ChildrenAllowed>
+                <CountChildrenInPaxBreak>Y</CountChildrenInPaxBreak>
                 <Child_From>2</Child_From>
                 <Child_To>15</Child_To>
                 <AdultsAllowed>Y</AdultsAllowed>
@@ -48,6 +50,38 @@
                 <DBAnalysisDescription6>Unassigned</DBAnalysisDescription6>
                 <LastUpdate>2025-01-15T10:30:00Z</LastUpdate>
             </OptGeneral>
+            <OptDateRanges>
+                <OptDateRange>
+                    <DateFrom>2025-03-22</DateFrom>
+                    <DateTo>2025-04-30</DateTo>
+                    <Currency>NZD</Currency>
+                    <PriceCode>STANDARD</PriceCode>
+                    <RateSets>
+                        <RateSet>
+                            <RateName>Standard Rate</RateName>
+                            <RateText>Standard accommodation rate</RateText>
+                            <MinSCU>1</MinSCU>
+                            <MaxSCU>14</MaxSCU>
+                            <CancelHours>48</CancelHours>
+                            <IsClosed>N</IsClosed>
+                            <ScuCheckOverlapOnly>N</ScuCheckOverlapOnly>
+                            <OptRate>
+                                <RoomRates>
+                                    <SingleRate>54900</SingleRate>
+                                    <DoubleRate>54900</DoubleRate>
+                                </RoomRates>
+                                <ExtrasRates>
+                                    <ExtrasRate>
+                                        <AdultRate>0</AdultRate>
+                                        <ChildRate>0</ChildRate>
+                                        <SequenceNumber>1</SequenceNumber>
+                                    </ExtrasRate>
+                                </ExtrasRates>
+                            </OptRate>
+                        </RateSet>
+                    </RateSets>
+                </OptDateRange>
+            </OptDateRanges>
         </Option>
     </OptionInfoReply>
 </Reply> 
