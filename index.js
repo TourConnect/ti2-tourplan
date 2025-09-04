@@ -92,27 +92,27 @@ class BuyerPlugin {
         type: 'text',
         regExp: /.+/,
       },
-      seeAvailabilityRateInSupplierCurrency: {
+      displayRateInSupplierCurrency: {
         type: 'text',
         regExp: /^(yes|no)$/i,
         default: 'N',
       },
-      enableBookingForCustomRates: {
+      customRatesEnableForQuotesAndBookings: {
         type: 'text',
         regExp: /^(yes|no)$/i,
         default: 'No',
       },
-      customRateMarkupPercentage: {
+      customRatesMarkupPercentage: {
         type: 'number',
         regExp: /^(100|[1-9]?\d)(\.\d{1,2})?$/,
         default: 10,
       },
-      // customRateOverrideForRateTypes: {
+      // customRatesEligibleRateTypes: {
       //   type: 'text',
       //   regExp: /^(Confirmed|Manual|Provisional)$/i,
       //   default: 'Confirmed',
       // },
-      useLastYearRateForCustomRates: {
+      customRatesCalculateWithLastYearsRate: {
         type: 'text',
         regExp: /^(Yes|No)$/i,
         default: 'No',
@@ -876,7 +876,7 @@ class BuyerPlugin {
       @param {string} startDate - The start date
       @param {number} chargeUnitQuantity - The number of charge units
       @param {Object} roomConfigs - The room configurations
-      @param {string} seeAvailabilityRateInSupplierCurrency - Whether to see the availability rate in the supplier currency
+      @param {string} displayRateInSupplierCurrency - Whether to see the availability rate in the supplier currency
       @returns {Object} The stay results
     */
     this.getStayResults = async (
@@ -888,7 +888,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      seeAvailabilityRateInSupplierCurrency,
+      displayRateInSupplierCurrency,
     ) => {
       // The rate conversion flag: Y = convert to the currency of the agent, N = show in original currency
       // From TP DOCS: If the value is Y then all rate information is converted to the currency associated
@@ -896,7 +896,7 @@ class BuyerPlugin {
       // in the currency in which they are stored. If RateConvert is not specified then whether currency
       // conversion occurs or not is determined by a system default.
       // Note: has no effect if R or S is not specified in Info.
-      const rateConvert = seeAvailabilityRateInSupplierCurrency && seeAvailabilityRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
+      const rateConvert = displayRateInSupplierCurrency && displayRateInSupplierCurrency.toUpperCase() === 'YES' ? 'N' : 'Y';
       const getModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
@@ -1545,11 +1545,11 @@ class BuyerPlugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
-      seeAvailabilityRateInSupplierCurrency,
-      enableBookingForCustomRates,
-      customRateMarkupPercentage,
-      // customRateOverrideForRateTypes,
-      useLastYearRateForCustomRates,
+      displayRateInSupplierCurrency,
+      customRatesEnableForQuotesAndBookings,
+      customRatesMarkupPercentage,
+      // customRatesEligibleRateTypes,
+      customRatesCalculateWithLastYearsRate,
     },
     payload: {
       optionId,
@@ -1568,10 +1568,10 @@ class BuyerPlugin {
     },
   }) {
     // Get application configuration parameters for custom rates
-    const isBookingForCustomRatesEnabled = !!(enableBookingForCustomRates && enableBookingForCustomRates.toUpperCase() === 'YES');
-    const useLastYearRate = !!(useLastYearRateForCustomRates && useLastYearRateForCustomRates.toUpperCase() === 'YES');
+    const isBookingForCustomRatesEnabled = !!(customRatesEnableForQuotesAndBookings && customRatesEnableForQuotesAndBookings.toUpperCase() === 'YES');
+    const useLastYearRate = !!(customRatesCalculateWithLastYearsRate && customRatesCalculateWithLastYearsRate.toUpperCase() === 'YES');
     // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
-    const numValue = Number(customRateMarkupPercentage);
+    const numValue = Number(customRatesMarkupPercentage);
     const markupPercentage = numValue && numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE
       ? numValue
       : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
@@ -1640,7 +1640,7 @@ class BuyerPlugin {
           startDate,
           noOfDaysRatesAvailable,
           roomConfigs,
-          seeAvailabilityRateInSupplierCurrency,
+          displayRateInSupplierCurrency,
         );
         const SCheckPass = Boolean(OptStayResults.length);
         if (!SCheckPass) {
@@ -1688,7 +1688,7 @@ class BuyerPlugin {
         pastDateAsStartDate,
         daysToChargeAtLastRate,
         roomConfigs,
-        seeAvailabilityRateInSupplierCurrency,
+        displayRateInSupplierCurrency,
       );
       const SCheckPass = Boolean(OptStayResultsExtendedDates.length);
       if (SCheckPass) {
@@ -1733,7 +1733,7 @@ class BuyerPlugin {
       startDate,
       chargeUnitQuantity,
       roomConfigs,
-      seeAvailabilityRateInSupplierCurrency,
+      displayRateInSupplierCurrency,
     );
 
     const SCheckPass = Boolean(OptStayResults.length);
