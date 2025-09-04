@@ -12,8 +12,16 @@ const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 const Normalizer = require('./normalizer');
 
+const DEFAULT_TOURPLAN_SERVICE_STATUS = 'IR';
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
+const MIN_MARKUP_PERCENTAGE = 1;
+const MAX_MARKUP_PERCENTAGE = 100;
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
+const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
+const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. Please update the Pax Config accordingly.';
+const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available till {dateTill}. Please change the date and try again.';
+const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: {closedDateRanges}. Please try again with a different dates range.';
+const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. Please adjust the stay length and try again.';
 // const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
 
 const xmlParser = new xml2js.Parser();
@@ -588,6 +596,88 @@ class BuyerPlugin {
       return message;
     };
 
+    /**
+     * Validate that each RoomConfig does not exceed maxPaxPerCharge.
+     * Reason: Tourplan availability check returns success even if the pax configs exceed the maxPaxPerCharge.
+     * And then when the booking is made, the booking fails with an error like "002 SCN adults + children exceeds capacity".
+     *
+     * @param {Object} params - Validation parameters
+     * @returns {Object|null} Returns error object if validation fails, null if valid
+     */
+    this.validateMaxPaxPerCharge = ({
+      roomConfigs,
+      maxPaxPerCharge,
+    }) => {
+      // Verify that each RoomConfig does not exceed maxPaxPerCharge
+      if (maxPaxPerCharge && maxPaxPerCharge > 1) {
+        for (let i = 0; i < roomConfigs.RoomConfig.length; i++) {
+          const room = roomConfigs.RoomConfig[i];
+          const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
+          if (roomPax > maxPaxPerCharge) {
+            // NOTE: As a long term solution, we need to return the errors per pax config
+            // so that the UI can display the errors for the particular pax config.
+            // For now we return on the 1st error and show the error in availability check.
+            return {
+              bookable: false,
+              type: 'inventory',
+              rates: [],
+              message: MAX_PAX_EXCEEDED_ERROR_TEMPLATE.replace('{maxPax}', maxPaxPerCharge),
+            };
+          }
+        }
+      }
+
+      return null;
+    };
+
+    /**
+     * Validates date ranges and room configurations
+     * @param {Object} params - Validation parameters
+     * @returns {Object|null} Returns error object if validation fails, null if valid
+     */
+    this.validateDateRanges = ({
+      dateRanges,
+      startDate,
+      chargeUnitQuantity,
+    }) => {
+      // Check if any rate set is closed
+      if (dateRanges.some(dateRange => dateRange.isClosed === 'Y')) {
+        const closedDateRanges = dateRanges.filter(dateRange => dateRange.isClosed === 'Y');
+        const closedDateRangesText = closedDateRanges.map(dateRange => `${dateRange.startDate} to ${dateRange.endDate}`).join(', ');
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: RATES_CLOSED_ERROR_TEMPLATE.replace('{closedDateRanges}', closedDateRangesText),
+        };
+      }
+
+      // Check if any rate set has a minimum stay length
+      if (dateRanges.some(dateRange => dateRange.minSCU > 1)) {
+        const dateRangesWithMinSCUGreaterThanOne = dateRanges.filter(dateRange => dateRange.minSCU > 1);
+        const minSCUDateRangesText = [];
+
+        dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
+          const daysBeforeDateRange = moment(dateRange.startDate).diff(moment(startDate), 'days');
+          const daysAfterDateRange = chargeUnitQuantity - daysBeforeDateRange;
+          if (daysAfterDateRange < dateRange.minSCU) {
+            minSCUDateRangesText.push(`The date range ${dateRange.startDate} to ${dateRange.endDate} has a minimum stay length of ${dateRange.minSCU}`);
+          }
+        });
+
+        if (minSCUDateRangesText.length > 0) {
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: MIN_STAY_LENGTH_ERROR_TEMPLATE.replace('{minSCUDateRangesText}', minSCUDateRangesText.join(', ')),
+          };
+        }
+      }
+
+      return null; // No validation errors
+    };
+
     /*
       Get general option information from Tourplan API.
 
@@ -600,7 +690,7 @@ class BuyerPlugin {
       @param {number} chargeUnitQuantity - The number of charge units
       @returns {Object} Object containing general option information
     */
-    this.getOptionGeneralInfo = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity) => {
+    this.getGeneralAndDateRangesInfo = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity) => {
       const getGeneralModel = checkType => ({
         OptionInfoRequest: {
           Opt: optionId,
@@ -624,7 +714,7 @@ class BuyerPlugin {
 
       const OptGeneralResult = R.pathOr({}, ['OptGeneral'], GDCheck);
       const OptDateRangesResult = R.pathOr({}, ['OptDateRanges'], GDCheck);
-      const dateRanges = this.praseDateRanges(OptDateRangesResult);
+      const dateRanges = this.parseDateRanges(OptDateRangesResult);
       const countChildrenInPaxBreak = R.pathOr(false, ['CountChildrenInPaxBreak'], OptGeneralResult) === 'Y';
       const childrenAllowed = R.pathOr(false, ['ChildrenAllowed'], OptGeneralResult) === 'Y';
       const infantsAllowed = R.pathOr(false, ['InfantsAllowed'], OptGeneralResult) === 'Y';
@@ -694,14 +784,14 @@ class BuyerPlugin {
       });
       const DCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
       const OptDateRangesResult = R.pathOr({}, ['OptDateRanges'], DCheck);
-      const dateRanges = this.praseDateRanges(OptDateRangesResult);
+      const dateRanges = this.parseDateRanges(OptDateRangesResult);
 
       return dateRanges;
     };
 
-    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs) => {
+    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs) => {
       // Get the immeidate last date range - for that get rates for the last 1 year
-      const dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
+      const dateFrom = moment(endDate).subtract(1, 'year').format('YYYY-MM-DD');
       const unitQuantity = 365; // to get rates for last 1 year
       const datePastDateRanges = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
       if (datePastDateRanges.length === 0) {
@@ -731,7 +821,7 @@ class BuyerPlugin {
       return modifiedPaxConfigs;
     };
 
-    this.praseDateRanges = dateRanges => {
+    this.parseDateRanges = dateRanges => {
       const dateRangesResult = [];
 
       if (!dateRanges) {
@@ -924,8 +1014,7 @@ class BuyerPlugin {
     };
 
     // eslint-disable-next-line arrow-body-style
-    this.getRatesObjectArray = (OptStayResults, markupPercentage = 0) => {
-      // console.log('getRates::OptStayResults :', OptStayResults);
+    this.getRatesObjectArray = (OptStayResults, markupPercentage = 0, OptStayResultsExtendedDates = []) => {
       return OptStayResults.map(rate => {
         const rateId = markupPercentage > 0 ? 'Custom' : R.path(['RateId'], rate);
         const currency = R.pathOr('', ['Currency'], rate);
@@ -934,9 +1023,20 @@ class BuyerPlugin {
         const agentPrice = R.pathOr('', ['AgentPrice'], rate);
         let finalTotalPrice = Number(totalPrice);
         let finalAgentPrice = Number(agentPrice);
-        if (markupPercentage > 0) {
-          finalTotalPrice = Number(totalPrice) + (Number(totalPrice) * (Number(markupPercentage) / 100));
-          finalAgentPrice = Number(agentPrice) + (Number(agentPrice) * (Number(markupPercentage) / 100));
+        let markupFactor = 1;
+        if (markupPercentage >= MIN_MARKUP_PERCENTAGE && markupPercentage <= MAX_MARKUP_PERCENTAGE) {
+          markupFactor = 1 + (Number(markupPercentage) / 100);
+        }
+
+        if (OptStayResultsExtendedDates.length > 0) {
+          const singleDayRate = OptStayResultsExtendedDates.find(rate2 => rate2.RateId === rate.RateId);
+          const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
+          const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
+          finalTotalPrice = Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor);
+          finalAgentPrice = Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor);
+        } else if (markupFactor > 1) {
+          finalTotalPrice = Number(totalPrice) * markupFactor;
+          finalAgentPrice = Number(agentPrice) * markupFactor;
         }
         const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
@@ -1373,6 +1473,72 @@ class BuyerPlugin {
     };
   }
 
+  /**
+   * Get and prepare availability configuration parameters (General and Date Ranges)
+   * @param {Object} params - Configuration parameters
+   * @returns {Object} Parsed configuration object
+   */
+  async getAvailabilityConfig({
+    optionId,
+    startDate,
+    chargeUnitQuantity,
+    paxConfigs,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+  }) {
+    const optionInfo = await this.getGeneralAndDateRangesInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity);
+    const {
+      countChildrenInPaxBreak,
+      childrenAllowed,
+      countInfantsInPaxBreak,
+      infantsAllowed,
+      duration,
+      maxPaxPerCharge,
+      chargeUnit,
+      dateRanges,
+    } = optionInfo;
+
+    const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
+    const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
+
+    // Get the end date and message
+    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
+    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
+
+    return {
+      roomConfigs,
+      endDate,
+      message,
+      dateRanges,
+      maxPaxPerCharge,
+    };
+  }
+
+  async getNoRatesAvailableError({
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    endDate,
+    roomConfigs,
+  }) {
+    let errorMessage = GENERIC_AVALABILITY_CHK_ERROR_MESSAGE;
+    const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs);
+    const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
+    if (dateTill) {
+      errorMessage = RATES_AVAILABLE_TILL_ERROR_TEMPLATE.replace('{dateTill}', dateTill);
+    }
+    return {
+      bookable: false,
+      type: 'inventory',
+      rates: [],
+      message: errorMessage,
+    };
+  }
+
   async searchAvailabilityForItinerary({
     axios,
     token: {
@@ -1382,7 +1548,7 @@ class BuyerPlugin {
       seeAvailabilityRateInSupplierCurrency,
       enableBookingForCustomRates,
       customRateMarkupPercentage,
-      customRateOverrideForRateTypes,
+      // customRateOverrideForRateTypes,
       useLastYearRateForCustomRates,
     },
     payload: {
@@ -1401,147 +1567,163 @@ class BuyerPlugin {
       chargeUnitQuantity,
     },
   }) {
+    // Get application configuration parameters for custom rates
     const isBookingForCustomRatesEnabled = !!(enableBookingForCustomRates && enableBookingForCustomRates.toUpperCase() === 'YES');
     const useLastYearRate = !!(useLastYearRateForCustomRates && useLastYearRateForCustomRates.toUpperCase() === 'YES');
-    // Assign default values when parameters are empty, null, undefined, or not a valid number between 1-100
+    // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
     const numValue = Number(customRateMarkupPercentage);
-    const markupPercentage = customRateMarkupPercentage && !Number.isNaN(numValue) && numValue >= 1 && numValue <= 100
+    const markupPercentage = numValue && numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE
       ? numValue
       : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+
+    // Get availability configuration parameters from Tourplan(General and Date Ranges)
+    const availabilityConfig = await this.getAvailabilityConfig({
+      optionId,
+      startDate,
+      chargeUnitQuantity,
+      paxConfigs,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+    });
+
     const {
-      countChildrenInPaxBreak,
-      childrenAllowed,
-      countInfantsInPaxBreak,
-      infantsAllowed,
-      duration,
-      maxPaxPerCharge,
-      chargeUnit,
+      roomConfigs,
+      endDate,
+      message,
       dateRanges,
-    } = await this.getOptionGeneralInfo(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity);
+      maxPaxPerCharge,
+    } = availabilityConfig;
 
-    const modifiedPaxConfigs = this.getModifiedPaxConfigs(countChildrenInPaxBreak, childrenAllowed, countInfantsInPaxBreak, infantsAllowed, paxConfigs);
-    const roomConfigs = this.getRoomConfigs(modifiedPaxConfigs, true);
-
-    // Get the end date
-    const endDate = this.calculateEndDate(startDate, duration, chargeUnitQuantity);
-    // Get the message
-    const message = this.getOptionMessage(duration, chargeUnitQuantity, chargeUnit);
-
-    /*
-      Verify that each RoomConfig does not exceed maxPaxPerCharge.
-      Reason: Tourplan availability check returns success even if the pax configs
-      exceed the maxPaxPerCharge. And then when the booking is made, the booking fails
-      with the error like "002 SCN adults + children exceeds capacity".
-     */
-    if (maxPaxPerCharge && maxPaxPerCharge > 1) {
-      for (let i = 0; i < roomConfigs.RoomConfig.length; i++) {
-        const room = roomConfigs.RoomConfig[i];
-        const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
-        if (roomPax > maxPaxPerCharge) {
-          /*
-            NOTE: As a long term solution, we need to return the errors per pax config
-            so that the UI can display the errors for the particular pax config.
-            For now we return on the 1st error and show the error in availability check.
-          */
-          return {
-            bookable: false,
-            type: 'inventory',
-            rates: [],
-            message: `Maximum ${maxPaxPerCharge} pax allowed per Pax Config. Please update the Pax Config accordingly.`,
-          };
-        }
-      }
+    // Validate max pax per charge
+    const maxPaxPerChargeError = this.validateMaxPaxPerCharge({
+      roomConfigs,
+      maxPaxPerCharge,
+    });
+    if (maxPaxPerChargeError) {
+      return maxPaxPerChargeError;
     }
 
-    if (dateRanges.length === 0) {
+    const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
+    const lastDateRangeEndDate = dateRanges.length > 0 ? moment(dateRanges[dateRanges.length - 1].endDate) : null;
+    const atLeastOneDateDoesNotHaveRatesAvailable = dateRanges.length === 0 ||
+      (lastDateRangeEndDate && lastDateRangeEndDate.isBefore(ratesRequiredTillDate));
+    if (atLeastOneDateDoesNotHaveRatesAvailable) {
+      // At least one date does not have rates available.
       if (!isBookingForCustomRatesEnabled) {
-        let errorMessage = GENERIC_AVALABILITY_CHK_ERROR_MESSAGE;
-        const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs);
-        const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
-        if (dateTill) {
-          errorMessage = `Rates are only available till ${dateTill}. Please change the date and try again.`;
-        }
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: errorMessage,
-        };
-      }
-
-      // If rates are not available for any date in the booking period
-      // and if enableBookingForCustomRates flag is enabled, we can get past rates
-      // based on the useLastYearRate flag. If true we use last year's rates, otherwise
-      // we use last period's rates.
-      if (isBookingForCustomRatesEnabled) {
-        // Get one year old date to look for past rates
-        let dateFrom = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
-        if (!useLastYearRate) {
-          const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, startDate, chargeUnitQuantity, roomConfigs);
-          dateFrom = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
-        }
-
-        const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
-        const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` A mark up has been applied to the ${customPeriodInfoMsg}`;
-        const successMessage = message ? `${message}. The rates shown are custom.${customRateInfoMsg}` : `The rates shown are custom.${customRateInfoMsg}`;
-        const OptStayResultsForStartDate = await this.getStayResults(
+        // If custom rates are not enabled, return error
+        return this.getNoRatesAvailableError({
           optionId,
           hostConnectEndpoint,
           hostConnectAgentID,
           hostConnectAgentPassword,
           axios,
-          dateFrom,
-          chargeUnitQuantity,
+          endDate: endDate || startDate,
+          roomConfigs,
+        });
+      }
+
+      // Custom Rates are Enabled
+
+      // Step1 : Get rates for the days that have rates available
+      const noOfDaysRatesAvailable = lastDateRangeEndDate ? lastDateRangeEndDate.diff(moment(startDate), 'days') + 1 : 0;
+      let OptStayResults = [];
+      // Get stay rates for the given dates
+      if (noOfDaysRatesAvailable > 0) {
+        OptStayResults = await this.getStayResults(
+          optionId,
+          hostConnectEndpoint,
+          hostConnectAgentID,
+          hostConnectAgentPassword,
+          axios,
+          startDate,
+          noOfDaysRatesAvailable,
           roomConfigs,
           seeAvailabilityRateInSupplierCurrency,
         );
-        const SCheckPassForStartDate = Boolean(OptStayResultsForStartDate.length);
+        const SCheckPass = Boolean(OptStayResults.length);
+        if (!SCheckPass) {
+          return {
+            bookable: Boolean(SCheckPass),
+            type: 'inventory',
+            rates: [],
+            message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
+          };
+        }
+      }
+
+      // Step2 : Get rates for the days that do not have any rates available
+      // This is done by getting the past rates based on the useLastYearRate flag.
+      // If true use last year's rates, otherwise use last period's rates.
+      let pastDateAsStartDate = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
+      if (!useLastYearRate) {
+        const immediateLastDateRange = await this.getImmediateLastDateRange(
+          optionId,
+          hostConnectEndpoint,
+          hostConnectAgentID,
+          hostConnectAgentPassword,
+          axios,
+          endDate || startDate,
+          roomConfigs,
+        );
+        pastDateAsStartDate = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
+      }
+
+      // Format the success message for the custom rates
+      const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
+      const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` No additional mark up has been applied to the ${customPeriodInfoMsg}`;
+      const successMessage = message ? `${message}. The rates shown are custom.${customRateInfoMsg}` : `The rates shown are custom.${customRateInfoMsg}`;
+
+      // Calculate the number of days to charge at the last rate
+      const daysToChargeAtLastRate = chargeUnitQuantity - noOfDaysRatesAvailable;
+
+      // Get stay rates
+      let OptStayResultsExtendedDates = await this.getStayResults(
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        pastDateAsStartDate,
+        daysToChargeAtLastRate,
+        roomConfigs,
+        seeAvailabilityRateInSupplierCurrency,
+      );
+      const SCheckPass = Boolean(OptStayResultsExtendedDates.length);
+      if (SCheckPass) {
+        if (OptStayResults.length === 0) {
+          OptStayResults = OptStayResultsExtendedDates;
+          OptStayResultsExtendedDates = [];
+        }
         return {
-          bookable: Boolean(SCheckPassForStartDate),
+          bookable: Boolean(SCheckPass),
           type: 'inventory',
-          ...(endDate && SCheckPassForStartDate ? { endDate } : {}),
-          ...(successMessage && SCheckPassForStartDate ? { message: successMessage } : {}),
-          rates: this.getRatesObjectArray(OptStayResultsForStartDate, markupPercentage),
+          ...(endDate && SCheckPass ? { endDate } : {}),
+          ...(successMessage && SCheckPass ? { message: successMessage } : {}),
+          rates: this.getRatesObjectArray(OptStayResults, markupPercentage, OptStayResultsExtendedDates),
         };
       }
-    }
-
-    // for the given dates, check if any rate set is closed
-    if (dateRanges.some(dateRange => dateRange.isClosed === 'Y')) {
-      const closedDateRanges = dateRanges.filter(dateRange => dateRange.isClosed === 'Y');
-      const closedDateRangesText = closedDateRanges.map(dateRange => `${dateRange.startDate} to ${dateRange.endDate}`).join(', ');
       return {
         bookable: false,
         type: 'inventory',
         rates: [],
-        message: `The rates are closed for the given dates: ${closedDateRangesText}. Please try again with a different dates range.`,
+        message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
       };
     }
 
-    // for the given dates, check if any rate set has a minimum stay length
-    if (dateRanges.some(dateRange => dateRange.minSCU > 1)) {
-      const dateRangesWithMinSCUGreaterThanOne = dateRanges.filter(dateRange => dateRange.minSCU > 1);
-      const minSCUDateRangesText = [];
+    // Validate date ranges and room configurations
+    const dateRangesError = this.validateDateRanges({
+      dateRanges,
+      startDate,
+      chargeUnitQuantity,
+    });
 
-      dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
-        const daysBeforeDateRange = moment(dateRange.startDate).diff(moment(startDate), 'days');
-        const daysAfterDateRange = chargeUnitQuantity - daysBeforeDateRange;
-        if (daysAfterDateRange < dateRange.minSCU) {
-          minSCUDateRangesText.push(`The date range ${dateRange.startDate} to ${dateRange.endDate} has a minimum stay length of ${dateRange.minSCU}`);
-        }
-      });
-
-      if (minSCUDateRangesText.length > 0) {
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: `${minSCUDateRangesText.join(', ')}. Please adjust the stay length and try again.`,
-        };
-      }
+    if (dateRangesError) {
+      return dateRangesError;
     }
 
-    // Step 1: Check if rates are available for the given dates
+    // Get stay rates for the given dates
     const OptStayResults = await this.getStayResults(
       optionId,
       hostConnectEndpoint,
@@ -1553,17 +1735,15 @@ class BuyerPlugin {
       roomConfigs,
       seeAvailabilityRateInSupplierCurrency,
     );
+
     const SCheckPass = Boolean(OptStayResults.length);
-    if (SCheckPass) {
-      // Case 1: Rates are available for the given dates
-      return {
-        bookable: Boolean(SCheckPass),
-        type: 'inventory',
-        ...(endDate && SCheckPass ? { endDate } : {}),
-        ...(message && SCheckPass ? { message } : {}),
-        rates: this.getRatesObjectArray(OptStayResults),
-      };
-    }
+    return {
+      bookable: Boolean(SCheckPass),
+      type: 'inventory',
+      ...(endDate && SCheckPass ? { endDate } : {}),
+      ...(message && SCheckPass ? { message } : {}),
+      rates: this.getRatesObjectArray(OptStayResults),
+    };
   }
 
   async addServiceToItinerary({
@@ -1605,8 +1785,7 @@ class BuyerPlugin {
       pricing,
     },
   }) {
-    // console.log('pricing: ', pricing);
-    const tourplanServiceStatus = 'IR';
+    const tourplanServiceStatus = DEFAULT_TOURPLAN_SERVICE_STATUS;
     const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
       .reduce((acc, f) => {
         if (f.type === 'extended-option') {
@@ -1714,7 +1893,7 @@ class BuyerPlugin {
     });
     return {
       message: R.path(['AddServiceReply', 'Status'], replyObj)
-        === 'NO' ? 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)' : '',
+        === 'NO' ? SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE : '',
       booking: {
         id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
         reference: R.path(['AddServiceReply', 'Ref'], replyObj),

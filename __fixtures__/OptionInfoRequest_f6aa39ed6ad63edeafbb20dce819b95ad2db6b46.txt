@@ -3,7 +3,7 @@
 <Reply>
     <OptionInfoReply>
         <Option>
-            <Opt>LONTRDAVIDSHDWBVC</Opt>
+            <Opt>LONTRDAVIDSHDWBVD</Opt>
             <OptionNumber>70820</OptionNumber>
             <OptGeneral>
                 <SupplierId>6489</SupplierId>

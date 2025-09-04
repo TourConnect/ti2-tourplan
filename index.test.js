@@ -885,15 +885,17 @@ describe('search tests', () => {
     });
   });
 
-  describe('getOptionGeneralInfo tests', () => {
+  describe('getGeneralAndDateRangesInfo tests', () => {
     it('should return correct general option information', async () => {
       axios.mockImplementation(getFixture);
-      const retVal = await app.getOptionGeneralInfo(
+      const retVal = await app.getGeneralAndDateRangesInfo(
         'TESTGENERALINFO',
         token.hostConnectEndpoint,
         token.hostConnectAgentID,
         token.hostConnectAgentPassword,
         axios,
+        '2024-09-01',
+        1,
       );
 
       expect(retVal).toHaveProperty('childrenAllowed');
