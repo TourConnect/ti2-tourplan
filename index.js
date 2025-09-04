@@ -22,6 +22,7 @@ const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Co
 const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available till {dateTill}. Please change the date and try again.';
 const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: {closedDateRanges}. Please try again with a different dates range.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. Please adjust the stay length and try again.';
+const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
 // const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
 
 const xmlParser = new xml2js.Parser();
@@ -643,7 +644,11 @@ class BuyerPlugin {
       // Check if any rate set is closed
       if (dateRanges.some(dateRange => dateRange.isClosed === 'Y')) {
         const closedDateRanges = dateRanges.filter(dateRange => dateRange.isClosed === 'Y');
-        const closedDateRangesText = closedDateRanges.map(dateRange => `${dateRange.startDate} to ${dateRange.endDate}`).join(', ');
+        const closedDateRangesText = closedDateRanges.map(dateRange => {
+          const formattedStartDate = moment(dateRange.startDate).format(USER_FRIENDLY_DATE_FORMAT);
+          const formattedEndDate = moment(dateRange.endDate).format(USER_FRIENDLY_DATE_FORMAT);
+          return `${formattedStartDate} to ${formattedEndDate}`;
+        }).join(', ');
         return {
           bookable: false,
           type: 'inventory',
@@ -661,7 +666,9 @@ class BuyerPlugin {
           const daysBeforeDateRange = moment(dateRange.startDate).diff(moment(startDate), 'days');
           const daysAfterDateRange = chargeUnitQuantity - daysBeforeDateRange;
           if (daysAfterDateRange < dateRange.minSCU) {
-            minSCUDateRangesText.push(`The date range ${dateRange.startDate} to ${dateRange.endDate} has a minimum stay length of ${dateRange.minSCU}`);
+            const formattedStartDate = moment(dateRange.startDate).format(USER_FRIENDLY_DATE_FORMAT);
+            const formattedEndDate = moment(dateRange.endDate).format(USER_FRIENDLY_DATE_FORMAT);
+            minSCUDateRangesText.push(`The date range ${formattedStartDate} to ${formattedEndDate} has a minimum stay length of ${dateRange.minSCU}`);
           }
         });
 
@@ -1529,7 +1536,8 @@ class BuyerPlugin {
     const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs);
     const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
     if (dateTill) {
-      errorMessage = RATES_AVAILABLE_TILL_ERROR_TEMPLATE.replace('{dateTill}', dateTill);
+      const formattedDateTill = moment(dateTill).format(USER_FRIENDLY_DATE_FORMAT);
+      errorMessage = RATES_AVAILABLE_TILL_ERROR_TEMPLATE.replace('{dateTill}', formattedDateTill);
     }
     return {
       bookable: false,
