@@ -1595,17 +1595,17 @@ class BuyerPlugin {
     const isBookingForCustomRatesEnabled = !!(customRatesEnableForQuotesAndBookings && customRatesEnableForQuotesAndBookings.toUpperCase() === 'YES');
     const useLastYearRate = !!(customRatesCalculateWithLastYearsRate && customRatesCalculateWithLastYearsRate.toUpperCase() === 'YES');
     // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
-    const numValue = Number(customRatesMarkupPercentage);
-    const markupPercentage = numValue && numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE
-      ? numValue
-      : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
-
+    const markupPercentage = (() => {
+      const numValue = customRatesMarkupPercentage ? Number(customRatesMarkupPercentage) : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+      return (numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE) ? numValue : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+    })();
+    // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_FUTURE_BOOKING_YEARS-MAX_FUTURE_BOOKING_YEARS
     const futureBookingYears = (() => {
       const years = customRatesFutureBookingYears ? Number(customRatesFutureBookingYears) : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
       return (years >= MIN_FUTURE_BOOKING_YEARS && years <= MAX_FUTURE_BOOKING_YEARS) ? years : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
     })();
 
-    // Check if the start date is beyond the future booking years setting
+    // Check if the start date is beyond the permitted future booking years
     const futureBookingPermittedDate = moment().add(futureBookingYears, 'years').format('YYYY-MM-DD');
     if (!useLastYearRate && moment(startDate).isSameOrAfter(futureBookingPermittedDate)) {
       return {
@@ -1714,7 +1714,7 @@ class BuyerPlugin {
 
       // Format the success message for the custom rates
       const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last available rate.';
-      const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` No additional mark up has been applied to the ${customPeriodInfoMsg}`;
+      const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` Custom rate applied with no mark up on ${customPeriodInfoMsg}`;
       const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
       // Calculate the number of days to charge at the last rate
