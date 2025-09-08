@@ -16,13 +16,17 @@ const DEFAULT_TOURPLAN_SERVICE_STATUS = 'IR';
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const MIN_MARKUP_PERCENTAGE = 1;
 const MAX_MARKUP_PERCENTAGE = 100;
+const MIN_FUTURE_BOOKING_YEARS = 1;
+const MAX_FUTURE_BOOKING_YEARS = 10;
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. Please update the Pax Config accordingly.';
-const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available till {dateTill}. Please change the date and try again.';
+const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available until {dateTill}. Please change the date and try again.';
 const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: {closedDateRanges}. Please try again with a different dates range.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. Please adjust the stay length and try again.';
 const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
+const DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS = 1;
+const FUTURE_BOOKING_YEARS_ERROR_TEMPLATE = 'Future booking is allowed for {futureBookingYears} years. Please change the date and try again.';
 // const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
 
 const xmlParser = new xml2js.Parser();
@@ -117,6 +121,11 @@ class BuyerPlugin {
         type: 'text',
         regExp: /^(Yes|No)$/i,
         default: 'No',
+      },
+      customRatesFutureBookingYears: {
+        type: 'number',
+        regExp: /^(1|2|3|4|5|6|7|8|9|10)$/i,
+        default: 1,
       },
     });
     
@@ -796,16 +805,21 @@ class BuyerPlugin {
       return dateRanges;
     };
 
-    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs) => {
-      // Get the immeidate last date range - for that get rates for the last 1 year
-      const dateFrom = moment(endDate).subtract(1, 'year').format('YYYY-MM-DD');
-      const unitQuantity = 365; // to get rates for last 1 year
-      const datePastDateRanges = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
-      if (datePastDateRanges.length === 0) {
-        return null;
+    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs, futureBookingYears) => {
+      // Get the immediate last date range - keep going back in time until a rate range is found
+      const maxYearsBack = futureBookingYears; // Prevent infinite loop by limiting to futureBookingYears years back
+      const unitQuantity = 365; // to get rates for 1 year at a time
+
+      for (let yearsBack = 1; yearsBack <= maxYearsBack; yearsBack += 1) {
+        const dateFrom = moment(endDate).subtract(yearsBack, 'year').format('YYYY-MM-DD');
+        const results = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
+        if (results.length > 0) {
+          return results[results.length - 1];
+        }
       }
-      // return the last date range
-      return datePastDateRanges[datePastDateRanges.length - 1];
+
+      // If no date ranges found after going back maxYearsBack years, return null
+      return null;
     };
 
     /*
@@ -1531,9 +1545,10 @@ class BuyerPlugin {
     axios,
     endDate,
     roomConfigs,
+    futureBookingYears,
   }) {
     let errorMessage = GENERIC_AVALABILITY_CHK_ERROR_MESSAGE;
-    const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs);
+    const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs, futureBookingYears);
     const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
     if (dateTill) {
       const formattedDateTill = moment(dateTill).format(USER_FRIENDLY_DATE_FORMAT);
@@ -1558,6 +1573,7 @@ class BuyerPlugin {
       customRatesMarkupPercentage,
       // customRatesEligibleRateTypes,
       customRatesCalculateWithLastYearsRate,
+      customRatesFutureBookingYears,
     },
     payload: {
       optionId,
@@ -1579,10 +1595,26 @@ class BuyerPlugin {
     const isBookingForCustomRatesEnabled = !!(customRatesEnableForQuotesAndBookings && customRatesEnableForQuotesAndBookings.toUpperCase() === 'YES');
     const useLastYearRate = !!(customRatesCalculateWithLastYearsRate && customRatesCalculateWithLastYearsRate.toUpperCase() === 'YES');
     // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
-    const numValue = Number(customRatesMarkupPercentage);
-    const markupPercentage = numValue && numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE
-      ? numValue
-      : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+    const markupPercentage = (() => {
+      const numValue = customRatesMarkupPercentage ? Number(customRatesMarkupPercentage) : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+      return (numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE) ? numValue : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
+    })();
+    // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_FUTURE_BOOKING_YEARS-MAX_FUTURE_BOOKING_YEARS
+    const futureBookingYears = (() => {
+      const years = customRatesFutureBookingYears ? Number(customRatesFutureBookingYears) : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
+      return (years >= MIN_FUTURE_BOOKING_YEARS && years <= MAX_FUTURE_BOOKING_YEARS) ? years : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
+    })();
+
+    // Check if the start date is beyond the permitted future booking years
+    const futureBookingPermittedDate = moment().add(futureBookingYears, 'years').format('YYYY-MM-DD');
+    if (!useLastYearRate && moment(startDate).isSameOrAfter(futureBookingPermittedDate)) {
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: FUTURE_BOOKING_YEARS_ERROR_TEMPLATE.replace('{futureBookingYears}', futureBookingYears),
+      };
+    }
 
     // Get availability configuration parameters from Tourplan(General and Date Ranges)
     const availabilityConfig = await this.getAvailabilityConfig({
@@ -1629,6 +1661,7 @@ class BuyerPlugin {
           axios,
           endDate: endDate || startDate,
           roomConfigs,
+          futureBookingYears,
         });
       }
 
@@ -1674,14 +1707,15 @@ class BuyerPlugin {
           axios,
           endDate || startDate,
           roomConfigs,
+          futureBookingYears,
         );
         pastDateAsStartDate = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
       }
 
       // Format the success message for the custom rates
-      const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last period\'s rates.';
-      const customRateInfoMsg = markupPercentage > 0 ? ` A mark up has been applied to the ${customPeriodInfoMsg}` : ` No additional mark up has been applied to the ${customPeriodInfoMsg}`;
-      const successMessage = message ? `${message}. The rates shown are custom.${customRateInfoMsg}` : `The rates shown are custom.${customRateInfoMsg}`;
+      const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last available rate.';
+      const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` Custom rate applied with no mark up on ${customPeriodInfoMsg}`;
+      const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
       // Calculate the number of days to charge at the last rate
       const daysToChargeAtLastRate = chargeUnitQuantity - noOfDaysRatesAvailable;
