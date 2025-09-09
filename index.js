@@ -16,8 +16,8 @@ const DEFAULT_TOURPLAN_SERVICE_STATUS = 'IR';
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const MIN_MARKUP_PERCENTAGE = 1;
 const MAX_MARKUP_PERCENTAGE = 100;
-const MIN_FUTURE_BOOKING_YEARS = 1;
-const MAX_FUTURE_BOOKING_YEARS = 10;
+const MIN_EXTENDED_BOOKING_YEARS = 1;
+const MAX_EXTENDED_BOOKING_YEARS = 100;
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. Please update the Pax Config accordingly.';
@@ -25,9 +25,9 @@ const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available until {dat
 const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: {closedDateRanges}. Please try again with a different dates range.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. Please adjust the stay length and try again.';
 const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
-const DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS = 1;
-const FUTURE_BOOKING_YEARS_ERROR_TEMPLATE = 'Future booking is allowed for {futureBookingYears} years. Please change the date and try again.';
-// const DEFAULT_CUSTOM_RATE_OVERRIDE_FOR_RATE_TYPES = 'Confirmed';
+const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
+const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
+const CUSTOM_RATE_ID_NAME = 'Custom';
 
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
@@ -112,17 +112,12 @@ class BuyerPlugin {
         regExp: /^(100|[1-9]?\d)(\.\d{1,2})?$/,
         default: 10,
       },
-      // customRatesEligibleRateTypes: {
-      //   type: 'text',
-      //   regExp: /^(Confirmed|Manual|Provisional)$/i,
-      //   default: 'Confirmed',
-      // },
       customRatesCalculateWithLastYearsRate: {
         type: 'text',
         regExp: /^(Yes|No)$/i,
         default: 'No',
       },
-      customRatesFutureBookingYears: {
+      customRatesExtendedBookingYears: {
         type: 'number',
         regExp: /^(1|2|3|4|5|6|7|8|9|10)$/i,
         default: 1,
@@ -805,20 +800,18 @@ class BuyerPlugin {
       return dateRanges;
     };
 
-    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs, futureBookingYears) => {
-      // Get the immediate last date range - keep going back in time until a rate range is found
-      const maxYearsBack = futureBookingYears; // Prevent infinite loop by limiting to futureBookingYears years back
-      const unitQuantity = 365; // to get rates for 1 year at a time
-
-      for (let yearsBack = 1; yearsBack <= maxYearsBack; yearsBack += 1) {
-        const dateFrom = moment(endDate).subtract(yearsBack, 'year').format('YYYY-MM-DD');
-        const results = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
-        if (results.length > 0) {
-          return results[results.length - 1];
-        }
+    // Get the immediate last date range
+    // Logic: starting for the requested end date, keep going back in time until a rate range is found
+    this.getImmediateLastDateRange = async (optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs) => {
+      // Prevent a very long period by limiting the number of days
+      const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days'));
+      const dateFrom = moment().format('YYYY-MM-DD');
+      const results = await this.getOptionDateRanges(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, dateFrom, unitQuantity, roomConfigs);
+      if (results.length > 0) {
+        return results[results.length - 1];
       }
 
-      // If no date ranges found after going back maxYearsBack years, return null
+      // If no date ranges found return null
       return null;
     };
 
@@ -1037,7 +1030,7 @@ class BuyerPlugin {
     // eslint-disable-next-line arrow-body-style
     this.getRatesObjectArray = (OptStayResults, markupPercentage = 0, OptStayResultsExtendedDates = []) => {
       return OptStayResults.map(rate => {
-        const rateId = markupPercentage > 0 ? 'Custom' : R.path(['RateId'], rate);
+        const rateId = markupPercentage > 0 ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
         const currency = R.pathOr('', ['Currency'], rate);
         // NOTE: Check if the value is in cents or not
         const totalPrice = R.pathOr('', ['TotalPrice'], rate);
@@ -1053,11 +1046,11 @@ class BuyerPlugin {
           const singleDayRate = OptStayResultsExtendedDates.find(rate2 => rate2.RateId === rate.RateId);
           const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
           const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
-          finalTotalPrice = Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor);
-          finalAgentPrice = Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor);
+          finalTotalPrice = Math.round((Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor)) * 100) / 100;
+          finalAgentPrice = Math.round((Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor)) * 100) / 100;
         } else if (markupFactor > 1) {
-          finalTotalPrice = Number(totalPrice) * markupFactor;
-          finalAgentPrice = Number(agentPrice) * markupFactor;
+          finalTotalPrice = Math.round((Number(totalPrice) * markupFactor) * 100) / 100;
+          finalAgentPrice = Math.round((Number(agentPrice) * markupFactor) * 100) / 100;
         }
         const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
@@ -1545,10 +1538,9 @@ class BuyerPlugin {
     axios,
     endDate,
     roomConfigs,
-    futureBookingYears,
   }) {
     let errorMessage = GENERIC_AVALABILITY_CHK_ERROR_MESSAGE;
-    const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs, futureBookingYears);
+    const immediateLastDateRange = await this.getImmediateLastDateRange(optionId, hostConnectEndpoint, hostConnectAgentID, hostConnectAgentPassword, axios, endDate, roomConfigs);
     const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
     if (dateTill) {
       const formattedDateTill = moment(dateTill).format(USER_FRIENDLY_DATE_FORMAT);
@@ -1571,9 +1563,8 @@ class BuyerPlugin {
       displayRateInSupplierCurrency,
       customRatesEnableForQuotesAndBookings,
       customRatesMarkupPercentage,
-      // customRatesEligibleRateTypes,
       customRatesCalculateWithLastYearsRate,
-      customRatesFutureBookingYears,
+      customRatesExtendedBookingYears,
     },
     payload: {
       optionId,
@@ -1599,22 +1590,11 @@ class BuyerPlugin {
       const numValue = customRatesMarkupPercentage ? Number(customRatesMarkupPercentage) : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
       return (numValue >= MIN_MARKUP_PERCENTAGE && numValue <= MAX_MARKUP_PERCENTAGE) ? numValue : DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE;
     })();
-    // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_FUTURE_BOOKING_YEARS-MAX_FUTURE_BOOKING_YEARS
-    const futureBookingYears = (() => {
-      const years = customRatesFutureBookingYears ? Number(customRatesFutureBookingYears) : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
-      return (years >= MIN_FUTURE_BOOKING_YEARS && years <= MAX_FUTURE_BOOKING_YEARS) ? years : DEFAULT_CUSTOM_RATES_FUTURE_BOOKING_YEARS;
+    // Assign default values when parameters are empty, null, undefined, or not a valid number between MIN_EXTENDED_BOOKING_YEARS-MAX_EXTENDED_BOOKING_YEARS
+    const extendedBookingYears = (() => {
+      const years = customRatesExtendedBookingYears ? Number(customRatesExtendedBookingYears) : DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS;
+      return (years >= MIN_EXTENDED_BOOKING_YEARS && years <= MAX_EXTENDED_BOOKING_YEARS) ? years : DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS;
     })();
-
-    // Check if the start date is beyond the permitted future booking years
-    const futureBookingPermittedDate = moment().add(futureBookingYears, 'years').format('YYYY-MM-DD');
-    if (!useLastYearRate && moment(startDate).isSameOrAfter(futureBookingPermittedDate)) {
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: FUTURE_BOOKING_YEARS_ERROR_TEMPLATE.replace('{futureBookingYears}', futureBookingYears),
-      };
-    }
 
     // Get availability configuration parameters from Tourplan(General and Date Ranges)
     const availabilityConfig = await this.getAvailabilityConfig({
@@ -1661,7 +1641,6 @@ class BuyerPlugin {
           axios,
           endDate: endDate || startDate,
           roomConfigs,
-          futureBookingYears,
         });
       }
 
@@ -1696,7 +1675,7 @@ class BuyerPlugin {
 
       // Step2 : Get rates for the days that do not have any rates available
       // This is done by getting the past rates based on the useLastYearRate flag.
-      // If true use last year's rates, otherwise use last period's rates.
+      // If true use last year's rates, otherwise use last available rates.
       let pastDateAsStartDate = moment(startDate).subtract(1, 'year').format('YYYY-MM-DD');
       if (!useLastYearRate) {
         const immediateLastDateRange = await this.getImmediateLastDateRange(
@@ -1707,14 +1686,35 @@ class BuyerPlugin {
           axios,
           endDate || startDate,
           roomConfigs,
-          futureBookingYears,
         );
-        pastDateAsStartDate = immediateLastDateRange ? immediateLastDateRange.startDate : startDate;
+        if (!immediateLastDateRange) {
+          // If no immediate last date range found, return error
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
+          };
+        }
+
+        // If immediate last date range found, use the last rate's start date
+        pastDateAsStartDate = immediateLastDateRange.startDate;
+
+        // Check if the start date is beyond the permitted future booking years
+        const extendedBookingPermittedDate = moment(immediateLastDateRange.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');
+        if (moment(startDate).isAfter(extendedBookingPermittedDate)) {
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE.replace('{lastRateEndDate}', immediateLastDateRange.endDate).replace('{extendedBookingYears}', extendedBookingYears),
+          };
+        }
       }
 
       // Format the success message for the custom rates
       const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last available rate.';
-      const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` Custom rate applied with no mark up on ${customPeriodInfoMsg}`;
+      const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` Custom rate applied with no markup on ${customPeriodInfoMsg}`;
       const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
       // Calculate the number of days to charge at the last rate
@@ -1824,9 +1824,10 @@ class BuyerPlugin {
       directHeaderPayload,
       directLinePayload,
       customFieldValues = [],
-      pricing,
+      availCheckObj,
     },
   }) {
+    let pricing = null;
     const tourplanServiceStatus = DEFAULT_TOURPLAN_SERVICE_STATUS;
     const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
       .reduce((acc, f) => {
@@ -1838,6 +1839,18 @@ class BuyerPlugin {
         return acc;
       }, {});
 
+    if (availCheckObj && R.path(['rateId'], availCheckObj) === CUSTOM_RATE_ID_NAME) {
+      pricing = {
+        // ItemDescription: R.path(['Custom Rate'], availCheckObj),
+        CostCurrency: R.path(['currency'], availCheckObj),
+        CostConversionRate: R.pathOr(1, ['costConversionRate'], availCheckObj),
+        CostExclusive: R.path(['totalPrice'], availCheckObj),
+        // CostTax: R.path(['totalTax'], product),
+        AgentCurrency: R.path(['currency'], availCheckObj),
+        AgentExclusive: R.path(['agentPrice'], availCheckObj),
+        // AgentTax: R.path(['totalTax'], product),
+      };
+    }
     // if external pickup and dropoff details are provided, use that info
     // 1. If start time is provided send it in puTime
     // 2. if extenral details are provided, send them in puRemark in the format:
