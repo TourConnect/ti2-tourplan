@@ -1088,6 +1088,1650 @@ describe('search tests', () => {
     });
   });
 
+  describe('Custom Rate Markup Calculations', () => {
+    describe('getRatesObjectArray method tests', () => {
+      it('should apply no markup when markupPercentage is 0', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 0);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('TEST_RATE_ID');
+        expect(result[0].totalPrice).toBe(10000);
+        expect(result[0].agentPrice).toBe(9000);
+      });
+
+      it('should apply markup when markupPercentage is within valid range', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 10); // 10% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].totalPrice).toBe(11000); // 10000 * 1.1
+        expect(result[0].agentPrice).toBe(9900); // 9000 * 1.1
+      });
+
+      it('should apply minimum markup of 1%', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 1); // 1% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].totalPrice).toBe(10100); // 10000 * 1.01
+        expect(result[0].agentPrice).toBe(9090); // 9000 * 1.01
+      });
+
+      it('should apply maximum markup of 100%', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 100); // 100% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].totalPrice).toBe(20000); // 10000 * 2
+        expect(result[0].agentPrice).toBe(18000); // 9000 * 2
+      });
+
+      it('should handle decimal markup percentages correctly', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 15.5); // 15.5% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].totalPrice).toBe(11550); // 10000 * 1.155
+        expect(result[0].agentPrice).toBe(10395); // 9000 * 1.155
+      });
+
+      it('should handle extended dates with markup correctly', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const OptStayResultsExtendedDates = [{
+          RateId: 'TEST_RATE_ID',
+          TotalPrice: '5000',
+          AgentPrice: '4500',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 10, OptStayResultsExtendedDates);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        // Total: 10000 + (5000 * 1.1) = 15500
+        expect(result[0].totalPrice).toBe(15500);
+        // Agent: 9000 + (4500 * 1.1) = 13950
+        expect(result[0].agentPrice).toBe(13950);
+      });
+
+      it('should round prices to 2 decimal places', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10033',
+          AgentPrice: '9033',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 7); // 7% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].totalPrice).toBe(10735.31); // 10033 * 1.07, rounded
+        expect(result[0].agentPrice).toBe(9665.31); // 9033 * 1.07, rounded
+      });
+
+      it('should handle multiple rates with markup applied', () => {
+        const OptStayResults = [
+          {
+            RateId: 'RATE_1',
+            Currency: 'USD',
+            TotalPrice: '10000',
+            AgentPrice: '9000',
+          },
+          {
+            RateId: 'RATE_2',
+            Currency: 'EUR',
+            TotalPrice: '20000',
+            AgentPrice: '18000',
+          }
+        ];
+
+        const result = app.getRatesObjectArray(OptStayResults, 20); // 20% markup
+
+        expect(result).toHaveLength(2);
+
+        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].totalPrice).toBe(12000); // 10000 * 1.2
+        expect(result[0].agentPrice).toBe(10800); // 9000 * 1.2
+
+        expect(result[1].rateId).toBe('Custom');
+        expect(result[1].totalPrice).toBe(24000); // 20000 * 1.2
+        expect(result[1].agentPrice).toBe(21600); // 18000 * 1.2
+      });
+
+      it('should ignore markup below minimum threshold', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 0.5); // Below MIN_MARKUP_PERCENTAGE
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom'); // Still creates custom rate but with no markup
+        expect(result[0].totalPrice).toBe(10000); // No markup applied
+        expect(result[0].agentPrice).toBe(9000); // No markup applied
+      });
+
+      it('should ignore markup above maximum threshold', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 101); // Above MAX_MARKUP_PERCENTAGE
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom'); // Still creates custom rate but with no markup
+        expect(result[0].totalPrice).toBe(10000); // No markup applied
+        expect(result[0].agentPrice).toBe(9000); // No markup applied
+      });
+    });
+
+    describe('Custom rates configuration validation', () => {
+      it('should validate markup percentage in searchAvailabilityForItinerary', async () => {
+        // Mock the necessary methods to focus on markup validation
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [{ startDate: '2025-04-01', endDate: '2025-04-02', isClosed: 'N', minSCU: 1 }],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'TEST_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        // Test with valid markup percentage
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesMarkupPercentage: 15,
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 1,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        // No markup applied since no custom rates enabled
+        expect(result.rates[0].totalPrice).toBe(10000);
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should handle invalid markup percentage gracefully', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [{ startDate: '2025-04-01', endDate: '2025-04-02', isClosed: 'N', minSCU: 1 }],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'TEST_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        // Test with invalid markup percentage (too high)
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesMarkupPercentage: 101, // Above maximum
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 1,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].totalPrice).toBe(10000); // No markup applied
+        expect(result.rates[0].rateId).toBe('TEST_RATE'); // Original rate ID
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+    });
+  });
+
+  describe('Minimum Stay Violations', () => {
+    describe('validateDateRanges method tests', () => {
+      it('should pass validation when no minimum stay requirements', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'N',
+            minSCU: 1,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 2,
+        });
+
+        expect(result).toBeNull(); // No validation errors
+      });
+
+      it('should detect minimum stay violation when stay is too short', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'N',
+            minSCU: 3, // Requires minimum 3 nights
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 2, // Only staying 2 nights
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBeFalsy();
+        expect(result.type).toBe('inventory');
+        expect(result.message).toContain('minimum stay length of 3');
+        expect(result.message).toContain('01-Apr-2025 to 05-Apr-2025');
+      });
+
+      it('should handle multiple date ranges with different minimum stays', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-03',
+            isClosed: 'N',
+            minSCU: 2, // Requires minimum 2 nights
+          },
+          {
+            startDate: '2025-04-04',
+            endDate: '2025-04-06',
+            isClosed: 'N',
+            minSCU: 4, // Requires minimum 4 nights
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 5, // Staying 5 nights total
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBe(false);
+        expect(result.message).toContain('minimum stay length of 4');
+      });
+
+      it('should pass validation when stay meets minimum requirements', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'N',
+            minSCU: 3,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 4, // Staying 4 nights, meets minimum of 3
+        });
+
+        expect(result).toBeNull(); // No validation errors
+      });
+
+      it('should handle edge case where stay starts after date range', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-03',
+            isClosed: 'N',
+            minSCU: 2,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-05', // Starting after the date range
+          chargeUnitQuantity: 2,
+        });
+
+        expect(result).toBeNull(); // No validation errors since stay doesn't overlap
+      });
+
+      it('should test minimum stay violations in multiple date ranges correctly when start date is in first date range', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-02',
+            isClosed: 'N',
+            minSCU: 3,
+          },
+          {
+            startDate: '2025-04-03',
+            endDate: '2025-04-04',
+            isClosed: 'N',
+            minSCU: 4,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 2,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.message).toContain('01-Apr-2025 to 02-Apr-2025 has a minimum stay length of 3');
+      });
+
+      it('should test minimum stay violations in multiple date ranges correctly when start date is in second date range', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-02',
+            isClosed: 'N',
+            minSCU: 3,
+          },
+          {
+            startDate: '2025-04-03',
+            endDate: '2025-04-04',
+            isClosed: 'N',
+            minSCU: 4,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-04',
+          chargeUnitQuantity: 2,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.message).toContain('03-Apr-2025 to 04-Apr-2025 has a minimum stay length of 4');
+      });
+    });
+
+    describe('Integration with searchAvailabilityForItinerary', () => {
+      it('should return minimum stay error in availability search', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [
+            {
+              startDate: '2025-04-01',
+              endDate: '2025-04-05',
+              isClosed: 'N',
+              minSCU: 5, // Requires minimum 5 nights
+            },
+          ],
+          maxPaxPerCharge: null,
+        });
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 3, // Only 3 nights, but minimum is 5
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.type).toBe('inventory');
+        expect(result.message).toContain('minimum stay length of 5');
+
+        mockGetAvailabilityConfig.mockRestore();
+      });
+
+      it('should pass minimum stay in availability search', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [
+            {
+              startDate: '2025-04-01',
+              endDate: '2025-04-06',
+              isClosed: 'N',
+              minSCU: 5, // Requires minimum 5 nights
+            },
+          ],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([
+          { rateId: 'RATE_001', price: 100 },
+        ]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 5, // 5 nights, minimum is 5
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.type).toBe('inventory');
+        expect(result.message).toBeUndefined();
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+    });
+  });
+
+  describe('Closed Period Handling', () => {
+    describe('validateDateRanges closed period tests', () => {
+      it('should pass validation when no periods are closed', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'N',
+            minSCU: 1,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 3,
+        });
+
+        expect(result).toBeNull(); // No validation errors
+      });
+
+      it('should detect single closed period', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'Y', // Period is closed
+            minSCU: 1,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 3,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBeFalsy();
+        expect(result.type).toBe('inventory');
+        expect(result.message).toContain('rates are closed');
+        expect(result.message).toContain('01-Apr-2025 to 05-Apr-2025');
+      });
+
+      it('should detect multiple closed periods', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-03',
+            isClosed: 'Y',
+            minSCU: 1,
+          },
+          {
+            startDate: '2025-04-05',
+            endDate: '2025-04-07',
+            isClosed: 'Y',
+            minSCU: 1,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 7,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('01-Apr-2025 to 03-Apr-2025');
+        expect(result.message).toContain('05-Apr-2025 to 07-Apr-2025');
+        expect(result.message).toContain(', '); // Multiple periods joined with comma
+      });
+
+      it('should handle mixed open and closed periods', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-02',
+            isClosed: 'N', // Open
+            minSCU: 1,
+          },
+          {
+            startDate: '2025-04-03',
+            endDate: '2025-04-04',
+            isClosed: 'Y', // Closed
+            minSCU: 1,
+          },
+          {
+            startDate: '2025-04-05',
+            endDate: '2025-04-06',
+            isClosed: 'N', // Open
+            minSCU: 1,
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 6,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('03-Apr-2025 to 04-Apr-2025');
+        expect(result.message).not.toContain('01-Apr-2025 to 02-Apr-2025');
+        expect(result.message).not.toContain('05-Apr-2025 to 06-Apr-2025');
+      });
+
+      it('should prioritize closed period errors over minimum stay errors', () => {
+        const dateRanges = [
+          {
+            startDate: '2025-04-01',
+            endDate: '2025-04-05',
+            isClosed: 'Y', // Closed period
+            minSCU: 10, // Also has minimum stay violation
+          },
+        ];
+
+        const result = app.validateDateRanges({
+          dateRanges,
+          startDate: '2025-04-01',
+          chargeUnitQuantity: 3,
+        });
+
+        expect(result).not.toBeNull();
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('rates are closed');
+        expect(result.message).not.toContain('minimum stay'); // Closed period takes precedence
+      });
+    });
+
+    describe('Integration with searchAvailabilityForItinerary', () => {
+      it('should return closed period error in availability search', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [
+            {
+              startDate: '2025-04-01',
+              endDate: '2025-04-05',
+              isClosed: 'Y', // Period is closed
+              minSCU: 1,
+            },
+          ],
+          maxPaxPerCharge: null,
+        });
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 3,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.type).toBe('inventory');
+        expect(result.message).toContain('rates are closed');
+
+        mockGetAvailabilityConfig.mockRestore();
+      });
+    });
+  });
+
+  describe('Historical Rate Fallback Logic', () => {
+    describe('getImmediateLastDateRange method tests', () => {
+      it('should return the last available date range', async () => {
+        const mockGetOptionDateRanges = jest.spyOn(app, 'getOptionDateRanges').mockResolvedValue([
+          {
+            startDate: '2024-01-01',
+            endDate: '2024-06-30',
+          },
+          {
+            startDate: '2024-07-01',
+            endDate: '2024-12-31',
+          },
+        ]);
+
+        const result = await app.getImmediateLastDateRange(
+          'TEST_OPTION',
+          'test_endpoint',
+          'test_agent',
+          'test_password',
+          axios,
+          '2025-06-01',
+          { RoomConfig: [{ Adults: 2 }] },
+        );
+
+        expect(result).toEqual({
+          startDate: '2024-07-01',
+          endDate: '2024-12-31',
+        });
+
+        mockGetOptionDateRanges.mockRestore();
+      });
+
+      it('should return null when no date ranges are found', async () => {
+        const mockGetOptionDateRanges = jest.spyOn(app, 'getOptionDateRanges').mockResolvedValue([]);
+
+        const result = await app.getImmediateLastDateRange(
+          'TEST_OPTION',
+          'test_endpoint',
+          'test_agent',
+          'test_password',
+          axios,
+          '2025-06-01',
+          { RoomConfig: [{ Adults: 2 }] },
+        );
+
+        expect(result).toBeNull();
+
+        mockGetOptionDateRanges.mockRestore();
+      });
+
+      it('should limit search period to prevent very long periods', async () => {
+        const mockGetOptionDateRanges = jest.spyOn(app, 'getOptionDateRanges').mockResolvedValue([
+          {
+            startDate: '2024-01-01',
+            endDate: '2024-12-31',
+          },
+        ]);
+
+        await app.getImmediateLastDateRange(
+          'TEST_OPTION',
+          'test_endpoint',
+          'test_agent',
+          'test_password',
+          axios,
+          '2125-06-01', // Far future date
+          { RoomConfig: [{ Adults: 2 }] },
+        );
+
+        // Should limit to MAX_EXTENDED_BOOKING_YEARS * 365 days
+        const callArgs = mockGetOptionDateRanges.mock.calls[0];
+        const unitQuantity = callArgs[6]; // 7th parameter is unitQuantity
+        expect(unitQuantity).toBeLessThanOrEqual(100 * 365); // MAX_EXTENDED_BOOKING_YEARS * 365
+
+        mockGetOptionDateRanges.mockRestore();
+      });
+    });
+
+    describe('Custom rates with historical fallback', () => {
+      it('should use last year rates when useLastYearRate is true', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetNoRatesAvailableError = jest.spyOn(app, 'getNoRatesAvailableError').mockResolvedValue({
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: 'No rates available',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults')
+          .mockResolvedValueOnce([{ // Historical rates
+            RateId: 'HISTORICAL_RATE',
+            Currency: 'USD',
+            TotalPrice: '10000',
+            AgentPrice: '9000',
+          }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'YES', // Use last year's rate
+            customRatesMarkupPercentage: 10,
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+        expect(result.rates[0].totalPrice).toBe(11000); // 10000 * 1.1 markup
+        expect(result.message).toContain('last year\'s rate');
+
+        // Verify that the historical rates were called
+        expect(mockGetStayResults).toHaveBeenCalled();
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetNoRatesAvailableError.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should use last available rates when useLastYearRate is false', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2024-12-01',
+          endDate: '2024-12-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults')
+          .mockResolvedValueOnce([{ // Last available rates
+            RateId: 'LAST_AVAILABLE_RATE',
+            Currency: 'USD',
+            TotalPrice: '10000',
+            AgentPrice: '9500',
+          }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO', // Use last available rate
+            customRatesMarkupPercentage: 5,
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+        expect(result.rates[0].totalPrice).toBe(10500); // 10000 * 1.05 markup
+        expect(result.message).toContain('last available rate');
+
+        // Verify that the historical rates were called
+        expect(mockGetStayResults).toHaveBeenCalled();
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should validate extended booking years limit', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2023-12-01',
+          endDate: '2023-12-31', // More than 2 years ago
+        });
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesExtendedBookingYears: 1, // Only allow 1 year extension
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01', // More than 1 year after last available rate
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('Custom rates can only be extended by 1 year(s)');
+        expect(result.message).toContain('2023-12-31');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+      });
+
+      it('should return error when no immediate last date range is found', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue(null);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toBe('Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+      });
+
+      it('should handle mixed current and historical rates', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [
+            {
+              startDate: '2025-04-01',
+              endDate: '2025-04-02', // Only 2 days of current rates
+              isClosed: 'N',
+              minSCU: 1,
+            }
+          ],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults')
+          .mockResolvedValueOnce([{ // Current rates for available days
+            RateId: 'CURRENT_RATE',
+            Currency: 'USD',
+            TotalPrice: '15000',
+            AgentPrice: '14000',
+          }])
+          .mockResolvedValueOnce([{ // Historical rates for missing days
+            RateId: 'HISTORICAL_RATE',
+            Currency: 'USD',
+            TotalPrice: '8000',
+            AgentPrice: '7500',
+          }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'YES',
+            customRatesMarkupPercentage: 10,
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01',
+            chargeUnitQuantity: 5, // 5 days total, but only 2 have current rates
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+        // In this scenario with partial current rates, verify basic rate structure
+        expect(result.rates[0].totalPrice).toBeDefined();
+        expect(result.rates[0].agentPrice).toBeDefined();
+        expect(result.message).toContain('Custom rate applied');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+    });
+  });
+
+  describe('Custom Rates Extended Booking Years', () => {
+    describe('Extended booking years validation', () => {
+      it('should use default extended booking years when parameter is not provided', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2023-04-01',
+          endDate: '2023-04-30',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            // customRatesExtendedBookingYears not provided - should use default (2)
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-04-01', // Within 2 years of last available rate (2023-04-30)
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should use minimum extended booking years when parameter is below minimum', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 0, // Below minimum, should default to 2
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-01-01', // Within default 2 years
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should use maximum extended booking years when parameter is above maximum', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 150, // Above maximum, should default to 2
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-01-01', // Within default 2 years
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should accept valid extended booking years within range', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2020-01-01',
+          endDate: '2020-12-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 5, // Valid value
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-01-01', // Within 5 years of 2020-12-31
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+    });
+
+    describe('Extended booking years limit enforcement', () => {
+      it('should reject booking when start date exceeds extended booking years limit', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [], // No current rates available
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2022-01-01',
+          endDate: '2022-12-31', // Last available rate ends 2022-12-31
+        });
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesExtendedBookingYears: 1, // Only allow 1 year extension
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-01-01', // More than 1 year after 2022-12-31
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('Custom rates can only be extended by 1 year(s)');
+        expect(result.message).toContain('2022-12-31');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+      });
+
+      it('should allow booking when start date is exactly at the extended booking years limit', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2022-01-01',
+          endDate: '2022-12-31', // Last available rate ends 2022-12-31
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 2, // Allow 2 years extension
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2024-12-31', // Exactly 2 years after 2022-12-31
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should handle different extended booking years values correctly', async () => {
+        const testCases = [
+          { years: 1, lastRateEndDate: '2023-06-30', testDate: '2024-06-30', shouldPass: true },
+          { years: 1, lastRateEndDate: '2023-06-30', testDate: '2024-07-01', shouldPass: false },
+          { years: 3, lastRateEndDate: '2021-12-31', testDate: '2024-12-31', shouldPass: true },
+          { years: 3, lastRateEndDate: '2021-12-31', testDate: '2025-01-01', shouldPass: false },
+          { years: 5, lastRateEndDate: '2020-01-01', testDate: '2025-01-01', shouldPass: true },
+          { years: 5, lastRateEndDate: '2020-01-01', testDate: '2025-01-02', shouldPass: false },
+        ];
+
+        for (const testCase of testCases) {
+          const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+            roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+            endDate: null,
+            message: null,
+            dateRanges: [],
+            maxPaxPerCharge: null,
+          });
+
+          const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+            startDate: testCase.lastRateEndDate,
+            endDate: testCase.lastRateEndDate,
+          });
+
+          const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+            RateId: 'HISTORICAL_RATE',
+            Currency: 'USD',
+            TotalPrice: '10000',
+            AgentPrice: '9000',
+          }]);
+
+          axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+          const result = await app.searchAvailabilityForItinerary({
+            axios,
+            token: {
+              hostConnectEndpoint: 'test',
+              hostConnectAgentID: 'test',
+              hostConnectAgentPassword: 'test',
+              customRatesEnableForQuotesAndBookings: 'YES',
+              customRatesCalculateWithLastYearsRate: 'NO',
+              customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+              customRatesExtendedBookingYears: testCase.years,
+            },
+            payload: {
+              optionId: 'TEST_OPTION',
+              startDate: testCase.testDate,
+              chargeUnitQuantity: 2,
+              paxConfigs: [{ roomType: 'DB', adults: 2 }],
+            },
+          });
+
+          if (testCase.shouldPass) {
+            expect(result.bookable).toBeTruthy();
+            expect(result.rates[0].rateId).toBe('Custom');
+          } else {
+            expect(result.bookable).toBeFalsy();
+            expect(result.message).toContain(`Custom rates can only be extended by ${testCase.years} year(s)`);
+          }
+
+          mockGetAvailabilityConfig.mockRestore();
+          mockGetImmediateLastDateRange.mockRestore();
+          mockGetStayResults.mockRestore();
+        }
+      });
+    });
+
+    describe('Extended booking years with current rates available', () => {
+      it('should not apply extended booking years limit when current rates are available', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [{ // Current rates available
+            startDate: '2025-01-01',
+            endDate: '2025-12-31',
+          }],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'CURRENT_RATE',
+          Currency: 'USD',
+          TotalPrice: '12000',
+          AgentPrice: '11000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 1, // Very restrictive, but shouldn't matter
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-06-01', // Within current rate period
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        // When current rates are available, they get processed normally
+        // The main point of this test is that extended booking years limit doesn't apply
+        expect(result.rates).toBeDefined();
+        expect(result.rates).toHaveLength(1);
+        expect(result.rates[0].totalPrice).toBeDefined();
+        expect(result.rates[0].agentPrice).toBeDefined();
+        // The booking should succeed despite restrictive extended booking years setting
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should apply extended booking years limit only to dates beyond current rates', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [{ // Current rates available until mid-2025
+            startDate: '2025-01-01',
+            endDate: '2025-06-30',
+          }],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2024-01-01',
+          endDate: '2024-12-31', // Historical rates from 2024
+        });
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesExtendedBookingYears: 1, // Only 1 year from last historical rate (2024-12-31)
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2026-01-01', // Beyond current rates AND beyond extended booking limit
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeFalsy();
+        expect(result.message).toContain('Custom rates can only be extended by 1 year(s)');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+      });
+    });
+
+    describe('Edge cases and error scenarios', () => {
+      it('should handle string values for extended booking years parameter', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2023-01-01',
+          endDate: '2023-12-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: '3', // String value should be converted to number
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2026-01-01', // Within 3 years of 2023-12-31
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should handle null/undefined extended booking years parameter', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2023-01-01',
+          endDate: '2023-12-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: null, // Should use default (2)
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2025-01-01', // Within default 2 years
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+
+      it('should handle maximum extended booking years boundary (100 years)', async () => {
+        const mockGetAvailabilityConfig = jest.spyOn(app, 'getAvailabilityConfig').mockResolvedValue({
+          roomConfigs: { RoomConfig: [{ Adults: 2 }] },
+          endDate: null,
+          message: null,
+          dateRanges: [],
+          maxPaxPerCharge: null,
+        });
+
+        const mockGetImmediateLastDateRange = jest.spyOn(app, 'getImmediateLastDateRange').mockResolvedValue({
+          startDate: '2020-01-01',
+          endDate: '2020-12-31',
+        });
+
+        const mockGetStayResults = jest.spyOn(app, 'getStayResults').mockResolvedValue([{
+          RateId: 'HISTORICAL_RATE',
+          Currency: 'USD',
+          TotalPrice: '10000',
+          AgentPrice: '9000',
+        }]);
+
+        axios.mockImplementation(() => Promise.resolve({ data: 'mock response' }));
+
+        const result = await app.searchAvailabilityForItinerary({
+          axios,
+          token: {
+            hostConnectEndpoint: 'test',
+            hostConnectAgentID: 'test',
+            hostConnectAgentPassword: 'test',
+            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesCalculateWithLastYearsRate: 'NO',
+            customRatesMarkupPercentage: 10, // Add markup to trigger custom rate ID
+            customRatesExtendedBookingYears: 100, // Maximum allowed value
+          },
+          payload: {
+            optionId: 'TEST_OPTION',
+            startDate: '2080-01-01', // Far future but within 100 years
+            chargeUnitQuantity: 2,
+            paxConfigs: [{ roomType: 'DB', adults: 2 }],
+          },
+        });
+
+        expect(result.bookable).toBeTruthy();
+        expect(result.rates[0].rateId).toBe('Custom');
+
+        mockGetAvailabilityConfig.mockRestore();
+        mockGetImmediateLastDateRange.mockRestore();
+        mockGetStayResults.mockRestore();
+      });
+    });
+  });
+
   describe('calculateEndDate method tests', () => {
     it('should calculate end date when duration is provided', () => {
       const startDate = '2025-01-15';
