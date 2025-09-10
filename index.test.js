@@ -1166,8 +1166,8 @@ describe('search tests', () => {
 
         expect(result).toHaveLength(1);
         expect(result[0].rateId).toBe('Custom');
-        expect(result[0].totalPrice).toBe(11550); // 10000 * 1.155
-        expect(result[0].agentPrice).toBe(10395); // 9000 * 1.155
+        expect(result[0].totalPrice).toBe(11550); // 10000 * 1.155 = 11550 (already integer)
+        expect(result[0].agentPrice).toBe(10395); // 9000 * 1.155 = 10395 (already integer)
       });
 
       it('should handle extended dates with markup correctly', () => {
@@ -1194,7 +1194,34 @@ describe('search tests', () => {
         expect(result[0].agentPrice).toBe(13950);
       });
 
-      it('should round prices to 2 decimal places', () => {
+      it('should handle extended dates with fractional results as integers', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '8333',
+          AgentPrice: '7777',
+        }];
+
+        const OptStayResultsExtendedDates = [{
+          RateId: 'TEST_RATE_ID',
+          TotalPrice: '3333',
+          AgentPrice: '2999',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 6.66, OptStayResultsExtendedDates);
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        // Total: 8333 + (3333 * 1.0666) = 8333 + 3554.9778 = 11887.9778, rounded to 11888
+        expect(result[0].totalPrice).toBe(11888);
+        // Agent: 7777 + (2999 * 1.0666) = 7777 + 3198.7334 = 10975.7334, rounded to 10976
+        expect(result[0].agentPrice).toBe(10976);
+        // Verify results are integers
+        expect(Number.isInteger(result[0].totalPrice)).toBe(true);
+        expect(Number.isInteger(result[0].agentPrice)).toBe(true);
+      });
+
+      it('should round prices to integers', () => {
         const OptStayResults = [{
           RateId: 'TEST_RATE_ID',
           Currency: 'USD',
@@ -1205,8 +1232,29 @@ describe('search tests', () => {
         const result = app.getRatesObjectArray(OptStayResults, 7); // 7% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].totalPrice).toBe(10735.31); // 10033 * 1.07, rounded
-        expect(result[0].agentPrice).toBe(9665.31); // 9033 * 1.07, rounded
+        expect(result[0].totalPrice).toBe(10735); // 10033 * 1.07 = 10735.31, rounded to integer
+        expect(result[0].agentPrice).toBe(9665); // 9033 * 1.07 = 9665.31, rounded to integer
+      });
+
+      it('should convert decimal results to integers with proper rounding', () => {
+        const OptStayResults = [{
+          RateId: 'TEST_RATE_ID',
+          Currency: 'USD',
+          TotalPrice: '12345',
+          AgentPrice: '11111',
+        }];
+
+        const result = app.getRatesObjectArray(OptStayResults, 3.33); // 3.33% markup
+
+        expect(result).toHaveLength(1);
+        expect(result[0].rateId).toBe('Custom');
+        // 12345 * 1.0333 = 12756.2985, rounded to 12756
+        expect(result[0].totalPrice).toBe(12756);
+        // 11111 * 1.0333 = 11481.0963, rounded to 11481  
+        expect(result[0].agentPrice).toBe(11481);
+        // Verify results are integers, not decimals
+        expect(Number.isInteger(result[0].totalPrice)).toBe(true);
+        expect(Number.isInteger(result[0].agentPrice)).toBe(true);
       });
 
       it('should handle multiple rates with markup applied', () => {

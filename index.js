@@ -1046,11 +1046,11 @@ class BuyerPlugin {
           const singleDayRate = OptStayResultsExtendedDates.find(rate2 => rate2.RateId === rate.RateId);
           const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
           const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
-          finalTotalPrice = Math.round((Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor)) * 100) / 100;
-          finalAgentPrice = Math.round((Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor)) * 100) / 100;
+          finalTotalPrice = Math.round(Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor));
+          finalAgentPrice = Math.round(Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor));
         } else if (markupFactor > 1) {
-          finalTotalPrice = Math.round((Number(totalPrice) * markupFactor) * 100) / 100;
-          finalAgentPrice = Math.round((Number(agentPrice) * markupFactor) * 100) / 100;
+          finalTotalPrice = Math.round(Number(totalPrice) * markupFactor);
+          finalAgentPrice = Math.round(Number(agentPrice) * markupFactor);
         }
         const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
         // Cancellations within this number of hours of service date incur a cancellation
