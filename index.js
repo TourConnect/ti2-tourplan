@@ -586,7 +586,6 @@ class BuyerPlugin {
     token,
     payload,
   }) {
-    console.log('SACHIN searchItineraries CALLED');
     return searchItineraries({
       axios,
       typeDefsAndQueries,

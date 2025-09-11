@@ -82,7 +82,7 @@ const validateDateRanges = ({
     dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
       const daysBeforeDateRange = moment(dateRange.startDate)
         .diff(moment(startDate), 'days');
-      const daysAfterDateRange = chargeUnitQuantity - daysBeforeDateRange;
+      const daysAfterDateRange = daysBeforeDateRange > 0 ? chargeUnitQuantity - daysBeforeDateRange : chargeUnitQuantity;
       if (daysAfterDateRange < dateRange.minSCU) {
         const formattedStartDate = moment(dateRange.startDate)
           .format(USER_FRIENDLY_DATE_FORMAT);

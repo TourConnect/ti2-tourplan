@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TEST_OPTION_CLOSED_PERIOD</Opt>
+            <OptionNumber>12345</OptionNumber>
+            <OptGeneral>
+                <SupplierId>4109</SupplierId>
+                <SupplierName>Test External Supplier</SupplierName>
+                <Description>City Tour with Pickup and Dropoff</Description>
+                <Description2 />
+                <Comment />
+                <Comment2 />
+                <Locality>TEST</Locality>
+                <LocalityDescription>Test Metro</LocalityDescription>
+                <SType>N</SType>
+                <MPFCU>1</MPFCU>
+                <VoucherName>Test External Supplier</VoucherName>
+                <Address1>123 Test Street</Address1>
+                <Address2>Test City, TC 12345</Address2>
+                <Address3 />
+                <Address4 />
+                <Address5 />
+                <PostCode>12345</PostCode>
+                <InfantsAllowed>Y</InfantsAllowed>
+                <Infant_From>0</Infant_From>
+                <Infant_To>1</Infant_To>
+                <ChildrenAllowed>Y</ChildrenAllowed>
+                <Child_From>2</Child_From>
+                <Child_To>15</Child_To>
+                <AdultsAllowed>Y</AdultsAllowed>
+                <Adult_From>16</Adult_From>
+                <Adult_To>999</Adult_To>
+                <PromptForPuDo>Y</PromptForPuDo>
+                <ButtonName>Sightseeing</ButtonName>
+                <DBAnalysisCode1 />
+                <DBAnalysisDescription1>Unassigned</DBAnalysisDescription1>
+                <DBAnalysisCode2>CT</DBAnalysisCode2>
+                <DBAnalysisDescription2>Classic Day Tours</DBAnalysisDescription2>
+                <DBAnalysisCode3 />
+                <DBAnalysisDescription3>Unassigned</DBAnalysisDescription3>
+                <DBAnalysisCode4>30</DBAnalysisCode4>
+                <DBAnalysisDescription4>6.67% mark-up no rounding</DBAnalysisDescription4>
+                <DBAnalysisCode5>40</DBAnalysisCode5>
+                <DBAnalysisDescription5>25% comm - 6.67% (8%) mup non-accom</DBAnalysisDescription5>
+                <DBAnalysisCode6 />
+                <DBAnalysisDescription6>Unassigned</DBAnalysisDescription6>
+                <LastUpdate>2025-01-15T10:30:00Z</LastUpdate>
+            </OptGeneral>
+            <OptDateRanges>
+                <OptDateRange>
+                    <DateFrom>2025-03-22</DateFrom>
+                    <DateTo>2025-04-30</DateTo>
+                    <Currency>NZD</Currency>
+                    <PriceCode>STANDARD</PriceCode>
+                    <RateSets>
+                        <RateSet>
+                            <RateName>Standard Rate</RateName>
+                            <RateText>Standard accommodation rate</RateText>
+                            <MinSCU>1</MinSCU>
+                            <MaxSCU>14</MaxSCU>
+                            <CancelHours>48</CancelHours>
+                            <IsClosed>Y</IsClosed>
+                            <ScuCheckOverlapOnly>N</ScuCheckOverlapOnly>
+                            <OptRate>
+                                <RoomRates>
+                                    <SingleRate>54900</SingleRate>
+                                    <DoubleRate>54900</DoubleRate>
+                                </RoomRates>
+                                <ExtrasRates>
+                                    <ExtrasRate>
+                                        <AdultRate>0</AdultRate>
+                                        <ChildRate>0</ChildRate>
+                                        <SequenceNumber>1</SequenceNumber>
+                                    </ExtrasRate>
+                                </ExtrasRates>
+                            </OptRate>
+                        </RateSet>
+                    </RateSets>
+                </OptDateRange>
+            </OptDateRanges>
+        </Option>
+    </OptionInfoReply>
+</Reply> 
