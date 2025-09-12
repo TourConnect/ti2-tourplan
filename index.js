@@ -290,7 +290,6 @@ class BuyerPlugin {
           data,
           headers: getHeaders({ length: data.length }),
         };
-        // console.log(axiospayload)
         const reply = R.path(['data'], await axios(axiospayload));
         if (this.xmlProxyUrl) {
           try {

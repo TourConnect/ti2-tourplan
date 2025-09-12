@@ -81,11 +81,6 @@ const searchAvailabilityForItinerary = async ({
       : DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS;
   })();
 
-  console.log('SACHIN useLastYearRate', useLastYearRate);
-  console.log('SACHIN markupPercentage', markupPercentage);
-  console.log('SACHIN extendedBookingYears', extendedBookingYears);
-  console.log('SACHIN isBookingForCustomRatesEnabled', isBookingForCustomRatesEnabled);
-
   // Get availability configuration parameters from Tourplan(General and Date Ranges)
   const availabilityConfig = await getAvailabilityConfig({
     optionId,

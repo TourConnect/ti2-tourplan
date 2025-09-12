@@ -56,7 +56,6 @@ const searchItineraries = async ({
           throw Error(err);
         }
         // if it's not server error, we just considered as no booking is found
-        // console.log('error in searchBooking', err);
         reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
       }
 

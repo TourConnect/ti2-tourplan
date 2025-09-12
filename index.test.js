@@ -58,12 +58,10 @@ const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }
 
 const getFixture = async requestObject => {
   // Extract request name using regex
-  console.log('SACHIN getFixture : ', requestObject);
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';
   const requestHash = hash(requestObject);
-  console.log('SACHIN requestHash: ', requestHash);
 
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
@@ -1960,7 +1958,6 @@ describe('search tests', () => {
           },
         });
 
-        console.log('SACHIN retVal : ', retVal);
         expect(retVal.bookable).toBeFalsy();
         expect(retVal.message).toContain('Custom rates can only be extended by 1 year(s)');
         expect(retVal.message).toContain('2026-04-30');
