@@ -19,37 +19,6 @@ const {
   validateDateRanges,
 } = require('./api/availability/availability-utils');
 
-// // Mock the availability-helper module
-// jest.mock('./api/availability/availability-helper', () => ({
-//   ...jest.requireActual('./api/availability/availability-helper'),
-//   // getAvailabilityConfig: jest.fn(),
-//   getGeneralAndDateRangesInfo: jest.fn(),
-//   // getStayResults: jest.fn(),
-//   getOptionDateRanges: jest.fn(),
-//   // getImmediateLastDateRange: jest.fn(),
-//   // getNoRatesAvailableError: jest.fn(),
-// }));
-
-// // Set default return values for mocks
-// getStayResults.mockResolvedValue([]);
-// // getAvailabilityConfig.mockResolvedValue({
-// //   roomConfigs: { RoomConfig: [{ Adults: 2 }] },
-// //   endDate: null,
-// //   message: null,
-// //   dateRanges: [],
-// //   maxPaxPerCharge: null,
-// // });
-// getImmediateLastDateRange.mockResolvedValue(null);
-// getOptionDateRanges.mockResolvedValue([]);
-// getNoRatesAvailableError.mockResolvedValue({
-//   bookable: false,
-//   type: 'inventory',
-//   rates: [],
-//   message: 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)',
-// });
-
-// const mockCallTourplan = jest.fn().mockResolvedValue({ data: 'mock response' });
-
 const xmlParser = new xml2js.Parser();
 
 const Plugin = require('./index');
@@ -94,14 +63,12 @@ const getFixture = async requestObject => {
     : 'UnknownRequest';
   const requestHash = hash(requestObject);
   console.log('SACHIN requestHash: ', requestHash);
-  // console.log('SACHIN requestObject: ', JSON.stringify(requestObject, null, 2));
 
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
     const fixture = (
       await readFile(file)
     ).toString();
-    // console.log('SACHIN fixture: ', fixture);
     return { data: fixture };
   } catch (err) {
     console.warn(`could not find ${file} for ${JSON.stringify(requestObject)}`);
@@ -1970,7 +1937,7 @@ describe('search tests', () => {
           },
           payload: {
             optionId: 'TEST_OPTION_LAST_AVAILABLE_RATE',
-            startDate: '2025-04-01',
+            startDate: '2026-08-01',
             chargeUnitQuantity: 2,
             paxConfigs: [{ roomType: 'DB', adults: 2 }],
           },
@@ -1978,8 +1945,29 @@ describe('search tests', () => {
 
         expect(retVal.bookable).toBeTruthy();
         expect(retVal.rates[0].rateId).toBe('Custom');
-        expect(retVal.rates[0].totalPrice).toBe(10500); // 10000 * 1.05 markup
+        expect(retVal.rates[0].totalPrice).toBe(63000); // 60000 * 1.05 markup
+        expect(retVal.rates[0].agentPrice).toBe(64050); // 61000 * 1.05 markup
         expect(retVal.message).toContain('last available rate');
+
+        // verify the immediate last date range is correct
+        const retVal2 = await getImmediateLastDateRange(
+          'TEST_OPTION_LAST_AVAILABLE_RATE',
+          'test_endpoint',
+          'test_agent',
+          'test_password',
+          axios,
+          '2026-08-01',
+          { RoomConfig: [{ Adults: 2 }] },
+          mockCallTourplan,
+        );
+
+        expect(retVal2).not.toBeNull();
+        expect(Array.isArray(retVal)).toBe(false); // Ensure it's not an array
+        expect(typeof retVal).toBe('object'); // Ensure it's a single object
+        expect(retVal2.startDate).toBeDefined();
+        expect(retVal2.startDate).toBe('2026-03-22');
+        expect(retVal2.endDate).toBeDefined();
+        expect(retVal2.endDate).toBe('2026-04-30');
       });
 
       it('should validate extended booking years limit', async () => {
@@ -1997,15 +1985,16 @@ describe('search tests', () => {
           },
           payload: {
             optionId: 'TEST_OPTION_LIMIT_EXTENDED_BOOKING_YEARS',
-            startDate: '2025-04-01', // More than 1 year after last available rate
+            startDate: '2028-04-01', // More than 1 year after last available rate
             chargeUnitQuantity: 2,
             paxConfigs: [{ roomType: 'DB', adults: 2 }],
           },
         });
 
+        console.log('SACHIN retVal : ', retVal);
         expect(retVal.bookable).toBeFalsy();
         expect(retVal.message).toContain('Custom rates can only be extended by 1 year(s)');
-        expect(retVal.message).toContain('2023-12-31');
+        expect(retVal.message).toContain('2026-04-30');
       });
 
       it('should return error when no immediate last date range is found', async () => {
@@ -2017,19 +2006,20 @@ describe('search tests', () => {
             hostConnectEndpoint: 'test',
             hostConnectAgentID: 'test',
             hostConnectAgentPassword: 'test',
-            customRatesEnableForQuotesAndBookings: 'YES',
+            customRatesEnableForQuotesAndBookings: 'NO',
             customRatesCalculateWithLastYearsRate: 'NO',
           },
           payload: {
             optionId: 'TEST_OPTION_NO_IMMEDIATE_LAST_DATE_RANGE',
-            startDate: '2025-04-01',
+            startDate: '2028-10-01',
             chargeUnitQuantity: 2,
             paxConfigs: [{ roomType: 'DB', adults: 2 }],
           },
         });
 
         expect(retVal.bookable).toBeFalsy();
-        expect(retVal.message).toBe('Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)');
+        expect(retVal.message).toContain('31-Aug-2025');
+        expect(retVal.message).toContain('Rates are only available until');
       });
 
       it('should handle mixed current and historical rates', async () => {
@@ -2047,18 +2037,38 @@ describe('search tests', () => {
           },
           payload: {
             optionId: 'TEST_OPTION_MIXED_CURRENT_AND_HISTORICAL_RATES',
-            startDate: '2025-04-01',
-            chargeUnitQuantity: 5, // 5 days total, but only 2 have current rates
+            startDate: '2025-08-31',
+            chargeUnitQuantity: 3,
             paxConfigs: [{ roomType: 'DB', adults: 2 }],
           },
         });
 
+        console.log('SACHIN retVal : ', retVal);
+        // The rates will be calculated from 2 fixtures
+        // 1. __fixtures__/OptionInfoRequest_84c9c36bb9cbd935857118150df03266bdbd3f34.txt
+        // The first fixture will be used for the current rates for 1 day
+        // Total price: 50000 * 1 = 50000
+        // Agent price: 55000 * 1 = 55000
+        // 2. __fixtures__/OptionInfoRequest_87ca5ae49fac1bae1564c4055a62e625b3259ea2.txt
+        // The second fixture will be used for the historical rates for 2 days
+        // Note that TourPlan automatically returns the value for 2 days we do
+        // need to calucate it
+        // Total price: 60000 * 2 = 120000
+        // Agent price: 61000 * 2 = 122000
+
+        // Markup percentage: 10% applied to both total price and agent price
+
+        // The total price will be the sum of the total prices from the 2 fixtures
+        //    50000 + 120000 * 1.1 = 182000
+        // The agent price will be the sum of the agent prices from the 2 fixtures
+        //    55000 + 122000 * 1.1 = 189200
         expect(retVal.bookable).toBeTruthy();
         expect(retVal.rates[0].rateId).toBe('Custom');
-        // In this scenario with partial current rates, verify basic rate structure
-        expect(retVal.rates[0].totalPrice).toBeDefined();
-        expect(retVal.rates[0].agentPrice).toBeDefined();
         expect(retVal.message).toContain('Custom rate applied');
+        expect(retVal.rates[0].totalPrice).toBeDefined();
+        expect(retVal.rates[0].totalPrice).toBe(182000);
+        expect(retVal.rates[0].agentPrice).toBeDefined();
+        expect(retVal.rates[0].agentPrice).toBe(189200);
       });
     });
   });

@@ -148,7 +148,8 @@ const getOptionDateRanges = async (
   const DCheck = R.path(['OptionInfoReply', 'Option'], replyObj);
   const OptDateRangesResult = R.pathOr({}, ['OptDateRanges'], DCheck);
   const dateRanges = parseDateRanges(OptDateRangesResult);
-
+  // Sort results in ascending order by startDate
+  dateRanges.sort((a, b) => moment(a.startDate).diff(moment(b.startDate)));
   return dateRanges;
 };
 

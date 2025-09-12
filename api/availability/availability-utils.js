@@ -272,6 +272,8 @@ const parseDateRanges = dateRanges => {
       },
     });
   });
+  // Sort results in ascending order by startDate
+  dateRangesResult.sort((a, b) => moment(a.startDate).diff(moment(b.startDate)));
   return dateRangesResult;
 };
 
