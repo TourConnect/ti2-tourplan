@@ -12,6 +12,7 @@ const { searchAvailabilityForItinerary } = require('./availability/itinerary-ava
 const { addServiceToItinerary } = require('./itinerary-add-service');
 const { searchProductsForItinerary } = require('./itinerary-products-search');
 const { searchItineraries } = require('./itinerary-search');
+const { hostConnectXmlOptions } = require('./utils');
 
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
