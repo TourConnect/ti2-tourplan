@@ -196,7 +196,9 @@ const searchAvailabilityForItinerary = async ({
 
       // Check if the start date is beyond the permitted future booking years
       const extendedBookingPermittedDate = moment(immediateLastDateRange.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');
-      if (moment(startDate).isAfter(extendedBookingPermittedDate)) {
+      const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days');
+      if (moment(startDate).isAfter(extendedBookingPermittedDate) ||
+            periodEndDate.isAfter(extendedBookingPermittedDate)) {
         return {
           bookable: false,
           type: 'inventory',
@@ -208,11 +210,12 @@ const searchAvailabilityForItinerary = async ({
 
     // Format the success message for the custom rates
     const customPeriodInfoMsg = useLastYearRate ? 'last year\'s rate.' : 'last available rate.';
-    const customRateInfoMsg = markupPercentage > 0 ? ` Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : ` Custom rate applied with no markup on ${customPeriodInfoMsg}`;
+    const customRateInfoMsg = markupPercentage > 0 ? `Custom rate applied, calculated using a markup on ${customPeriodInfoMsg}` : `Custom rate applied with no markup on ${customPeriodInfoMsg}`;
     const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
     // Calculate the number of days to charge at the last rate
-    const daysToChargeAtLastRate = chargeUnitQuantity - noOfDaysRatesAvailable;
+    const daysToChargeAtLastRate = noOfDaysRatesAvailable > 0
+      ? chargeUnitQuantity - noOfDaysRatesAvailable : chargeUnitQuantity;
 
     // Get stay rates
     let OptStayResultsExtendedDates = await getStayResults(

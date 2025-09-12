@@ -2271,6 +2271,7 @@ describe('search tests', () => {
           },
         });
 
+        console.log('SACHIN retVal : ', retVal);
         expect(retVal.bookable).toBeFalsy();
         expect(retVal.message).toContain('Custom rates can only be extended by 5 year(s)');
         expect(retVal.message).toContain('Last available rate until: 2025-08-31');
