@@ -7,7 +7,7 @@ const {
   parseDateRanges,
   extractCancelPolicies,
   USER_FRIENDLY_DATE_FORMAT,
-} = require('./availability-utils');
+} = require('./itinerary-availability-utils');
 const { getRoomConfigs, CUSTOM_RATE_ID_NAME, hostConnectXmlOptions } = require('../utils');
 
 // Constants exported
@@ -168,7 +168,6 @@ const getImmediateLastDateRange = async (
   // Prevent a very long period by limiting the number of days
   const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days'));
   const dateFrom = moment().format('YYYY-MM-DD');
-  // Use the function directly to allow Jest mocking to work
   const results = await getOptionDateRanges(
     optionId,
     hostConnectEndpoint,

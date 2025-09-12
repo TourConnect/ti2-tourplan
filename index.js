@@ -8,10 +8,10 @@ const xml2js = require('xml2js');
 const { XMLParser } = require('fast-xml-parser');
 const Normalizer = require('./normalizer');
 
-const { searchAvailabilityForItinerary } = require('./api/availability/availability');
-const { addServiceToItinerary } = require('./api/add-service');
-const { searchProductsForItinerary } = require('./api/search-products-itinerary');
-const { searchItineraries } = require('./api/search-itinerary');
+const { searchAvailabilityForItinerary } = require('./availability/itinerary-availability');
+const { addServiceToItinerary } = require('./itinerary-add-service');
+const { searchProductsForItinerary } = require('./itinerary-products-search');
+const { searchItineraries } = require('./itinerary-search');
 
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();

@@ -1,6 +1,6 @@
 const R = require('ramda');
 const Promise = require('bluebird');
-const { translateTPOption } = require('../resolvers/product');
+const { translateTPOption } = require('./resolvers/product');
 const { hostConnectXmlOptions } = require('./utils');
 
 const searchProductsForItinerary = async ({

@@ -12,13 +12,13 @@ const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = req
 const {
   getRatesObjectArray,
   getImmediateLastDateRange,
-} = require('./api/availability/availability-helper');
+} = require('./availability/itinerary-availability-helper');
 
 const {
   convertToAdult,
   validateDateRanges,
   calculateEndDate,
-} = require('./api/availability/availability-utils');
+} = require('./availability/itinerary-availability-utils');
 
 const xmlParser = new xml2js.Parser();
 
@@ -974,38 +974,6 @@ describe('search tests', () => {
       expect(retVal.message).toBe('Maximum 2 pax allowed per Pax Config. Please update the Pax Config accordingly.');
     });
   });
-
-  // describe('getGeneralAndDateRangesInfo tests', () => {
-  //   it('should return correct general option information', async () => {
-  //     axios.mockImplementation(getFixture);
-  //     const retVal = await app.getGeneralAndDateRangesInfo(
-  //       'TESTGENERALINFO',
-  //       token.hostConnectEndpoint,
-  //       token.hostConnectAgentID,
-  //       token.hostConnectAgentPassword,
-  //       axios,
-  //       '2024-09-01',
-  //       1,
-  //     );
-
-  //     expect(retVal).toHaveProperty('childrenAllowed');
-  //     expect(retVal).toHaveProperty('countChildrenInPaxBreak');
-  //     expect(retVal).toHaveProperty('infantsAllowed');
-  //     expect(retVal).toHaveProperty('countInfantsInPaxBreak');
-  //     expect(retVal).toHaveProperty('duration');
-  //     expect(retVal).toHaveProperty('maxPaxPerCharge');
-  //     expect(retVal).toHaveProperty('chargeUnit');
-
-  //     // Verify the values based on the fixture data
-  //     expect(retVal.childrenAllowed).toBe(true);
-  //     expect(retVal.countChildrenInPaxBreak).toBe(true);
-  //     expect(retVal.infantsAllowed).toBe(true);
-  //     expect(retVal.countInfantsInPaxBreak).toBe(true);
-  //     expect(retVal.duration).toBe(2);
-  //     expect(retVal.maxPaxPerCharge).toBe(6);
-  //     expect(retVal.chargeUnit).toBe('day');
-  //   });
-  // });
 
   describe('convertToAdult method tests', () => {
     it('should convert children to adults correctly', () => {

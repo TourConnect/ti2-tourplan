@@ -1,9 +1,8 @@
 const R = require('ramda');
 const moment = require('moment');
 const Promise = require('bluebird');
-const { escapeInvalidXmlChars } = require('./utils');
-const { hostConnectXmlOptions } = require('./utils');
-const { translateItineraryBooking } = require('../resolvers/itinerary');
+const { escapeInvalidXmlChars, hostConnectXmlOptions } = require('./utils');
+const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 const searchItineraries = async ({
   token: {

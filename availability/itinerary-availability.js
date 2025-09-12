@@ -3,7 +3,7 @@ const moment = require('moment');
 const {
   validateMaxPaxPerCharge,
   validateDateRanges,
-} = require('./availability-utils');
+} = require('./itinerary-availability-utils');
 
 const {
   getAvailabilityConfig,
@@ -15,7 +15,7 @@ const {
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
-} = require('./availability-helper');
+} = require('./itinerary-availability-helper');
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
