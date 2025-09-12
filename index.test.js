@@ -17,6 +17,7 @@ const {
 const {
   convertToAdult,
   validateDateRanges,
+  calculateEndDate,
 } = require('./api/availability/availability-utils');
 
 const xmlParser = new xml2js.Parser();
@@ -2670,7 +2671,7 @@ describe('search tests', () => {
       const duration = 5;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-01-20');
     });
@@ -2680,7 +2681,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = 3;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-01-18');
     });
@@ -2690,7 +2691,7 @@ describe('search tests', () => {
       const duration = 7;
       const chargeUnitQuantity = 5;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-01-22');
     });
@@ -2700,7 +2701,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBeNull();
     });
@@ -2710,7 +2711,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = 1;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBeNull();
     });
@@ -2720,7 +2721,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = 0;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBeNull();
     });
@@ -2730,7 +2731,7 @@ describe('search tests', () => {
       const duration = 1;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2024-02-29');
     });
@@ -2740,7 +2741,7 @@ describe('search tests', () => {
       const duration = 1;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-02-01');
     });
@@ -2750,7 +2751,7 @@ describe('search tests', () => {
       const duration = 1;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-01-01');
     });
@@ -2760,7 +2761,7 @@ describe('search tests', () => {
       const duration = 365;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2026-01-15');
     });
@@ -2770,7 +2771,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = 30;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-02-14');
     });
@@ -2780,7 +2781,7 @@ describe('search tests', () => {
       const duration = undefined;
       const chargeUnitQuantity = undefined;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBeNull();
     });
@@ -2790,7 +2791,7 @@ describe('search tests', () => {
       const duration = null;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBeNull();
     });
@@ -2799,13 +2800,13 @@ describe('search tests', () => {
       const startDate = '2025-01-15';
 
       // Test with chargeUnitQuantity = 0
-      expect(app.calculateEndDate(startDate, null, 0)).toBeNull();
+      expect(calculateEndDate(startDate, null, 0)).toBeNull();
 
       // Test with chargeUnitQuantity = false
-      expect(app.calculateEndDate(startDate, null, false)).toBeNull();
+      expect(calculateEndDate(startDate, null, false)).toBeNull();
 
       // Test with chargeUnitQuantity = empty string
-      expect(app.calculateEndDate(startDate, null, '')).toBeNull();
+      expect(calculateEndDate(startDate, null, '')).toBeNull();
     });
 
     it('should handle different date formats correctly', () => {
@@ -2813,7 +2814,7 @@ describe('search tests', () => {
       const duration = 2;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       expect(result).toBe('2025-01-17');
     });
@@ -2823,7 +2824,7 @@ describe('search tests', () => {
       const duration = 999999;
       const chargeUnitQuantity = null;
 
-      const result = app.calculateEndDate(startDate, duration, chargeUnitQuantity);
+      const result = calculateEndDate(startDate, duration, chargeUnitQuantity);
 
       // This should still work with moment.js
       expect(result).toBeDefined();
