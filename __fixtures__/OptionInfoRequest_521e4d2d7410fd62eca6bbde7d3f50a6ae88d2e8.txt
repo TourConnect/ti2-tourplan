@@ -1,3 +1,4 @@
+<!-- LONTRDAVIDSHDWBVD: Fixture for searchProductsForItinerary Test -->
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Reply SYSTEM "http://localhost:8080/iCom_Test/hostConnect_4_06_009.dtd">
 <Reply>
