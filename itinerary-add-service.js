@@ -21,8 +21,6 @@ const addServiceToItinerary = async ({
     itineraryOwner,
     rateId,
     quoteId,
-    // existingQuoteId,
-    // existingLineId,
     optionId,
     startDate,
     reference,

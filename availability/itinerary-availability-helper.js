@@ -188,6 +188,39 @@ const getImmediateLastDateRange = async (
   return null;
 };
 
+/* Helper function to extract time from datetime string
+  @param {string} dateTimeString - The datetime string
+  @returns {string} The time string
+*/
+const extractTimeFromDateTime = dateTimeString => {
+  if (!dateTimeString) return null;
+
+  try {
+    // Parse the datetime string and extract time in HH:MM format
+    const date = new Date(dateTimeString);
+    if (Number.isNaN(date.getTime())) {
+      // Fallback to string manipulation if Date parsing fails
+      const fallbackMsg = `Invalid date format: ${dateTimeString}, falling back to string parsing`;
+      console.warn(fallbackMsg);
+      const timePart = dateTimeString.split('T')[1];
+      if (timePart) {
+        // Extract HH:MM from time part, handling various formats
+        const timeMatch = timePart.match(/^(\d{2}):(\d{2})/);
+        return timeMatch ? `${timeMatch[1]}:${timeMatch[2]}` : null;
+      }
+      return null;
+    }
+
+    // Format as HH:MM using proper date methods
+    const hours = date.getHours().toString().padStart(2, '0');
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    return `${hours}:${minutes}`;
+  } catch (error) {
+    console.error(`Error parsing datetime: ${dateTimeString}`, error);
+    return null;
+  }
+};
+
 /*
   Get the stay results for an option based on start date, charge unit quantity, and room configs.
 
@@ -343,9 +376,13 @@ const getRatesObjectArray = (
     const startTimes = R.pathOr([], ['ExternalRateDetails', 'ExtStartTimes', 'ExtStartTime'], rate);
     if (!Array.isArray(startTimes)) {
       // If single item, convert to array
-      return startTimes ? [{ startTime: startTimes.split('T')[1].substring(0, 5) }] : [];
+      const timeString = extractTimeFromDateTime(startTimes);
+      return timeString ? [{ startTime: timeString }] : [];
     }
-    return startTimes.map(startTime => ({ startTime: startTime.split('T')[1].substring(0, 5) }));
+    return startTimes
+      .map(startTime => extractTimeFromDateTime(startTime))
+      .filter(timeString => timeString !== null)
+      .map(timeString => ({ startTime: timeString }));
   })();
 
   /* Sample data: For external pickup and dropoff details
