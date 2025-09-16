@@ -21,7 +21,7 @@ const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested da
   + '(e.g. no rates, block out period, on request, minimum stay etc.)';
 const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available until {dateTill}. '
   + 'Please change the date and try again.';
-
+const DAYS_IN_A_YEAR = 365;
 /*
     Get general option information from Tourplan API.
 
@@ -153,8 +153,64 @@ const getOptionDateRanges = async (
   return dateRanges;
 };
 
-// Get the immediate last date range
-// Logic: Query the date ranges from today till the requested end date
+/*
+  Get the past year date range
+  @param {string} optionId - The option ID
+  @param {string} hostConnectEndpoint - The HostConnect endpoint
+  @param {string} hostConnectAgentID - The agent ID
+  @param {string} hostConnectAgentPassword - The agent password
+  @param {Object} axios - The axios instance
+  @param {string} dateToFetchRates - The date to fetch rates from
+  @param {number} chargeUnitQuantityToFetchRates - The charge unit quantity to fetch rates from
+  @param {Object} roomConfigs - The room configurations
+  @param {Object} callTourplan - The callTourplan function
+  @returns {Object} The past year date range
+*/
+const getPastYearDateRange = async (
+  optionId,
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  dateToFetchRates,
+  chargeUnitQuantityToFetchRates,
+  roomConfigs,
+  callTourplan,
+) => {
+  const dateFrom = moment(dateToFetchRates).subtract(1, 'year').format('YYYY-MM-DD');
+  const unitQuantity = chargeUnitQuantityToFetchRates || DAYS_IN_A_YEAR;
+  // go back a year from the start date
+  const results = await getOptionDateRanges(
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    dateFrom,
+    unitQuantity,
+    roomConfigs,
+    callTourplan,
+  );
+  if (results && results.length > 0) {
+    return results[results.length - 1];
+  }
+  return null;
+};
+
+/*
+  Get the immediate last date range (could be in future or past)
+  1. Query the date ranges from today till the requested end date
+  2. If no date range found in future, fetch date ranges from past year
+  @param {string} optionId - The option ID
+  @param {string} hostConnectEndpoint - The HostConnect endpoint
+  @param {string} hostConnectAgentID - The agent ID
+  @param {string} hostConnectAgentPassword - The agent password
+  @param {Object} axios - The axios instance
+  @param {string} endDate - The end date
+  @param {Object} roomConfigs - The room configurations
+  @param {Object} callTourplan - The callTourplan function
+  @returns {Object} The immediate last date range
+*/
 const getImmediateLastDateRange = async (
   optionId,
   hostConnectEndpoint,
@@ -168,7 +224,7 @@ const getImmediateLastDateRange = async (
   // Prevent a very long period by limiting the number of days
   const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days'));
   const dateFrom = moment().format('YYYY-MM-DD');
-  const results = await getOptionDateRanges(
+  const dateRanges = await getOptionDateRanges(
     optionId,
     hostConnectEndpoint,
     hostConnectAgentID,
@@ -180,12 +236,23 @@ const getImmediateLastDateRange = async (
     callTourplan,
   );
 
-  if (results && results.length > 0) {
-    return results[results.length - 1];
+  if (dateRanges && dateRanges.length > 0) {
+    return dateRanges[dateRanges.length - 1];
   }
 
-  // If no date ranges found return null
-  return null;
+  const pastYearDateRange = await getPastYearDateRange(
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    dateFrom,
+    DAYS_IN_A_YEAR,
+    roomConfigs,
+    callTourplan,
+  );
+
+  return pastYearDateRange;
 };
 
 /* Helper function to extract time from datetime string
@@ -300,14 +367,26 @@ const getRatesObjectArray = (
   OptStayResults,
   markupPercentage = 0,
   OptStayResultsExtendedDates = [],
+  minStayRequired = 0,
+  daysToChargeAtLastRate = 0,
 ) => OptStayResults.map(rate => {
   const rateId = markupPercentage > 0 ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
   const currency = R.pathOr('', ['Currency'], rate);
   // NOTE: Check if the value is in cents or not
-  const totalPrice = R.pathOr('', ['TotalPrice'], rate);
-  const agentPrice = R.pathOr('', ['AgentPrice'], rate);
-  let finalTotalPrice = Number(totalPrice);
-  let finalAgentPrice = Number(agentPrice);
+  const totalPrice = Number(R.pathOr(0, ['TotalPrice'], rate));
+  const agentPrice = Number(R.pathOr(0, ['AgentPrice'], rate));
+
+  let finalTotalPrice = totalPrice;
+  let finalAgentPrice = agentPrice;
+
+  if (minStayRequired > daysToChargeAtLastRate) {
+    const oneDayTotalPrice = totalPrice / minStayRequired;
+    const oneDayAgentPrice = agentPrice / minStayRequired;
+    finalTotalPrice = oneDayTotalPrice * daysToChargeAtLastRate;
+    finalAgentPrice = oneDayAgentPrice * daysToChargeAtLastRate;
+  }
+  let costPrice = finalTotalPrice;
+
   let markupFactor = 1;
   if (markupPercentage >= MIN_MARKUP_PERCENTAGE && markupPercentage <= MAX_MARKUP_PERCENTAGE) {
     markupFactor = 1 + (Number(markupPercentage) / 100);
@@ -315,13 +394,14 @@ const getRatesObjectArray = (
 
   if (OptStayResultsExtendedDates.length > 0) {
     const singleDayRate = OptStayResultsExtendedDates.find(rate2 => rate2.RateId === rate.RateId);
-    const totalPriceNoRatesDays = R.pathOr(0, ['TotalPrice'], singleDayRate);
-    const agentPriceNoRatesDays = R.pathOr(0, ['AgentPrice'], singleDayRate);
-    finalTotalPrice = Math.round(Number(totalPrice) + (Number(totalPriceNoRatesDays) * markupFactor));
-    finalAgentPrice = Math.round(Number(agentPrice) + (Number(agentPriceNoRatesDays) * markupFactor));
+    const totalPriceNoRatesDays = Number(R.pathOr(0, ['TotalPrice'], singleDayRate));
+    const agentPriceNoRatesDays = Number(R.pathOr(0, ['AgentPrice'], singleDayRate));
+    finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
+    finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
+    costPrice += totalPriceNoRatesDays;
   } else if (markupFactor > 1) {
-    finalTotalPrice = Math.round(Number(totalPrice) * markupFactor);
-    finalAgentPrice = Math.round(Number(agentPrice) * markupFactor);
+    finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
+    finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
   }
   const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
   // Cancellations within this number of hours of service date incur a cancellation
@@ -481,6 +561,7 @@ const getRatesObjectArray = (
     rateId,
     currency,
     totalPrice: finalTotalPrice,
+    costPrice,
     agentPrice: finalAgentPrice,
     currencyPrecision,
     cancelHours,
@@ -605,6 +686,7 @@ module.exports = {
   getNoRatesAvailableError,
   getStayResults,
   getImmediateLastDateRange,
+  getPastYearDateRange,
   getRatesObjectArray,
   getOptionDateRanges,
   // Constants

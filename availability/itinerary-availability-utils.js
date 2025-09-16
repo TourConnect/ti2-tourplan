@@ -5,7 +5,7 @@ const { passengerTypeMap } = require('../utils');
 // Constants
 const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. '
   + 'Please update the Pax Config accordingly.';
-const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: '
+const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the dates: '
   + '{closedDateRanges}. Please try again with a different dates range.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. '
   + 'Please adjust the stay length and try again.';
@@ -76,14 +76,16 @@ const validateDateRanges = ({
   // Check if any rate set has a minimum stay length
   if (dateRanges.some(dateRange => dateRange.minSCU > 1)) {
     const dateRangesWithMinSCUGreaterThanOne = dateRanges
-      .filter(dateRange => dateRange.minSCU > 1);
+      .filter(dateRange => Number(dateRange.minSCU) > 1);
     const minSCUDateRangesText = [];
 
     dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
       const daysBeforeDateRange = moment(dateRange.startDate)
         .diff(moment(startDate), 'days');
-      const daysAfterDateRange = daysBeforeDateRange > 0 ? chargeUnitQuantity - daysBeforeDateRange : chargeUnitQuantity;
-      if (daysAfterDateRange < dateRange.minSCU) {
+      const daysAfterDateRange = daysBeforeDateRange > 0
+        ? chargeUnitQuantity - daysBeforeDateRange
+        : chargeUnitQuantity;
+      if (daysAfterDateRange < Number(dateRange.minSCU)) {
         const formattedStartDate = moment(dateRange.startDate)
           .format(USER_FRIENDLY_DATE_FORMAT);
         const formattedEndDate = moment(dateRange.endDate)
