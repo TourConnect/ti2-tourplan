@@ -121,7 +121,6 @@ const resolvers = {
     extras: option => {
       // when only one extra is present, it is not an array
       let OptExtras = R.pathOr([], ['OptGeneral', 'OptExtras', 'OptExtra'], option);
-      // console.log({ OptExtras })
       if (!Array.isArray(OptExtras)) OptExtras = [OptExtras];
       return OptExtras;
     },

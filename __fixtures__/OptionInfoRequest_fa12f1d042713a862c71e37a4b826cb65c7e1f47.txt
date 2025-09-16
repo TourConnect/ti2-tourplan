@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TEST_OPTION_BOOKING_PERIOD_AT_BOUNDARY_OF_EXTENDED_BOOKING_YEARS_LIMIT</Opt>
+            <OptionNumber>46053</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>50000</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>55000</AgentPrice>
+                <RateId>Custom</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2030-08-01</DateFrom>
+                        <DateTo>2030-08-31</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <CancelPolicies>
+                    <CancelPenalty>
+                        <Deadline>
+                            <OffsetUnitMultiplier>48</OffsetUnitMultiplier>
+                            <OffsetTimeUnit>Hour</OffsetTimeUnit>
+                            <DeadlineDateTime>2030-07-31T11:00:00Z</DeadlineDateTime>
+                        </Deadline>
+                        <InEffect>Y</InEffect>
+                        <LinePrice>27450</LinePrice>
+                        <AgentPrice>109800</AgentPrice>
+                        <PenaltyDescription>48 hours prior to arrival - 25% cancellation fee</PenaltyDescription>
+                    </CancelPenalty>
+                </CancelPolicies>
+                <ExternalRateDetails>
+                    <ExtSupplierId>NZ000022</ExtSupplierId>
+                    <ExtOptionId>DOUB</ExtOptionId>
+                    <ExtOptionDescr>Standard Room, 1 King Bed</ExtOptionDescr>
+                    <ExtRatePlanCode>SINGLE CANCEL POLICY TEST</ExtRatePlanCode>
+                    <ExtRatePlanDescr>Room Only</ExtRatePlanDescr>
+                    <ExtGuarantee>N</ExtGuarantee>
+                    <ExtStartTimes>
+                        <ExtStartTime>2030-08-01T06:00:00</ExtStartTime>
+                        <ExtStartTime>2030-08-01T07:00:00</ExtStartTime>
+                        <ExtStartTime>2030-08-01T08:00:00</ExtStartTime>
+                    </ExtStartTimes>
+                </ExternalRateDetails>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply> 
