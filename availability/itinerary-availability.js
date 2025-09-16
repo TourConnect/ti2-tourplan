@@ -38,6 +38,108 @@ const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUni
   return !atLeastOneDateDoesNotHaveRatesAvailable;
 };
 
+/**
+ * Handle availability when all dates have rates available
+ */
+const handleFullAvailability = async ({
+  dateRanges,
+  startDate,
+  chargeUnitQuantity,
+  optionId,
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  roomConfigs,
+  displayRateInSupplierCurrency,
+  callTourplan,
+  endDate,
+  message,
+}) => {
+  // Validate date ranges and room configurations
+  const dateRangesError = validateDateRanges({
+    dateRanges,
+    startDate,
+    chargeUnitQuantity,
+  });
+
+  if (dateRangesError) {
+    return dateRangesError;
+  }
+
+  // get stay rates for the given dates
+  const OptStayResults = await getStayResults(
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    startDate,
+    chargeUnitQuantity,
+    roomConfigs,
+    displayRateInSupplierCurrency,
+    callTourplan,
+  );
+
+  const SCheckPass = Boolean(OptStayResults.length);
+  return {
+    bookable: Boolean(SCheckPass),
+    type: 'inventory',
+    ...(endDate && SCheckPass ? { endDate } : {}),
+    ...(message && SCheckPass ? { message } : {}),
+    rates: getRatesObjectArray(OptStayResults),
+  };
+};
+
+/**
+ * Get the appropriate date range to use for custom rates
+ */
+const getCustomRateDateRange = async ({
+  useLastYearRate,
+  optionId,
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  startDate,
+  chargeUnitQuantity,
+  roomConfigs,
+  callTourplan,
+  endDate,
+}) => {
+  let dateRangeToUse = null;
+  let errorMsg = '';
+
+  if (useLastYearRate) {
+    dateRangeToUse = await getPastYearDateRange(
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      chargeUnitQuantity,
+      roomConfigs,
+      callTourplan,
+    );
+    errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+  } else {
+    dateRangeToUse = await getImmediateLastDateRange(
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      endDate || startDate,
+      roomConfigs,
+      callTourplan,
+    );
+    errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
+  }
+
+  return { dateRangeToUse, errorMsg };
+};
+
 const searchAvailabilityForItinerary = async ({
   axios,
   token: {
@@ -139,38 +241,21 @@ const searchAvailabilityForItinerary = async ({
 
   if (allDatesHaveRatesAvailable) {
     // all dates have rates available get stay rates for the given dates
-    const dateRangesError = validateDateRanges({
+    return handleFullAvailability({
       dateRanges,
       startDate,
       chargeUnitQuantity,
-    });
-
-    if (dateRangesError) {
-      return dateRangesError;
-    }
-
-    // get stay rates for the given dates
-    const OptStayResults = await getStayResults(
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
       axios,
-      startDate,
-      chargeUnitQuantity,
       roomConfigs,
       displayRateInSupplierCurrency,
       callTourplan,
-    );
-
-    const SCheckPass = Boolean(OptStayResults.length);
-    return {
-      bookable: Boolean(SCheckPass),
-      type: 'inventory',
-      ...(endDate && SCheckPass ? { endDate } : {}),
-      ...(message && SCheckPass ? { message } : {}),
-      rates: getRatesObjectArray(OptStayResults),
-    };
+      endDate,
+      message,
+    });
   }
 
   // At least one date does not have rates available.
@@ -192,35 +277,20 @@ const searchAvailabilityForItinerary = async ({
   // Step1 : Get date range to use for the days that do not have any rates available
   // This is done by getting the past rates based on the useLastYearRate flag.
   // If true use last year's rates, otherwise use last available rates.
-  let dateRangeToUse = null;
-  let errorMsg = '';
+  const { dateRangeToUse, errorMsg } = await getCustomRateDateRange({
+    useLastYearRate,
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    startDate,
+    chargeUnitQuantity,
+    roomConfigs,
+    callTourplan,
+    endDate,
+  });
 
-  if (useLastYearRate) {
-    dateRangeToUse = await getPastYearDateRange(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      startDate,
-      chargeUnitQuantity,
-      roomConfigs,
-      callTourplan,
-    );
-    errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
-  } else {
-    dateRangeToUse = await getImmediateLastDateRange(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      endDate || startDate,
-      roomConfigs,
-      callTourplan,
-    );
-    errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
-  }
   if (!dateRangeToUse) {
     // no date range to use, return error
     return {
@@ -230,7 +300,6 @@ const searchAvailabilityForItinerary = async ({
       message: errorMsg,
     };
   }
-  console.log('dateRangeToUse: ', dateRangeToUse);
 
   // Check if the start date of the date range to use is beyond the permitted future booking years
   const extendedBookingPermittedDate = moment(dateRangeToUse.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');

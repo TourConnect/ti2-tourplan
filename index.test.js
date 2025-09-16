@@ -1795,7 +1795,7 @@ describe('search tests', () => {
 
         expect(retVal.bookable).toBeFalsy();
         expect(retVal.type).toBe('inventory');
-        expect(retVal.message).toContain('rates are closed for the given date');
+        expect(retVal.message).toContain('rates are closed for the dates');
       });
     });
   });
