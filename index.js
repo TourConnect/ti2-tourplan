@@ -416,7 +416,7 @@ class BuyerPlugin {
         Password: password,
       },
     };
-    
+
     // Get the correct DTD version for this endpoint
     const correctDtd = await this.getCorrectDtdVersion({ endpoint, axios });
     const xmlOptionsWithCorrectDtd = {
@@ -426,7 +426,7 @@ class BuyerPlugin {
         name: correctDtd,
       },
     };
-    
+
     let data = Normalizer.stripEnclosingQuotes(
       js2xmlparser.parse('Request', model, xmlOptionsWithCorrectDtd),
     );

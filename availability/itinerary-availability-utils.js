@@ -5,8 +5,8 @@ const { passengerTypeMap } = require('../utils');
 // Constants
 const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. '
   + 'Please update the Pax Config accordingly.';
-const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the given dates: '
-  + '{closedDateRanges}. Please try again with a different dates range.';
+const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the date(s): '
+  + '{closedDateRanges}. Please try again with a different date.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. '
   + 'Please adjust the stay length and try again.';
 const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
@@ -27,7 +27,7 @@ const validateMaxPaxPerCharge = ({
 }) => {
   // Verify that each RoomConfig does not exceed maxPaxPerCharge
   if (maxPaxPerCharge && maxPaxPerCharge > 1) {
-    for (let i = 0; i < roomConfigs.RoomConfig.length; i++) {
+    for (let i = 0; i < roomConfigs.RoomConfig.length; i += 1) {
       const room = roomConfigs.RoomConfig[i];
       const roomPax = (room.Adults || 0) + (room.Children || 0) + (room.Infants || 0);
       if (roomPax > maxPaxPerCharge) {
@@ -58,8 +58,14 @@ const validateDateRanges = ({
   chargeUnitQuantity,
 }) => {
   // Check if any rate set is closed
-  if (dateRanges.some(dateRange => dateRange.isClosed === 'Y')) {
-    const closedDateRanges = dateRanges.filter(dateRange => dateRange.isClosed === 'Y');
+  const closedDateRanges = [];
+  dateRanges.forEach(dateRange => {
+    if (dateRange.rateSets && dateRange.rateSets.some(rateSet => rateSet.isClosed === 'Y')) {
+      closedDateRanges.push(dateRange);
+    }
+  });
+
+  if (closedDateRanges.length > 0) {
     const closedDateRangesText = closedDateRanges.map(dateRange => {
       const formattedStartDate = moment(dateRange.startDate).format(USER_FRIENDLY_DATE_FORMAT);
       const formattedEndDate = moment(dateRange.endDate).format(USER_FRIENDLY_DATE_FORMAT);
@@ -73,39 +79,56 @@ const validateDateRanges = ({
     };
   }
 
-  // Check if any rate set has a minimum stay length
-  if (dateRanges.some(dateRange => dateRange.minSCU > 1)) {
-    const dateRangesWithMinSCUGreaterThanOne = dateRanges
-      .filter(dateRange => dateRange.minSCU > 1);
-    const minSCUDateRangesText = [];
-
-    dateRangesWithMinSCUGreaterThanOne.forEach(dateRange => {
+  // Check if any rate set in any date range has a minimum stay length
+  // that is more than the charge unit quantity
+  const minSCUDateRangesText = [];
+  dateRanges.forEach(dateRange => {
+    if (dateRange.rateSets) {
       const daysBeforeDateRange = moment(dateRange.startDate)
         .diff(moment(startDate), 'days');
-      const daysAfterDateRange = daysBeforeDateRange > 0 ? chargeUnitQuantity - daysBeforeDateRange : chargeUnitQuantity;
-      if (daysAfterDateRange < dateRange.minSCU) {
-        const formattedStartDate = moment(dateRange.startDate)
-          .format(USER_FRIENDLY_DATE_FORMAT);
-        const formattedEndDate = moment(dateRange.endDate)
-          .format(USER_FRIENDLY_DATE_FORMAT);
-        minSCUDateRangesText.push(
-          `The date range ${formattedStartDate} to ${formattedEndDate} `
-          + `has a minimum stay length of ${dateRange.minSCU}`,
-        );
-      }
-    });
+      const daysAfterDateRange = daysBeforeDateRange > 0
+        ? chargeUnitQuantity - daysBeforeDateRange
+        : chargeUnitQuantity;
 
-    if (minSCUDateRangesText.length > 0) {
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: MIN_STAY_LENGTH_ERROR_TEMPLATE.replace(
-          '{minSCUDateRangesText}',
-          minSCUDateRangesText.join(', '),
-        ),
-      };
+      // Check if any rate set has a minimum stay length that is less than
+      // the charge unit quantity
+      const rateSetsWithMinSCULessThanQuantity = dateRange.rateSets
+        .filter(rateSet => daysAfterDateRange >= Number(rateSet.minSCU))
+        .slice(0, 1);
+      if (rateSetsWithMinSCULessThanQuantity.length > 0) {
+        return;
+      }
+
+      // Check if any rate set has a minimum stay length that is greater than
+      // the charge unit quantity
+      const rateSetWithMinSCUGreaterThanQuantity = dateRange.rateSets
+        .filter(rateSet => daysAfterDateRange < Number(rateSet.minSCU))
+        .slice(0, 1);
+      if (rateSetWithMinSCUGreaterThanQuantity.length === 0) {
+        return;
+      }
+      // Return min stay length error message
+      const formattedStartDate = moment(dateRange.startDate)
+        .format(USER_FRIENDLY_DATE_FORMAT);
+      const formattedEndDate = moment(dateRange.endDate)
+        .format(USER_FRIENDLY_DATE_FORMAT);
+      minSCUDateRangesText.push(
+        `The date range ${formattedStartDate} to ${formattedEndDate} `
+        + `has a minimum stay length of ${rateSetWithMinSCUGreaterThanQuantity[0].minSCU}`,
+      );
     }
+  });
+
+  if (minSCUDateRangesText.length > 0) {
+    return {
+      bookable: false,
+      type: 'inventory',
+      rates: [],
+      message: MIN_STAY_LENGTH_ERROR_TEMPLATE.replace(
+        '{minSCUDateRangesText}',
+        minSCUDateRangesText.join(', '),
+      ),
+    };
   }
 
   return null; // No validation errors
@@ -244,32 +267,38 @@ const parseDateRanges = dateRanges => {
 
   dateRangeArray.forEach(dateRange => {
     const rateSets = R.pathOr({}, ['RateSets', 'RateSet'], dateRange);
-    const rateSet = Array.isArray(rateSets) ? rateSets[0] : rateSets;
+    const rateSetsArray = Array.isArray(rateSets) ? rateSets : [rateSets];
 
-    const roomRates = R.pathOr({}, ['OptRate', 'RoomRates'], rateSet);
-    const extrasRates = R.pathOr({}, ['OptRate', 'ExtrasRates', 'ExtrasRate'], rateSet);
+    // Process all rate sets for this date range
+    const processedRateSets = rateSetsArray.map(rateSet => {
+      // const roomRates = R.pathOr({}, ['OptRate', 'RoomRates'], rateSet);
+      // const extrasRates = R.pathOr({}, ['OptRate', 'ExtrasRates', 'ExtrasRate'], rateSet);
+
+      // Extract OptionRates from OptRate if available
+      const optionRates = R.pathOr([], ['OptRate', 'OptionRates', 'OptionRate'], rateSet);
+      const optionRatesArray = Array.isArray(optionRates) ? optionRates : [optionRates];
+
+      return {
+        rateName: rateSet.RateName,
+        rateText: rateSet.RateText,
+        minSCU: rateSet.MinSCU,
+        maxSCU: rateSet.MaxSCU,
+        cancelHours: rateSet.CancelHours,
+        isClosed: rateSet.IsClosed,
+        scuCheckOverlapOnly: rateSet.ScuCheckOverlapOnly,
+        optionRates: optionRatesArray.filter(rate => rate !== undefined && rate !== null),
+      };
+    });
+
+    // Sort rate sets by minSCU in ascending order
+    processedRateSets.sort((a, b) => (a.minSCU || 0) - (b.minSCU || 0));
 
     dateRangesResult.push({
       startDate: dateRange.DateFrom,
       endDate: dateRange.DateTo,
       currency: dateRange.Currency,
       priceCode: dateRange.PriceCode,
-      rateName: rateSet.RateName,
-      rateText: rateSet.RateText,
-      minSCU: rateSet.MinSCU,
-      maxSCU: rateSet.MaxSCU,
-      cancelHours: rateSet.CancelHours,
-      isClosed: rateSet.IsClosed,
-      scuCheckOverlapOnly: rateSet.ScuCheckOverlapOnly,
-      roomRates: {
-        singleRate: roomRates.SingleRate,
-        doubleRate: roomRates.DoubleRate,
-      },
-      extrasRates: {
-        adultRate: extrasRates.AdultRate,
-        childRate: extrasRates.ChildRate,
-        sequenceNumber: extrasRates.SequenceNumber,
-      },
+      rateSets: processedRateSets,
     });
   });
   // Sort results in ascending order by startDate

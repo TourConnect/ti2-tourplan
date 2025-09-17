@@ -58,11 +58,12 @@ const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }
 
 const getFixture = async requestObject => {
   // Extract request name using regex
+  console.log('requestObject: ', requestObject);
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';
   const requestHash = hash(requestObject);
-
+  console.log('requestHash: ', requestHash);
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
     const fixture = (
@@ -1458,8 +1459,12 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-05',
-            isClosed: 'N',
-            minSCU: 3, // Requires minimum 3 nights
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 3, // Requires minimum 3 nights
+              },
+            ],
           },
         ];
 
@@ -1481,14 +1486,22 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-03',
-            isClosed: 'N',
-            minSCU: 2, // Requires minimum 2 nights
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 2, // Requires minimum 2 nights
+              },
+            ],
           },
           {
             startDate: '2025-04-04',
             endDate: '2025-04-08',
-            isClosed: 'N',
-            minSCU: 4, // Requires minimum 4 nights
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 4, // Requires minimum 4 nights
+              },
+            ],
           },
         ];
 
@@ -1509,7 +1522,12 @@ describe('search tests', () => {
             startDate: '2025-04-01',
             endDate: '2025-04-05',
             isClosed: 'N',
-            minSCU: 3,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 3,
+              },
+            ],
           },
         ];
 
@@ -1527,8 +1545,12 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-03',
-            isClosed: 'N',
-            minSCU: 2,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 2,
+              },
+            ],
           },
         ];
 
@@ -1546,14 +1568,22 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-02',
-            isClosed: 'N',
-            minSCU: 3,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 3, // Requires minimum 3 nights
+              },
+            ],
           },
           {
             startDate: '2025-04-03',
             endDate: '2025-04-04',
-            isClosed: 'N',
-            minSCU: 4,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 4,
+              },
+            ],
           },
         ];
 
@@ -1572,14 +1602,22 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-02',
-            isClosed: 'N',
-            minSCU: 3,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 3, // Requires minimum 3 nights
+              },
+            ],
           },
           {
             startDate: '2025-04-03',
             endDate: '2025-04-04',
-            isClosed: 'N',
-            minSCU: 4,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 4, // Requires minimum 4 nights
+              },
+            ],
           },
         ];
 
@@ -1650,8 +1688,12 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-05',
-            isClosed: 'N',
-            minSCU: 1,
+            rateSets: [
+              {
+                isClosed: 'N',
+                minSCU: 1,
+              },
+            ],
           },
         ];
 
@@ -1669,8 +1711,12 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-05',
-            isClosed: 'Y', // Period is closed
-            minSCU: 1,
+            rateSets: [
+              {
+                isClosed: 'Y', // Period is closed
+                minSCU: 1,
+              },
+            ],
           },
         ];
 
@@ -1692,14 +1738,22 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-03',
-            isClosed: 'Y',
-            minSCU: 1,
+            rateSets: [
+              {
+                isClosed: 'Y',
+                minSCU: 1,
+              },
+            ],
           },
           {
             startDate: '2025-04-05',
             endDate: '2025-04-07',
-            isClosed: 'Y',
-            minSCU: 1,
+            rateSets: [
+              {
+                isClosed: 'Y',
+                minSCU: 1,
+              },
+            ],
           },
         ];
 
@@ -1721,19 +1775,33 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-02',
-            isClosed: 'N', // Open
-            minSCU: 1,
+            rateSets: [
+              {
+                isClosed: 'N', // Open
+                minSCU: 1,
+              },
+            ],
           },
           {
             startDate: '2025-04-03',
             endDate: '2025-04-04',
-            isClosed: 'Y', // Closed
+            rateSets: [
+              {
+                isClosed: 'Y', // Closed
+                minSCU: 1,
+              },
+            ],
             minSCU: 1,
           },
           {
             startDate: '2025-04-05',
             endDate: '2025-04-06',
-            isClosed: 'N', // Open
+            rateSets: [
+              {
+                isClosed: 'N', // Open
+                minSCU: 1,
+              },
+            ],
             minSCU: 1,
           },
         ];
@@ -1756,8 +1824,12 @@ describe('search tests', () => {
           {
             startDate: '2025-04-01',
             endDate: '2025-04-05',
-            isClosed: 'Y', // Closed period
-            minSCU: 10, // Also has minimum stay violation
+            rateSets: [
+              {
+                isClosed: 'Y', // Closed period
+                minSCU: 10, // Also has minimum stay violation
+              },
+            ],
           },
         ];
 
@@ -1795,7 +1867,7 @@ describe('search tests', () => {
 
         expect(retVal.bookable).toBeFalsy();
         expect(retVal.type).toBe('inventory');
-        expect(retVal.message).toContain('rates are closed for the given date');
+        expect(retVal.message).toContain('rates are closed for the date(s)');
       });
     });
   });
