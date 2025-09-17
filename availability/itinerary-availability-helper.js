@@ -174,7 +174,7 @@ const getOptionDateRanges = async (
   @param {Object} callTourplan - The callTourplan function
   @returns {Object} The past year date range
 */
-const getPastYearDateRange = async (
+const getPastDateRange = async (
   optionId,
   hostConnectEndpoint,
   hostConnectAgentID,
@@ -184,9 +184,11 @@ const getPastYearDateRange = async (
   chargeUnitQuantityToFetchRates,
   roomConfigs,
   callTourplan,
+  noOfPastYears,
+  returnLastDateRange,
 ) => {
-  const dateFrom = moment(dateToFetchRates).subtract(1, 'year').format('YYYY-MM-DD');
-  const unitQuantity = chargeUnitQuantityToFetchRates || getDaysInYear(dateFrom);
+  const dateFrom = moment(dateToFetchRates).subtract(noOfPastYears, 'year').format('YYYY-MM-DD');
+  const unitQuantity = chargeUnitQuantityToFetchRates || getDaysInYear(dateFrom) * noOfPastYears;
   // go back a year from the start date
   const results = await getOptionDateRanges(
     optionId,
@@ -200,7 +202,7 @@ const getPastYearDateRange = async (
     callTourplan,
   );
   if (results && results.length > 0) {
-    return results[results.length - 1];
+    return returnLastDateRange ? results[results.length - 1] : results[0];
   }
   return null;
 };
@@ -228,6 +230,7 @@ const getImmediateLastDateRange = async (
   endDate,
   roomConfigs,
   callTourplan,
+  extendedBookingYears = 1,
 ) => {
   // Prevent a very long period by limiting the number of days
   const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days'));
@@ -248,16 +251,19 @@ const getImmediateLastDateRange = async (
     return dateRanges[dateRanges.length - 1];
   }
 
-  const pastYearDateRange = await getPastYearDateRange(
+  const returnLastDateRange = true;
+  const pastYearDateRange = await getPastDateRange(
     optionId,
     hostConnectEndpoint,
     hostConnectAgentID,
     hostConnectAgentPassword,
     axios,
     dateFrom,
-    getDaysInYear(dateFrom),
+    getDaysInYear(dateFrom) * extendedBookingYears,
     roomConfigs,
     callTourplan,
+    extendedBookingYears,
+    returnLastDateRange,
   );
 
   return pastYearDateRange;
@@ -725,7 +731,7 @@ module.exports = {
   getNoRatesAvailableError,
   getStayResults,
   getImmediateLastDateRange,
-  getPastYearDateRange,
+  getPastDateRange,
   getRatesObjectArray,
   getOptionDateRanges,
   // Constants

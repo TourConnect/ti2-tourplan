@@ -10,7 +10,7 @@ const {
   getNoRatesAvailableError,
   getStayResults,
   getImmediateLastDateRange,
-  getPastYearDateRange,
+  getPastDateRange,
   getRatesObjectArray,
   MIN_MARKUP_PERCENTAGE,
   MAX_MARKUP_PERCENTAGE,
@@ -26,10 +26,10 @@ const CUSTOM_RATE_WITHMARKUP_INFO_MSG = 'Custom rate applied, calculated using a
 const CUSTOM_RATE_NO_MARKUP_INFO_MSG = 'Custom rate applied with no markup on {customPeriodInfoMsg} {sWarningMsg}';
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
-const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of  {minSCU}.';
+const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
 const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
-const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'No rates found for the last year';
-const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'No rates found for the immediate last date range';
+const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as no rates found for the last year. Please change the date and try again.';
+const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
@@ -106,12 +106,15 @@ const getCustomRateDateRange = async ({
   roomConfigs,
   callTourplan,
   endDate,
+  extendedBookingYears,
 }) => {
   let dateRangeToUse = null;
   let errorMsg = '';
 
+  const noOfYears = 1;
+  const returnLastDateRange = false;
   if (useLastYearRate) {
-    dateRangeToUse = await getPastYearDateRange(
+    dateRangeToUse = await getPastDateRange(
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
@@ -121,8 +124,12 @@ const getCustomRateDateRange = async ({
       chargeUnitQuantity,
       roomConfigs,
       callTourplan,
+      noOfYears,
+      returnLastDateRange,
     );
-    errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+    if (!dateRangeToUse) {
+      errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+    }
   } else {
     dateRangeToUse = await getImmediateLastDateRange(
       optionId,
@@ -133,8 +140,12 @@ const getCustomRateDateRange = async ({
       endDate || startDate,
       roomConfigs,
       callTourplan,
+      extendedBookingYears,
     );
-    errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
+    if (!dateRangeToUse) {
+      // The code should never reach here
+      errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
+    }
   }
 
   return { dateRangeToUse, errorMsg };
@@ -270,6 +281,7 @@ const searchAvailabilityForItinerary = async ({
       endDate: endDate || startDate,
       roomConfigs,
       callTourplan,
+      extendedBookingYears,
     });
   }
 
@@ -289,6 +301,7 @@ const searchAvailabilityForItinerary = async ({
     roomConfigs,
     callTourplan,
     endDate,
+    extendedBookingYears,
   });
 
   if (!dateRangeToUse) {
@@ -329,8 +342,14 @@ const searchAvailabilityForItinerary = async ({
   if (dateRangesError) {
     if (dateRangesError.message.includes('minimum stay')) {
       // If minimum stay error, return availability with a warning message
-      minStayRequired = dateRangeToUse.minSCU;
-      sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', dateRangeToUse.minSCU);
+      const matchingRateSet = dateRangeToUse.rateSets
+        .filter(rateSet =>
+          (chargeUnitQuantity < Number(rateSet.maxSCU) && chargeUnitQuantity > Number(rateSet.minSCU)) || // eslint-disable-line max-len
+          (chargeUnitQuantity === Number(rateSet.minSCU) || chargeUnitQuantity === Number(rateSet.maxSCU)) || // eslint-disable-line max-len
+          (chargeUnitQuantity < Number(rateSet.minSCU))) // eslint-disable-line max-len
+        .slice(0, 1);
+      minStayRequired = matchingRateSet.length > 0 ? matchingRateSet[0].minSCU : 0;
+      sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
     } else if (dateRangesError.message.includes('rates are closed')) {
       // If rates are closed, return an error message
       return {

@@ -60,8 +60,9 @@ const addServiceToItinerary = async ({
     }, {});
 
   if (availCheckObj && R.path(['rateId'], availCheckObj) === CUSTOM_RATE_ID_NAME) {
+    const itemDescription = `${CUSTOM_RATE_ID_NAME} - ${paxConfigs[0].roomType || 'Double'}`;
     pricing = {
-      // ItemDescription: R.path(['Custom Rate'], availCheckObj),
+      ItemDescription: itemDescription,
       CostCurrency: R.path(['currency'], availCheckObj),
       CostConversionRate: R.pathOr(1, ['costConversionRate'], availCheckObj),
       CostExclusive: R.path(['costPrice'], availCheckObj),
