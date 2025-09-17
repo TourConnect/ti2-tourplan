@@ -382,17 +382,19 @@ const getRatesObjectArray = (
   markupPercentage = 0,
   OptStayResultsExtendedDates = [],
   minStayRequired = 0,
+  noOfDaysRatesAvailable = 0,
   daysToChargeAtLastRate = 0,
+  applyFirstRateAmount = false,
 ) => {
   // Add input validation
   if (!Array.isArray(OptStayResults)) {
-    throw new Error('OptStayResults must be an array');
+    return null;
   }
 
   return OptStayResults.map(rate => {
     // Add null/undefined check for rate object
     if (!rate || typeof rate !== 'object') {
-      throw new Error('Invalid rate object provided');
+      return null;
     }
 
     const rateId = markupPercentage > 0 ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
@@ -425,14 +427,22 @@ const getRatesObjectArray = (
       markupFactor = 1 + (Number(markupPercentage) / 100);
     }
 
-    if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
-      const singleDayRate = OptStayResultsExtendedDates.find(rate2 =>
-        rate2 && rate2.RateId === rate.RateId,
-      );
+    if (applyFirstRateAmount) {
+      const singleDayPrice = finalTotalPrice / noOfDaysRatesAvailable;
+      const singleDayAgentPrice = finalAgentPrice / noOfDaysRatesAvailable;
 
-      if (singleDayRate) {
-        const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], singleDayRate);
-        const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], singleDayRate);
+      finalTotalPrice = singleDayPrice * (noOfDaysRatesAvailable + daysToChargeAtLastRate);
+      finalAgentPrice = singleDayAgentPrice * (noOfDaysRatesAvailable + daysToChargeAtLastRate);
+
+      costPrice = finalTotalPrice;
+      // eslint-disable-next-line max-len
+    } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
+      const rateForExpiredPeriod = OptStayResultsExtendedDates.find(rate2 =>
+        rate2 && rate2.RateId === rate.RateId);
+
+      if (rateForExpiredPeriod) {
+        const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], rateForExpiredPeriod);
+        const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], rateForExpiredPeriod);
 
         const totalPriceNoRatesDays = Number(totalPriceNoRatesDaysRaw);
         const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
@@ -447,6 +457,7 @@ const getRatesObjectArray = (
       finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
       finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
     }
+
     const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.

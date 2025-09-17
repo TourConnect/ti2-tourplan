@@ -22,6 +22,7 @@ const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
 const CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG = 'last available rate.';
 const CUSTOM_PERIOD_LAST_YEAR_INFO_MSG = 'last year\'s rate.';
+const CUSTOM_RATE_USE_FIRST_RATE_AMOUNT_INFO_MSG = 'Custom rate applied, calculated using the first rate amount. {sWarningMsg}';
 const CUSTOM_RATE_WITHMARKUP_INFO_MSG = 'Custom rate applied, calculated using a markup on {customPeriodInfoMsg} {sWarningMsg}';
 const CUSTOM_RATE_NO_MARKUP_INFO_MSG = 'Custom rate applied with no markup on {customPeriodInfoMsg} {sWarningMsg}';
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
@@ -162,6 +163,7 @@ const searchAvailabilityForItinerary = async ({
     customRatesMarkupPercentage,
     customRatesCalculateWithLastYearsRate,
     customRatesExtendedBookingYears,
+    customRatesUseFirstRateAmount,
   },
   payload: {
     optionId,
@@ -188,6 +190,10 @@ const searchAvailabilityForItinerary = async ({
   const useLastYearRate = !!(
     customRatesCalculateWithLastYearsRate
     && customRatesCalculateWithLastYearsRate.toUpperCase() === 'YES'
+  );
+  const useFirstRateAmount = !!(
+    customRatesUseFirstRateAmount
+    && customRatesUseFirstRateAmount.toUpperCase() === 'YES'
   );
   // Assign default values when parameters are empty, null, undefined,
   // or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
@@ -302,6 +308,7 @@ const searchAvailabilityForItinerary = async ({
     callTourplan,
     endDate,
     extendedBookingYears,
+    useFirstRateAmount,
   });
 
   if (!dateRangeToUse) {
@@ -314,7 +321,7 @@ const searchAvailabilityForItinerary = async ({
     };
   }
 
-  // Check if the start date of the date range to use is beyond the permitted future booking years
+  // Check if the end date of the date range to use is beyond the permitted future booking years
   const extendedBookingPermittedDate = moment(dateRangeToUse.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');
   const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days');
   if (moment(startDate).isAfter(extendedBookingPermittedDate) ||
@@ -361,14 +368,9 @@ const searchAvailabilityForItinerary = async ({
     }
   }
 
-  // Format the success message for the custom rates
-  const customRateInfoMsg = markupPercentage > 0
-    ? CUSTOM_RATE_WITHMARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg)
-    : CUSTOM_RATE_NO_MARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg);
-  const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
-
   // Step1 : Get rates for the days that have rates available
   let OptStayResults = [];
+  let SCheckPass = false;
   // Get stay rates for the given dates
   if (noOfDaysRatesAvailable > 0) {
     OptStayResults = await getStayResults(
@@ -383,7 +385,7 @@ const searchAvailabilityForItinerary = async ({
       displayRateInSupplierCurrency,
       callTourplan,
     );
-    const SCheckPass = Boolean(OptStayResults.length);
+    SCheckPass = Boolean(OptStayResults.length);
     if (!SCheckPass) {
       return {
         bookable: Boolean(SCheckPass),
@@ -398,40 +400,59 @@ const searchAvailabilityForItinerary = async ({
   const daysToChargeAtLastRate = noOfDaysRatesAvailable > 0
     ? chargeUnitQuantity - noOfDaysRatesAvailable : chargeUnitQuantity;
 
+  let OptStayResultsExtendedDates = [];
   if (daysToChargeAtLastRate > 0) {
     // Get stay rates
-    let OptStayResultsExtendedDates = await getStayResults(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      dateRangeToUse.startDate,
-      Math.max(daysToChargeAtLastRate, minStayRequired),
-      roomConfigs,
-      displayRateInSupplierCurrency,
-      callTourplan,
-    );
-    const SCheckPass = Boolean(OptStayResultsExtendedDates.length);
-    if (SCheckPass) {
-      if (OptStayResults.length === 0) {
-        OptStayResults = OptStayResultsExtendedDates;
-        OptStayResultsExtendedDates = [];
-      }
-      return {
-        bookable: Boolean(SCheckPass),
-        type: 'inventory',
-        ...(endDate && SCheckPass ? { endDate } : {}),
-        ...(successMessage && SCheckPass ? { message: successMessage } : {}),
-        rates: getRatesObjectArray(
-          OptStayResults,
-          markupPercentage,
-          OptStayResultsExtendedDates,
-          minStayRequired,
-          daysToChargeAtLastRate,
-        ),
-      };
+    // eslint-disable-next-line max-len
+    const applyFirstRateAmount = OptStayResults.length > 0 ? useFirstRateAmount : false;
+
+    if (!applyFirstRateAmount) {
+      OptStayResultsExtendedDates = await getStayResults(
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        dateRangeToUse.startDate,
+        Math.max(daysToChargeAtLastRate, minStayRequired),
+        roomConfigs,
+        displayRateInSupplierCurrency,
+        callTourplan,
+      );
+      SCheckPass = Boolean(OptStayResultsExtendedDates.length);
     }
+    if (OptStayResults.length === 0 && OptStayResultsExtendedDates.length > 0) {
+      // If no rates are available for the given dates, use the rates for the expired period
+      OptStayResults = OptStayResultsExtendedDates;
+      OptStayResultsExtendedDates = [];
+    }
+
+    // Format the success message for the custom rates
+    let customRateInfoMsg = '';
+    if (applyFirstRateAmount) {
+      customRateInfoMsg = CUSTOM_RATE_USE_FIRST_RATE_AMOUNT_INFO_MSG.replace('{sWarningMsg}', sWarningMsg);
+    } else {
+      customRateInfoMsg = markupPercentage > 0
+        ? CUSTOM_RATE_WITHMARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg)
+        : CUSTOM_RATE_NO_MARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg);
+    }
+    const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
+
+    return {
+      bookable: Boolean(SCheckPass),
+      type: 'inventory',
+      ...(endDate && SCheckPass ? { endDate } : {}),
+      ...(successMessage && SCheckPass ? { message: successMessage } : {}),
+      rates: getRatesObjectArray(
+        OptStayResults,
+        markupPercentage,
+        OptStayResultsExtendedDates,
+        minStayRequired,
+        noOfDaysRatesAvailable,
+        daysToChargeAtLastRate,
+        applyFirstRateAmount,
+      ),
+    };
   }
   return {
     bookable: false,
