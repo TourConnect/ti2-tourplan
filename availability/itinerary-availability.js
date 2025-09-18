@@ -19,10 +19,6 @@ const {
   MAX_EXTENDED_BOOKING_YEARS,
 } = require('./itinerary-availability-helper');
 
-const {
-  isValidCurrencyCode,
-} = require('../utils');
-
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
 const CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG = 'last available rate.';
@@ -36,7 +32,7 @@ const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the reque
 const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as no rates found for the last year for the requested date/stay. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
 const SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE = 'No rates available for the requested date/stay. But you can add the service without any rates.';
-const INVALID_CURRENCY_CODE_ERROR_MESSAGE = 'In order to send service without rates, please set the 3 character currency code in the plugin settings. You can refer to ISO 4217 currency code format.';
+const INVALID_CURRENCY_CODE_ERROR_MESSAGE = 'In order to send service without rates, please select the currency in the plugin settings.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
@@ -209,12 +205,6 @@ const searchAvailabilityForItinerary = async ({
     sendServicesWithoutARate
     && sendServicesWithoutARate.toUpperCase() === 'YES'
   );
-  if (allowSendingServicesWithoutARate) {
-    // Validate currencyCode
-    if (!isValidCurrencyCode(currencyCode)) {
-      throw new Error(INVALID_CURRENCY_CODE_ERROR_MESSAGE);
-    }
-  }
   // Assign default values when parameters are empty, null, undefined,
   // or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
   const markupPercentage = (() => {
@@ -337,6 +327,15 @@ const searchAvailabilityForItinerary = async ({
 
   if (!dateRangeToUse) {
     if (allowSendingServicesWithoutARate) {
+      // Validate currencyCode
+      if (!currencyCode || currencyCode === '--Select Currency--') {
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: INVALID_CURRENCY_CODE_ERROR_MESSAGE,
+        };
+      }
       return {
         bookable: true,
         type: 'inventory',
