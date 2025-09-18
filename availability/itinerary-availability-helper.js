@@ -8,7 +8,12 @@ const {
   extractCancelPolicies,
   USER_FRIENDLY_DATE_FORMAT,
 } = require('./itinerary-availability-utils');
-const { getRoomConfigs, CUSTOM_RATE_ID_NAME, hostConnectXmlOptions } = require('../utils');
+const {
+  getRoomConfigs,
+  CUSTOM_RATE_ID_NAME,
+  CUSTOM_NO_RATE_NAME,
+  hostConnectXmlOptions,
+} = require('../utils');
 
 // Constants exported
 const MIN_MARKUP_PERCENTAGE = 1;
@@ -202,7 +207,21 @@ const getPastDateRange = async (
     callTourplan,
   );
   if (results && results.length > 0) {
-    return returnLastDateRange ? results[results.length - 1] : results[0];
+    if (returnLastDateRange) {
+      return results[results.length - 1];
+    }
+
+    // Find date range that includes the start date (dateFrom)
+    const dateRangeIncludingStartDate = results.find(dateRange => {
+      const rangeStart = moment(dateRange.startDate);
+      const rangeEnd = moment(dateRange.endDate);
+      const targetDate = moment(dateFrom);
+
+      return targetDate.isSameOrAfter(rangeStart) && targetDate.isSameOrBefore(rangeEnd);
+    });
+    if (dateRangeIncludingStartDate) {
+      return dateRangeIncludingStartDate;
+    }
   }
   return null;
 };
@@ -367,6 +386,30 @@ const getStayResults = async (
   let OptStayResults = R.pathOr([], ['OptStayResults'], GSCheck);
   if (!Array.isArray(OptStayResults)) OptStayResults = [OptStayResults];
   return OptStayResults;
+};
+
+/*
+  Get the empty rate object
+  @param {string} currency - The currency
+  @returns {Object} The empty rate object
+*/
+const getEmptyRateObject = currency => {
+  const rateObj = [{
+    rateId: CUSTOM_NO_RATE_NAME,
+    currency,
+    totalPrice: 0,
+    costPrice: 0,
+    agentPrice: 0,
+    currencyPrecision: 2,
+    cancelHours: '72',
+    externalRateText: '',
+    cancelPolicies: [],
+    startTimes: [],
+    puInfoList: [],
+    doInfoList: [],
+    additionalDetails: [],
+  }];
+  return rateObj;
 };
 
 /*
@@ -739,4 +782,5 @@ module.exports = {
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
+  getEmptyRateObject,
 };

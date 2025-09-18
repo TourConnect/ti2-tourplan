@@ -57,8 +57,8 @@ const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }
 });
 
 const getFixture = async requestObject => {
-  // Extract request name using regex
   console.log('requestObject: ', requestObject);
+  // Extract request name using regex
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';

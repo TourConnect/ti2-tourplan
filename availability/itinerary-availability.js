@@ -12,11 +12,16 @@ const {
   getImmediateLastDateRange,
   getPastDateRange,
   getRatesObjectArray,
+  getEmptyRateObject,
   MIN_MARKUP_PERCENTAGE,
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
 } = require('./itinerary-availability-helper');
+
+const {
+  isValidCurrencyCode,
+} = require('../utils');
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
@@ -28,8 +33,10 @@ const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested da
 const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
 const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
 const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
-const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as no rates found for the last year. Please change the date and try again.';
+const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as no rates found for the last year for the requested date/stay. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
+const SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE = 'No rates available for the requested date/stay. But you can add the service without any rates.';
+const INVALID_CURRENCY_CODE_ERROR_MESSAGE = 'In order to send service without rates, please set the 3 character currency code in the plugin settings. You can refer to ISO 4217 currency code format.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
@@ -113,6 +120,7 @@ const getCustomRateDateRange = async ({
 
   const noOfYears = 1;
   const returnLastDateRange = false;
+
   if (useLastYearRate) {
     dateRangeToUse = await getPastDateRange(
       optionId,
@@ -129,6 +137,12 @@ const getCustomRateDateRange = async ({
     );
     if (!dateRangeToUse) {
       errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+    } else {
+      const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').subtract(noOfYears, 'year');
+      if (periodEndDate.isAfter(moment(dateRangeToUse.endDate))) {
+        errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+        dateRangeToUse = null;
+      }
     }
   } else {
     dateRangeToUse = await getImmediateLastDateRange(
@@ -162,6 +176,8 @@ const searchAvailabilityForItinerary = async ({
     customRatesMarkupPercentage,
     customRatesCalculateWithLastYearsRate,
     customRatesExtendedBookingYears,
+    sendServicesWithoutARate,
+    currencyCode,
   },
   payload: {
     optionId,
@@ -189,6 +205,16 @@ const searchAvailabilityForItinerary = async ({
     customRatesCalculateWithLastYearsRate
     && customRatesCalculateWithLastYearsRate.toUpperCase() === 'YES'
   );
+  const allowSendingServicesWithoutARate = !!(
+    sendServicesWithoutARate
+    && sendServicesWithoutARate.toUpperCase() === 'YES'
+  );
+  if (allowSendingServicesWithoutARate) {
+    // Validate currencyCode
+    if (!isValidCurrencyCode(currencyCode)) {
+      throw new Error(INVALID_CURRENCY_CODE_ERROR_MESSAGE);
+    }
+  }
   // Assign default values when parameters are empty, null, undefined,
   // or not a valid number between MIN_MARKUP_PERCENTAGE-MAX_MARKUP_PERCENTAGE
   const markupPercentage = (() => {
@@ -289,6 +315,11 @@ const searchAvailabilityForItinerary = async ({
   // Step1 : Get date range to use for the days that do not have any rates available
   // This is done by getting the past rates based on the useLastYearRate flag.
   // If true use last year's rates, otherwise use last available rates.
+  const startDateToUse = noOfDaysRatesAvailable > 0 ? moment(startDate).add(noOfDaysRatesAvailable, 'days').format('YYYY-MM-DD') : startDate;
+  // Calculate the number of days to charge at the last rate
+  const daysToChargeAtLastRate = noOfDaysRatesAvailable > 0
+    ? chargeUnitQuantity - noOfDaysRatesAvailable : chargeUnitQuantity;
+
   const { dateRangeToUse, errorMsg } = await getCustomRateDateRange({
     useLastYearRate,
     optionId,
@@ -296,8 +327,8 @@ const searchAvailabilityForItinerary = async ({
     hostConnectAgentID,
     hostConnectAgentPassword,
     axios,
-    startDate,
-    chargeUnitQuantity,
+    startDate: startDateToUse,
+    chargeUnitQuantity: daysToChargeAtLastRate,
     roomConfigs,
     callTourplan,
     endDate,
@@ -305,7 +336,15 @@ const searchAvailabilityForItinerary = async ({
   });
 
   if (!dateRangeToUse) {
-    // no date range to use, return error
+    if (allowSendingServicesWithoutARate) {
+      return {
+        bookable: true,
+        type: 'inventory',
+        rates: getEmptyRateObject(currencyCode.toUpperCase()),
+        message: SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE,
+      };
+    }
+
     return {
       bookable: false,
       type: 'inventory',
@@ -314,10 +353,10 @@ const searchAvailabilityForItinerary = async ({
     };
   }
 
-  // Check if the start date of the date range to use is beyond the permitted future booking years
+  // Check if the end date of the date range to use is beyond the permitted future booking years
   const extendedBookingPermittedDate = moment(dateRangeToUse.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');
-  const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days');
-  if (moment(startDate).isAfter(extendedBookingPermittedDate) ||
+  const periodEndDate = moment(startDateToUse).add(daysToChargeAtLastRate - 1, 'days');
+  if (moment(startDateToUse).isAfter(extendedBookingPermittedDate) ||
         periodEndDate.isAfter(extendedBookingPermittedDate)) {
     return {
       bookable: false,
@@ -330,7 +369,7 @@ const searchAvailabilityForItinerary = async ({
   // eslint-disable-next-line max-len
   const customPeriodInfoMsg = useLastYearRate ? CUSTOM_PERIOD_LAST_YEAR_INFO_MSG : CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG;
 
-  // Validate date ranges and room configurations
+  // Validate date ranges
   const dateRangesError = validateDateRanges({
     dateRanges: [dateRangeToUse],
     startDate: dateRangeToUse.startDate,
@@ -367,7 +406,8 @@ const searchAvailabilityForItinerary = async ({
     : CUSTOM_RATE_NO_MARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg);
   const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
-  // Step1 : Get rates for the days that have rates available
+  // Step 2 : Now get rates
+  // Step 2.1 : First get rates for the days that have rates available
   let OptStayResults = [];
   // Get stay rates for the given dates
   if (noOfDaysRatesAvailable > 0) {
@@ -394,12 +434,8 @@ const searchAvailabilityForItinerary = async ({
     }
   }
 
-  // Calculate the number of days to charge at the last rate
-  const daysToChargeAtLastRate = noOfDaysRatesAvailable > 0
-    ? chargeUnitQuantity - noOfDaysRatesAvailable : chargeUnitQuantity;
-
   if (daysToChargeAtLastRate > 0) {
-    // Get stay rates
+    // Step 2.2 : Get rates for the days that do not have rates available
     let OptStayResultsExtendedDates = await getStayResults(
       optionId,
       hostConnectEndpoint,

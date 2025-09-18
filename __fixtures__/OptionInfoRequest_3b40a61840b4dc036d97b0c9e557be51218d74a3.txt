@@ -7,8 +7,8 @@
             <OptionNumber>12345</OptionNumber>
             <OptDateRanges>
                 <OptDateRange>
-                    <DateFrom>2025-08-01</DateFrom>
-                    <DateTo>2025-08-31</DateTo>
+                    <DateFrom>2024-09-01</DateFrom>
+                    <DateTo>2024-09-30</DateTo>
                     <Currency>NZD</Currency>
                     <PriceCode>STANDARD</PriceCode>
                     <RateSets>

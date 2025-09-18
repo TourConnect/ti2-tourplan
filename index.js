@@ -90,6 +90,11 @@ class BuyerPlugin {
         regExp: /^(1|2|3|4|5|6|7|8|9|10)$/i,
         default: 1,
       },
+      sendServicesWithoutARate: {
+        type: 'text',
+        regExp: /^(Yes|No)$/i,
+        default: 'No',
+      },
     });
     
     // Get DTD cache days from environment variable, default to 7 days
