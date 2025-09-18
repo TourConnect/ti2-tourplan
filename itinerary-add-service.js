@@ -3,6 +3,7 @@ const {
   getRoomConfigs,
   escapeInvalidXmlChars,
   CUSTOM_RATE_ID_NAME,
+  CUSTOM_NO_RATE_NAME,
   hostConnectXmlOptions,
 } = require('./utils');
 
@@ -59,8 +60,11 @@ const addServiceToItinerary = async ({
       return acc;
     }, {});
 
-  if (availCheckObj && R.path(['rateId'], availCheckObj) === CUSTOM_RATE_ID_NAME) {
-    const itemDescription = `${CUSTOM_RATE_ID_NAME} - ${paxConfigs[0].roomType || 'Double'}`;
+  const rateIdFromAvailCheckObj = R.path(['rateId'], availCheckObj);
+  if (availCheckObj &&
+    (rateIdFromAvailCheckObj === CUSTOM_RATE_ID_NAME
+      || rateIdFromAvailCheckObj === CUSTOM_NO_RATE_NAME)) {
+    const itemDescription = `${rateIdFromAvailCheckObj} - ${paxConfigs[0].roomType || 'Double'}`;
     pricing = {
       ItemDescription: itemDescription,
       CostCurrency: R.path(['currency'], availCheckObj),
