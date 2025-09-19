@@ -777,10 +777,10 @@ module.exports = {
   getPastDateRange,
   getRatesObjectArray,
   getOptionDateRanges,
+  getEmptyRateObject,
   // Constants
   MIN_MARKUP_PERCENTAGE,
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
-  getEmptyRateObject,
 };
