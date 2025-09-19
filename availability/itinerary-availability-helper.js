@@ -722,7 +722,9 @@ const getAvailabilityConfig = async ({
 };
 
 /*
-  Returns the no rates available error.
+  Returns the no rates available error.If immediate last date range is available:
+  1. returns the error message with the last date range end date
+  2. else returns generic availability check error message
 
   @param {Object} params - Configuration parameters
   @param {string} optionId - The option ID

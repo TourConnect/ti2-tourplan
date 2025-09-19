@@ -31,7 +31,7 @@ const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minim
 const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
 const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
-const SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE = 'No rates available for the requested date/stay. Rates will be sent as 0.00 per your company settings.';
+const SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE = 'No rates available for the requested date/stay. Rates will be sent as 0.00 per your company settings.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
@@ -191,14 +191,13 @@ const searchAvailabilityForItinerary = async ({
   callTourplan,
   getAgentCurrencyCode,
 }) => {
+  // Get agent currency code & cache it
   const agentCurrencyCode = await getAgentCurrencyCode({
     hostConnectEndpoint,
     hostConnectAgentID,
     hostConnectAgentPassword,
     axios,
   });
-
-  console.log('searchAvailabilityForItinerary::agentCurrencyCode: ', agentCurrencyCode);
   // Get application configuration parameters for custom rates
   const isBookingForCustomRatesEnabled = !!(
     customRatesEnableForQuotesAndBookings
@@ -293,7 +292,15 @@ const searchAvailabilityForItinerary = async ({
   }
 
   // At least one date does not have rates available.
-  if (!isBookingForCustomRatesEnabled && !allowSendingServicesWithoutARate) {
+  if (!isBookingForCustomRatesEnabled) {
+    if (allowSendingServicesWithoutARate && agentCurrencyCode) {
+      return {
+        bookable: true,
+        type: 'inventory',
+        rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
+        message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
+      };
+    }
     // If both "custom rates" and "sending services without a rate" are not enabled
     // return error
     return getNoRatesAvailableError({
@@ -339,7 +346,7 @@ const searchAvailabilityForItinerary = async ({
         bookable: true,
         type: 'inventory',
         rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
-        message: SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE,
+        message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
       };
     }
 
