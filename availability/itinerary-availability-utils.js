@@ -5,7 +5,7 @@ const { passengerTypeMap } = require('../utils');
 // Constants
 const MAX_PAX_EXCEEDED_ERROR_TEMPLATE = 'Maximum {maxPax} pax allowed per Pax Config. '
   + 'Please update the Pax Config accordingly.';
-const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the date(s): '
+const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the '
   + '{closedDateRanges}. Please try again with a different date.';
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. '
   + 'Please adjust the stay length and try again.';
@@ -69,7 +69,7 @@ const validateDateRanges = ({
     const closedDateRangesText = closedDateRanges.map(dateRange => {
       const formattedStartDate = moment(dateRange.startDate).format(USER_FRIENDLY_DATE_FORMAT);
       const formattedEndDate = moment(dateRange.endDate).format(USER_FRIENDLY_DATE_FORMAT);
-      return `${formattedStartDate} to ${formattedEndDate}`;
+      return formattedStartDate === formattedEndDate ? `date ${formattedStartDate}` : `date(s): ${formattedStartDate} to ${formattedEndDate}`;
     }).join(', ');
     return {
       bookable: false,
