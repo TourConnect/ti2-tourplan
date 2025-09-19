@@ -173,7 +173,6 @@ const searchAvailabilityForItinerary = async ({
     customRatesCalculateWithLastYearsRate,
     customRatesExtendedBookingYears,
     sendServicesWithoutARate,
-    currencyCode,
   },
   payload: {
     optionId,
@@ -191,7 +190,16 @@ const searchAvailabilityForItinerary = async ({
     chargeUnitQuantity,
   },
   callTourplan,
+  getAgentCurrencyCode,
 }) => {
+  const agentCurrencyCode = await getAgentCurrencyCode({
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+  });
+
+  console.log('searchAvailabilityForItinerary::agentCurrencyCode: ', agentCurrencyCode);
   // Get application configuration parameters for custom rates
   const isBookingForCustomRatesEnabled = !!(
     customRatesEnableForQuotesAndBookings
@@ -326,20 +334,11 @@ const searchAvailabilityForItinerary = async ({
   });
 
   if (!dateRangeToUse) {
-    if (allowSendingServicesWithoutARate) {
-      // Validate currencyCode
-      if (!currencyCode || currencyCode === '--Select Currency--') {
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: INVALID_CURRENCY_CODE_ERROR_MESSAGE,
-        };
-      }
+    if (allowSendingServicesWithoutARate && agentCurrencyCode) {
       return {
         bookable: true,
         type: 'inventory',
-        rates: getEmptyRateObject(currencyCode.toUpperCase()),
+        rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
         message: SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE,
       };
     }

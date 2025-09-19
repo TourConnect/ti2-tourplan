@@ -96,11 +96,11 @@ class BuyerPlugin {
         default: 'No',
       },
     });
-    
+
     // Get DTD cache days from environment variable, default to 7 days
     const dtdDays = parseInt(this.DTD_DAYS || '7', 10);
     const dtdCacheTtl = (60 * 60 * 24) * dtdDays; // Convert days to seconds
-    
+
     this.cacheSettings = {
       bookingsProductSearch: {
         // ttl: 60 * 60 * 24, // 1 day
@@ -109,13 +109,13 @@ class BuyerPlugin {
         ttl: dtdCacheTtl,
       },
     };
-    
+
     // Store DTD versions in memory as a fallback when cache is not available
     this.dtdVersionCache = {};
-    
+
     this.getCorrectDtdVersion = async ({ endpoint, axios }) => {
       const cacheKey = `dtd_version_${endpoint}`;
-      
+
       // If cache is available, use it
       if (this.cache && this.cache.getOrExec) {
         try {
@@ -129,27 +129,27 @@ class BuyerPlugin {
           // Cache error, fall back to memory cache
         }
       }
-      
+
       // Fallback to memory cache when cache is not available
       const now = Date.now();
       const memoryCached = this.dtdVersionCache[cacheKey];
-      
+
       if (memoryCached && memoryCached.expiry > now) {
         return memoryCached.version;
       }
-      
+
       // Detect the DTD version
       const detectedVersion = await this.detectDtdVersion({ endpoint, axios });
-      
+
       // Store in memory cache
       this.dtdVersionCache[cacheKey] = {
         version: detectedVersion,
         expiry: now + (this.cacheSettings.dtdVersions.ttl * 1000), // Convert seconds to milliseconds
       };
-      
+
       return detectedVersion;
     };
-    
+
     this.detectDtdVersion = async ({ endpoint, axios }) => {
       // Try with the default DTD version first
       const defaultDtd = 'tourConnect_4_00_000.dtd';
@@ -160,20 +160,20 @@ class BuyerPlugin {
           name: defaultDtd,
         },
       };
-      
+
       const model = {
         AuthenticationRequest: {
           Login: 'test',
           Password: 'test',
         },
       };
-      
+
       let data = Normalizer.stripEnclosingQuotes(
         js2xmlparser.parse('Request', model, testXmlOptions),
       );
       data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
       data = data.replace(testXmlOptions.dtd.name, `Request SYSTEM "${testXmlOptions.dtd.name}"`);
-      
+
       try {
         const reply = await axios({
           method: 'post',
@@ -181,7 +181,7 @@ class BuyerPlugin {
           data,
           headers: getHeaders({ length: data.length }),
         });
-        
+
         // The API returns 200 even for DTD errors, so check the response content
         const responseData = R.path(['data'], reply);
         if (responseData && typeof responseData === 'string') {
@@ -193,7 +193,7 @@ class BuyerPlugin {
               return match[1];
             }
           }
-          
+
           // Also try parsing as JSON in case it was already converted
           try {
             const parsedResponse = fastParser.parse(responseData);
@@ -208,7 +208,7 @@ class BuyerPlugin {
             // Not valid XML/JSON, continue
           }
         }
-        
+
         // If no error, the default DTD is correct
         return defaultDtd;
       } catch (err) {
@@ -224,12 +224,12 @@ class BuyerPlugin {
             }
           }
         }
-        
+
         // Network or other errors - use default
         return defaultDtd;
       }
     };
-    
+
     this.callTourplan = async ({
       model,
       endpoint,
@@ -239,11 +239,11 @@ class BuyerPlugin {
       // Only apply DTD version detection for regular TourPlan API, not HostConnect
       const isHostConnect = xmlOptions.dtd.name === 'hostConnect_4_06_009.dtd';
       let updatedXmlOptions = xmlOptions;
-      
+
       if (!isHostConnect) {
         // Get the correct DTD version from cache or detect it for TourPlan API
         const correctDtd = await this.getCorrectDtdVersion({ endpoint, axios });
-        
+
         // Update xmlOptions with the correct DTD version
         updatedXmlOptions = {
           ...xmlOptions,
@@ -253,7 +253,7 @@ class BuyerPlugin {
           },
         };
       }
-      
+
       let data = Normalizer.stripEnclosingQuotes(
         js2xmlparser.parse('Request', model, updatedXmlOptions),
       );
@@ -332,6 +332,43 @@ class BuyerPlugin {
       }
       return R.path(['Reply'], replyObj);
     };
+  }
+
+  // Get agent currency code from cache or fetch it
+  async getAgentCurrencyCode({
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+  }) {
+    if (this.cache && this.cache.getOrExec) {
+      try {
+        const sanitizedHostConnectEndpoint = hostConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
+        const cacheKey = `agentCurrencyCode_${hostConnectAgentID}_${hostConnectAgentPassword}_${sanitizedHostConnectEndpoint}`;
+        const model = {
+          AgentInfoRequest: {
+            AgentID: hostConnectAgentID,
+            Password: hostConnectAgentPassword,
+          },
+        };
+
+        const replyObj = await this.cache.getOrExec({
+          fnParams: [cacheKey],
+          fn: () => this.callTourplan({
+            model,
+            endpoint: hostConnectEndpoint,
+            axios,
+            xmlOptions: hostConnectXmlOptions,
+          }),
+          ttl: 60 * 60 * 24 * 7, // 7 days
+        });
+        const agentCurrencyCode = R.path(['AgentInfoReply', 'Currency'], replyObj);
+        return agentCurrencyCode;
+      } catch (cacheErr) {
+        console.warn('Cache read error:', cacheErr.message);
+      }
+    }
+    return null;
   }
 
   async validateToken({
@@ -569,6 +606,7 @@ class BuyerPlugin {
       token,
       payload,
       callTourplan: this.callTourplan.bind(this),
+      getAgentCurrencyCode: this.getAgentCurrencyCode.bind(this),
     });
   }
 
