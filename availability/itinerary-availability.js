@@ -29,10 +29,9 @@ const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested da
 const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
 const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
 const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
-const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as no rates found for the last year for the requested date/stay. Please change the date and try again.';
+const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
-const SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE = 'No rates available for the requested date/stay. But you can add the service without any rates.';
-const INVALID_CURRENCY_CODE_ERROR_MESSAGE = 'In order to send service without rates, please select the currency in the plugin settings.';
+const SERVICE_WITHOUT_A_RATE_APPLIED_ERROR_MESSAGE = 'No rates available for the requested date/stay. Rates will be sent as 0.00 per your company settings.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
