@@ -293,8 +293,9 @@ const searchAvailabilityForItinerary = async ({
   }
 
   // At least one date does not have rates available.
-  if (!isBookingForCustomRatesEnabled) {
-    // If custom rates are not enabled, return error
+  if (!isBookingForCustomRatesEnabled && !allowSendingServicesWithoutARate) {
+    // If both "custom rates" and "sending services without a rate" are not enabled
+    // return error
     return getNoRatesAvailableError({
       optionId,
       hostConnectEndpoint,
@@ -308,7 +309,7 @@ const searchAvailabilityForItinerary = async ({
     });
   }
 
-  // Custom Rates are Enabled
+  // Custom Rates are Enabled or Sending Services Without a Rate is Enabled
   // Step1 : Get date range to use for the days that do not have any rates available
   // This is done by getting the past rates based on the useLastYearRate flag.
   // If true use last year's rates, otherwise use last available rates.
