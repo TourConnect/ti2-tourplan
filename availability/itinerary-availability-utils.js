@@ -340,6 +340,17 @@ const extractCancelPolicies = (rate, path, isOptionCancelPolicy) => {
   });
 };
 
+const getMatchingRateSet = (rateSets, chargeUnitQuantityRaw) => {
+  const chargeUnitQuantity = Number(chargeUnitQuantityRaw);
+
+  const matchingRateSet = rateSets.find(rateSet =>
+    (chargeUnitQuantity < Number(rateSet.maxSCU) && chargeUnitQuantity > Number(rateSet.minSCU)) ||
+    (chargeUnitQuantity === Number(rateSet.minSCU) || chargeUnitQuantity === Number(rateSet.maxSCU)) || // eslint-disable-line max-len
+    (chargeUnitQuantity < Number(rateSet.minSCU)));
+
+  return matchingRateSet;
+};
+
 module.exports = {
   validateMaxPaxPerCharge,
   validateDateRanges,
@@ -349,5 +360,6 @@ module.exports = {
   getModifiedPaxConfigs,
   parseDateRanges,
   extractCancelPolicies,
+  getMatchingRateSet,
   USER_FRIENDLY_DATE_FORMAT,
 };

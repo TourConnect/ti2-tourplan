@@ -1,3 +1,4 @@
+const crypto = require('crypto');
 const moment = require('moment');
 const R = require('ramda');
 const {
@@ -14,8 +15,97 @@ const {
   CUSTOM_NO_RATE_NAME,
   hostConnectXmlOptions,
 } = require('../utils');
+const {
+  CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
+} = require('./product-connect/itinerary-pc-option-helper');
 
-// Constants exported
+// Helper function to calculate rate with minimum stay requirements
+const calculateRateWithMinStay = (
+  totalPrice,
+  agentPrice,
+  minStayRequired,
+  daysToChargeAtLastRate,
+) => {
+  if (minStayRequired > daysToChargeAtLastRate) {
+    const oneDayTotalPrice = totalPrice / minStayRequired;
+    const oneDayAgentPrice = agentPrice / minStayRequired;
+    return {
+      finalTotalPrice: oneDayTotalPrice * daysToChargeAtLastRate,
+      finalAgentPrice: oneDayAgentPrice * daysToChargeAtLastRate,
+    };
+  }
+  return {
+    finalTotalPrice: totalPrice,
+    finalAgentPrice: agentPrice,
+  };
+};
+
+// Helper function to apply cross-season calculation
+const applyCrossSeasonCalculation = (
+  totalPrice,
+  agentPrice,
+  noOfDaysRatesAvailable,
+  daysToChargeAtLastRate,
+  crossSeason,
+  markupFactor,
+) => {
+  if (crossSeason === CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD) {
+    // Calculate rate for entire period using rate of first rate period
+    const perDayPrice = totalPrice / noOfDaysRatesAvailable;
+    const perDayAgentPrice = agentPrice / noOfDaysRatesAvailable;
+    const finalTotalPrice = perDayPrice * (daysToChargeAtLastRate + noOfDaysRatesAvailable);
+    const finalAgentPrice = perDayAgentPrice * (daysToChargeAtLastRate + noOfDaysRatesAvailable);
+
+    if (markupFactor > 1) {
+      return {
+        finalTotalPrice: Math.round(finalTotalPrice * markupFactor),
+        finalAgentPrice: Math.round(finalAgentPrice * markupFactor),
+      };
+    }
+    return { finalTotalPrice, finalAgentPrice };
+  }
+  return null; // Indicates no cross-season calculation was applied
+};
+
+// Helper function to apply rate rounding
+const applyRateRounding = (
+  finalTotalPrice,
+  finalAgentPrice,
+  currencyPrecision,
+  isRoundRatesEnabled,
+  isRoundToTheNearestDollarEnabled,
+) => {
+  if (!isRoundRatesEnabled) {
+    return { finalTotalPrice, finalAgentPrice };
+  }
+
+  const divisor = 10 ** currencyPrecision;
+
+  // Convert from cents to dollars if currency precision indicates cents
+  const finalTotalPriceInDollars = finalTotalPrice / divisor;
+  const finalAgentPriceInDollars = finalAgentPrice / divisor;
+
+  let roundedTotalPrice = finalTotalPriceInDollars;
+  let roundedAgentPrice = finalAgentPriceInDollars;
+
+  if (isRoundToTheNearestDollarEnabled) {
+    // Round to the nearest dollar
+    roundedTotalPrice = Math.round(finalTotalPriceInDollars);
+    roundedAgentPrice = Math.round(finalAgentPriceInDollars);
+  } else {
+    // Round UP to the next dollar amount
+    roundedTotalPrice = Math.ceil(finalTotalPriceInDollars);
+    roundedAgentPrice = Math.ceil(finalAgentPriceInDollars);
+  }
+
+  // Convert back to the original currency format
+  return {
+    finalTotalPrice: roundedTotalPrice * divisor,
+    finalAgentPrice: roundedAgentPrice * divisor,
+  };
+};
+
+// Constants
 const MIN_MARKUP_PERCENTAGE = 1;
 const MAX_MARKUP_PERCENTAGE = 100;
 const MIN_EXTENDED_BOOKING_YEARS = 1;
@@ -92,12 +182,12 @@ const getGeneralAndDateRangesInfo = async (
     options as well. (SType is Y)
     1.For apartments it gives the maximum number of adults that one apartment can hold.
     2.For accommodation options, the same logic applies as for apartments. e.g. entire lodge.
-    3.For non-accommodation options, if MPFCU has a value of 1 then rates for the option are per-person.
-    MPFCU is greater than one then rates for this option are for a group, and MPFCU is the maximum
-    number of people (adults plus children) that can be booked per AddService call for the option.
-    Hence we need to check if the number of people in the roomConfigs is greater than maxPaxPerCharge.
+    3.For non-accommodation options, if MPFCU has a value of 1 then rates are per-person.
+    MPFCU is greater than one then rates for this option are for a group, and MPFCU is the
+    maximum number of people (adults plus children) that can be booked per AddService call.
+    Hence we need to check if the number of people in roomConfigs is greater than maxPaxPerCharge.
     A rental car might have an MPFCU of 4, for example.
-    NOTE: It is possible that we may have to revisit this for cases where the value is 1 (per-person)
+    NOTE: It is possible that we may have to revisit this for cases where value is 1 (per-person)
     and could apply to all types of services.
   */
   const maxPaxPerCharge = R.pathOr(null, ['MPFCU'], OptGeneralResult);
@@ -426,6 +516,8 @@ const getRatesObjectArray = (
   OptStayResultsExtendedDates = [],
   minStayRequired = 0,
   daysToChargeAtLastRate = 0,
+  settings = {},
+  noOfDaysRatesAvailable = 0,
 ) => {
   // Add input validation
   if (!Array.isArray(OptStayResults)) {
@@ -438,9 +530,16 @@ const getRatesObjectArray = (
       throw new Error('Invalid rate object provided');
     }
 
+    const {
+      costForNoRatesDays,
+      crossSeason,
+      isRoundRatesEnabled,
+      isRoundToTheNearestDollarEnabled,
+    } = settings;
+
     const rateId = markupPercentage > 0 ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
     const currency = R.pathOr('', ['Currency'], rate);
-    // NOTE: Check if the value is in cents or not
+
     const totalPriceRaw = R.pathOr(0, ['TotalPrice'], rate);
     const agentPriceRaw = R.pathOr(0, ['AgentPrice'], rate);
 
@@ -448,49 +547,88 @@ const getRatesObjectArray = (
     const totalPrice = Number(totalPriceRaw);
     const agentPrice = Number(agentPriceRaw);
 
+    let finalTotalPrice = 0;
+    let finalAgentPrice = 0;
+    let totalCostPrice = 0;
+    let markupFactor = 1;
+
     if (Number.isNaN(totalPrice) || Number.isNaN(agentPrice)) {
       throw new Error(`Invalid price values: totalPrice=${totalPriceRaw}, agentPrice=${agentPriceRaw}`);
     }
 
-    let finalTotalPrice = totalPrice;
-    let finalAgentPrice = agentPrice;
-
-    if (minStayRequired > daysToChargeAtLastRate) {
-      const oneDayTotalPrice = totalPrice / minStayRequired;
-      const oneDayAgentPrice = agentPrice / minStayRequired;
-      finalTotalPrice = oneDayTotalPrice * daysToChargeAtLastRate;
-      finalAgentPrice = oneDayAgentPrice * daysToChargeAtLastRate;
-    }
-    let costPrice = finalTotalPrice;
-
-    let markupFactor = 1;
+    // Get the markup factor
     if (markupPercentage >= MIN_MARKUP_PERCENTAGE && markupPercentage <= MAX_MARKUP_PERCENTAGE) {
       markupFactor = 1 + (Number(markupPercentage) / 100);
     }
 
-    if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
-      const singleDayRate = OptStayResultsExtendedDates.find(rate2 =>
-        rate2 && rate2.RateId === rate.RateId,
+    // Apply minimum stay calculation if needed
+    const { finalTotalPrice: adjustedTotalPrice, finalAgentPrice: adjustedAgentPrice } =
+      calculateRateWithMinStay(totalPrice, agentPrice, minStayRequired, daysToChargeAtLastRate);
+
+    finalTotalPrice = adjustedTotalPrice;
+    finalAgentPrice = adjustedAgentPrice;
+
+    if (noOfDaysRatesAvailable > 0) {
+      totalCostPrice = totalPrice + costForNoRatesDays;
+
+      // Case: Partial rates (some days have rates available & some days don't have rates available)
+      const crossSeasonResult = applyCrossSeasonCalculation(
+        totalPrice,
+        agentPrice,
+        noOfDaysRatesAvailable,
+        daysToChargeAtLastRate,
+        crossSeason,
+        markupFactor,
       );
 
-      if (singleDayRate) {
-        const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], singleDayRate);
-        const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], singleDayRate);
+      if (crossSeasonResult) {
+        finalTotalPrice = crossSeasonResult.finalTotalPrice;
+        finalAgentPrice = crossSeasonResult.finalAgentPrice;
+      // eslint-disable-next-line max-len
+      } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
+        // Handle extended dates with different markup calculation
+        const rateOfNoRatesDays = OptStayResultsExtendedDates.find(rate2 =>
+          rate2 && rate2.RateId === rate.RateId);
 
-        const totalPriceNoRatesDays = Number(totalPriceNoRatesDaysRaw);
-        const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
+        if (rateOfNoRatesDays) {
+          const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], rateOfNoRatesDays);
+          const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], rateOfNoRatesDays);
 
-        if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
-          finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
-          finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
-          costPrice += totalPriceNoRatesDays;
+          const totalPriceNoRatesDays = Number(totalPriceNoRatesDaysRaw);
+          const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
+
+          if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
+            finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
+            finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
+            // costPrice += (totalPriceNoRatesDays * markupFactor);
+          }
         }
       }
     } else if (markupFactor > 1) {
+      // Case: Rates for NO dates are available
       finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
       finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
+
+      totalCostPrice = costForNoRatesDays;
     }
+
     const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+    const divisor = 10 ** currencyPrecision;
+
+    totalCostPrice *= divisor;
+
+    // Apply rate rounding if enabled
+    const roundingResult = applyRateRounding(
+      finalTotalPrice,
+      finalAgentPrice,
+      currencyPrecision,
+      isRoundRatesEnabled,
+      isRoundToTheNearestDollarEnabled,
+    );
+
+    finalTotalPrice = roundingResult.finalTotalPrice;
+    finalAgentPrice = roundingResult.finalAgentPrice;
+
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.
     const cancelHours = R.pathOr('', ['CancelHours'], rate);
@@ -605,7 +743,7 @@ const getRatesObjectArray = (
       <ExternalRateDetails>
         <CancelPolicies>
           <CancelPenalty>
-            <PenaltyDescription>Cancellation 100% - within 24 hours or no notice</PenaltyDescription>
+            <PenaltyDescription>Cancellation 100% - within 24 hours</PenaltyDescription>
           </CancelPenalty>
           <CancelPenalty>
             <Deadline>
@@ -648,7 +786,7 @@ const getRatesObjectArray = (
       rateId,
       currency,
       totalPrice: finalTotalPrice,
-      costPrice,
+      costPrice: totalCostPrice,
       agentPrice: finalAgentPrice,
       currencyPrecision,
       cancelHours,
@@ -771,7 +909,49 @@ const getNoRatesAvailableError = async ({
   };
 };
 
+// Get agent currency code from cache or fetch it
+const getAgentCurrencyCode = async ({
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  callTourplan,
+  cache,
+}) => {
+  if (cache && cache.getOrExec) {
+    try {
+      const sanitizedHostConnectEndpoint = hostConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
+      const sensitiveKey = `${hostConnectAgentID}|${hostConnectAgentPassword}|${sanitizedHostConnectEndpoint}`;
+      const cacheKey = `agentCurrencyCode_${crypto.createHash('sha256').update(sensitiveKey).digest('hex').slice(0, 16)}`;
+      console.log('getAgentCurrencyCode::cacheKey: ', cacheKey);
+      const model = {
+        AgentInfoRequest: {
+          AgentID: hostConnectAgentID,
+          Password: hostConnectAgentPassword,
+        },
+      };
+
+      const replyObj = await cache.getOrExec({
+        fnParams: [cacheKey],
+        fn: () => callTourplan({
+          model,
+          endpoint: hostConnectEndpoint,
+          axios,
+          xmlOptions: hostConnectXmlOptions,
+        }),
+        ttl: 60 * 60 * 24 * 7, // 7 days
+      });
+      const agentCurrencyCode = R.path(['AgentInfoReply', 'Currency'], replyObj);
+      return agentCurrencyCode;
+    } catch (cacheErr) {
+      console.warn('WARNING: Cache read error:', cacheErr.message);
+    }
+  }
+  return null;
+};
+
 module.exports = {
+  getAgentCurrencyCode,
   getAvailabilityConfig,
   getNoRatesAvailableError,
   getStayResults,
