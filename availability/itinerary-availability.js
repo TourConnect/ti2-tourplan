@@ -361,8 +361,6 @@ const searchAvailabilityForItinerary = async ({
     allDatesHaveRatesAvailable = doAllDatesHaveRatesAvailable(lastDateRangeEndDate, startDate, chargeUnitQuantity);
   }
 
-  console.info('dateRanges: ', dateRanges);
-  console.info('roomConfigs: ', roomConfigs);
   if (allDatesHaveRatesAvailable) {
     // all dates have rates available get stay rates for the given dates
     return handleFullAvailability({
@@ -450,7 +448,6 @@ const searchAvailabilityForItinerary = async ({
     };
   }
 
-  console.log('dateRangeToUse', dateRangeToUse);
   // Check if the end date of the date range to use is beyond the permitted future booking years
   const extendedBookingPermittedDate = moment(dateRangeToUse.endDate).add(extendedBookingYears, 'years').format('YYYY-MM-DD');
   const periodEndDate = moment(startDateToUse).add(daysToChargeAtLastRate - 1, 'days');
@@ -492,7 +489,7 @@ const searchAvailabilityForItinerary = async ({
   if (dateRangesError) {
     if (dateRangesError.message.includes('minimum stay')) {
       // If minimum stay error, return availability with a warning message
-      matchingRateSet = getMatchingRateSet(dateRangeToUse.rateSets, chargeUnitQuantity);
+      matchingRateSet = getMatchingRateSet(dateRangeToUse.rateSets, dateRangeToUse.startDate, chargeUnitQuantity);
       minStayRequired = matchingRateSet ? matchingRateSet.minSCU : 0;
       sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
     } else if (dateRangesError.message.includes('rates are closed')) {
@@ -553,7 +550,7 @@ const searchAvailabilityForItinerary = async ({
       settings.crossSeason = crossSeason;
       paxBreaks = optionInfo.costData.paxBreaks;
     }
-    if (!productConnectDateRanges) {
+    if (!productConnectDateRanges || productConnectDateRanges.length === 0) {
       console.warn(PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE);
     } else {
       // Validate that all rate statuses are eligible
@@ -567,13 +564,33 @@ const searchAvailabilityForItinerary = async ({
 
       // Get rates for the first rate set (using first date range as baseline)
       const firstDateRange = productConnectDateRanges[0];
-      console.log('firstDateRange: ', firstDateRange);
       // eslint-disable-next-line max-len
-      const matchingProductConnectRateSet = getMatchingRateSet(firstDateRange.rateSets, daysToChargeAtLastRate);
+      const matchingProductConnectRateSet = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
 
       let costPrice = 0;
-      console.log('matchingProductConnectRateSet: ', matchingProductConnectRateSet);
       if (matchingProductConnectRateSet) {
+        // Validate date ranges
+        const productConnectDateRangesError = validateDateRanges({
+          dateRanges: [firstDateRange],
+          startDate: dateRangeToUse.startDate,
+          chargeUnitQuantity,
+        });
+
+        if (productConnectDateRangesError) {
+          if (productConnectDateRangesError.message.includes('minimum stay')) {
+            // If minimum stay error, return availability with a warning message
+            minStayRequired = matchingProductConnectRateSet ? matchingProductConnectRateSet.minSCU : 0;
+            sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
+          } else if (productConnectDateRangesError.message.includes('rates are closed')) {
+            // If rates are closed, return an error message
+            return {
+              bookable: false,
+              type: 'inventory',
+              rates: [],
+              message: PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
+            };
+          }
+        }
         // eslint-disable-next-line max-len
         costPrice = getPriceForPaxBreaks(
           matchingProductConnectRateSet.rates,
@@ -582,7 +599,6 @@ const searchAvailabilityForItinerary = async ({
           paxBreaks,
           daysToChargeAtLastRate,
         );
-        console.log('costPrice: ', costPrice);
       }
       settings.costForNoRatesDays = costPrice;
     }

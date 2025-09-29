@@ -52,7 +52,7 @@ const testProductConnectAPI = async ({
     if (isProductConnectEnabled) {
       console.info('INFO: ProductConnect is Enabled');
     } else {
-      console.info('INFO: ProductConnect is Disabled');
+      console.warn('WARNING: ProductConnect is Disabled');
     }
     return isProductConnectEnabled;
   } catch (err) {
@@ -97,7 +97,6 @@ const validateProductConnect = async ({
       const sanitizedEndpoint = productConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
       const sensitiveKey = `${productConnectUser}|${productConnectUserPassword}|${sanitizedEndpoint}`;
       const cacheKey = `productConnectValid_${crypto.createHash('sha256').update(sensitiveKey).digest('hex').slice(0, 16)}`;
-      console.log('validateProductConnect::cacheKey: ', cacheKey);
       const isValid = await cache.getOrExec({
         fnParams: [cacheKey],
         fn: async () => testProductConnectAPI({

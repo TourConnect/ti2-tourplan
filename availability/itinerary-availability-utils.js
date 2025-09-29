@@ -340,13 +340,49 @@ const extractCancelPolicies = (rate, path, isOptionCancelPolicy) => {
   });
 };
 
-const getMatchingRateSet = (rateSets, chargeUnitQuantityRaw) => {
+const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
   const chargeUnitQuantity = Number(chargeUnitQuantityRaw);
 
-  const matchingRateSet = rateSets.find(rateSet =>
-    (chargeUnitQuantity < Number(rateSet.maxSCU) && chargeUnitQuantity > Number(rateSet.minSCU)) ||
-    (chargeUnitQuantity === Number(rateSet.minSCU) || chargeUnitQuantity === Number(rateSet.maxSCU)) || // eslint-disable-line max-len
-    (chargeUnitQuantity < Number(rateSet.minSCU)));
+  // Helper function to check if start date day matches rate set apply days
+  const isValidDayOfWeek = (rateSet, date) => {
+    const dayOfWeek = moment(date).day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+    // Map days to corresponding apply properties
+    const dayMapping = {
+      0: rateSet.applySun,
+      1: rateSet.applyMon,
+      2: rateSet.applyTue,
+      3: rateSet.applyWed,
+      4: rateSet.applyThu,
+      5: rateSet.applyFri,
+      6: rateSet.applySat,
+    };
+
+    // If no apply days are specified (all false/undefined), assume all days are valid
+    const hasAnyApplyDay = rateSet.applyMon || rateSet.applyTue || rateSet.applyWed ||
+                          rateSet.applyThu || rateSet.applyFri || rateSet.applySat ||
+                          rateSet.applySun;
+
+    if (!hasAnyApplyDay) {
+      return true; // Default to allowing all days if no restrictions are set
+    }
+
+    return dayMapping[dayOfWeek] === true;
+  };
+
+  const matchingRateSet = rateSets.find(rateSet => {
+    // First check if the charge unit quantity matches
+    const quantityMatches = (chargeUnitQuantity < Number(rateSet.maxSCU) &&
+                            chargeUnitQuantity > Number(rateSet.minSCU)) ||
+                           (chargeUnitQuantity === Number(rateSet.minSCU) ||
+                            chargeUnitQuantity === Number(rateSet.maxSCU)) ||
+                           (chargeUnitQuantity < Number(rateSet.minSCU));
+
+    // Then check if the start date day of week is valid for this rate set
+    const dayIsValid = isValidDayOfWeek(rateSet, startDate);
+
+    return quantityMatches && dayIsValid;
+  });
 
   return matchingRateSet;
 };

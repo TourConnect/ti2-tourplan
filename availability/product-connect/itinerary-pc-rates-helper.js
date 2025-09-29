@@ -403,13 +403,7 @@ const getRatesInfoFromProductConnect = async ({
       }
 */
 const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnitQuantity) => {
-  console.info('rateSets: ', rateSets);
-  console.info('paxConfigs: ', paxConfigs);
-  console.info('paxBreaks: ', paxBreaks);
-  console.info('chargeUnitQuantity: ', chargeUnitQuantity);
-
   if (!rateSets || !rateSets.fitCost || !paxConfigs || !paxBreaks) {
-    console.warn('Missing required data for price calculation');
     return 0;
   }
 
@@ -422,8 +416,6 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
 
   // CASE 1: Room-based pricing (Example 1)
   if (fitCost.roomRates) {
-    console.info('Using room-based pricing');
-
     // Determine room type based on adults count or explicit room type
     let roomType = roomConfig.RoomType;
     if (roomType === 'DB') {
@@ -432,22 +424,18 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
     }
     const roomRate = fitCost.roomRates[roomType];
     if (roomRate !== undefined) {
-      console.info(`Room rate for ${roomType}: ${roomRate}`);
       return roomRate * chargeUnitQuantity;
     }
     // Fallback to first available room rate
     const firstRoomType = Object.keys(fitCost.roomRates)[0];
     if (firstRoomType) {
       const fallbackRate = fitCost.roomRates[firstRoomType];
-      console.info(`Using fallback room rate for ${firstRoomType}: ${fallbackRate}`);
       return fallbackRate;
     }
   }
 
   // CASE 2: Per-person pricing (Example 3 - Car Rental)
   if (fitCost.ratePerFirstChargeUnit !== undefined) {
-    console.info('Using per-person pricing');
-
     let totalCost = 0;
 
     // Base rate for adults
@@ -463,14 +451,11 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
       totalCost += (fitCost.ratePerInfantOrSuppliment || 0) * chargeUnitQuantity;
     }
 
-    console.info(`Per-person total cost: ${totalCost}`);
     return totalCost;
   }
 
   // CASE 3: Pax break pricing (Example 2 - Transfer)
   if (fitCost.Adult && typeof fitCost.Adult === 'object') {
-    console.info('Using pax break pricing');
-
     // Find the appropriate pax break based on total passengers
     let selectedPxbKey = null;
 
@@ -511,13 +496,10 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
       if (hasInfantRate) {
         totalCost += fitCost.Infant[selectedPxbKey];
       }
-
-      console.info(`Pax break pricing (${selectedPxbKey} for ${totalPax} pax): ${totalCost}`);
       return totalCost;
     }
   }
 
-  console.warn('No matching pricing structure found');
   return 0;
 };
 

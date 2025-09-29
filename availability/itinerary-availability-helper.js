@@ -923,7 +923,6 @@ const getAgentCurrencyCode = async ({
       const sanitizedHostConnectEndpoint = hostConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
       const sensitiveKey = `${hostConnectAgentID}|${hostConnectAgentPassword}|${sanitizedHostConnectEndpoint}`;
       const cacheKey = `agentCurrencyCode_${crypto.createHash('sha256').update(sensitiveKey).digest('hex').slice(0, 16)}`;
-      console.log('getAgentCurrencyCode::cacheKey: ', cacheKey);
       const model = {
         AgentInfoRequest: {
           AgentID: hostConnectAgentID,
