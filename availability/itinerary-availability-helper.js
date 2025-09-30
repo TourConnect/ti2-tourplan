@@ -512,6 +512,7 @@ const getEmptyRateObject = currency => {
 */
 const getRatesObjectArray = (
   OptStayResults,
+  conversionRate = 1,
   markupPercentage = 0,
   OptStayResultsExtendedDates = [],
   minStayRequired = 0,
@@ -532,6 +533,8 @@ const getRatesObjectArray = (
 
     const {
       costForNoRatesDays,
+      buyCurrency,
+      agentCurrency,
       crossSeason,
       isRoundRatesEnabled,
       isRoundToTheNearestDollarEnabled,
@@ -568,13 +571,20 @@ const getRatesObjectArray = (
     finalTotalPrice = adjustedTotalPrice;
     finalAgentPrice = adjustedAgentPrice;
 
+    // the cost price is always in dollars
+    const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
+    const divisor = 10 ** currencyPrecision;
+
+    // eslint-disable-next-line max-len
+    const costForNoRatesDaysInCents = costForNoRatesDays > 0 ? costForNoRatesDays * divisor : finalTotalPrice;
+
     if (noOfDaysRatesAvailable > 0) {
-      totalCostPrice = totalPrice + costForNoRatesDays;
+      totalCostPrice = finalTotalPrice + costForNoRatesDaysInCents;
 
       // Case: Partial rates (some days have rates available & some days don't have rates available)
       const crossSeasonResult = applyCrossSeasonCalculation(
-        totalPrice,
-        agentPrice,
+        finalTotalPrice,
+        finalAgentPrice,
         noOfDaysRatesAvailable,
         daysToChargeAtLastRate,
         crossSeason,
@@ -609,13 +619,8 @@ const getRatesObjectArray = (
       finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
       finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
-      totalCostPrice = costForNoRatesDays;
+      totalCostPrice = costForNoRatesDaysInCents;
     }
-
-    const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
-    const divisor = 10 ** currencyPrecision;
-
-    totalCostPrice *= divisor;
 
     // Apply rate rounding if enabled
     const roundingResult = applyRateRounding(
@@ -785,8 +790,11 @@ const getRatesObjectArray = (
     return {
       rateId,
       currency,
+      agentCurrency,
+      conversionRate,
       totalPrice: finalTotalPrice,
       costPrice: totalCostPrice,
+      buyCurrency,
       agentPrice: finalAgentPrice,
       currencyPrecision,
       cancelHours,
@@ -949,6 +957,77 @@ const getAgentCurrencyCode = async ({
   return null;
 };
 
+/*
+  This method return the conversion rate to convert from supplier currency
+  to the agent currency. This is done by fetching the rates in the agent currency
+  and then dividing it by the total price of the rates in the supplier currency
+
+  NOTE: The hostconnect Extensions do have an API (GetCurrencyConversionsRequest)
+  to get the conversion rate, but it is not used here because it is not efficient.
+  It return all the conversion rates with different date ranges etc. It could be
+  a very large XML with more than 41K lines. The method below is one additonal
+  call but it will always get the current conversion rate and more efficiently.
+
+  @param {Object} OptStayResultsInSupplierCurrency - The stay results in the supplier currency
+  @param {string} optionId - The option ID
+  @param {string} hostConnectEndpoint - The HostConnect endpoint
+  @param {string} hostConnectAgentID - The agent ID
+  @param {string} hostConnectAgentPassword - The agent password
+  @param {Object} axios - The axios instance
+  @param {string} startDate - The start date
+  @param {number} noOfDaysRatesAvailable - The number of days rates available
+  @param {Object} roomConfigs - The room configurations
+  @param {Object} callTourplan - The callTourplan function
+  @returns {number} The conversion rate
+*/
+const getConversionRate = async ({
+  OptStayResultsInSupplierCurrency,
+  optionId,
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  startDate,
+  noOfDaysRatesAvailable,
+  roomConfigs,
+  callTourplan,
+}) => {
+  let conversionRate = 1;
+
+  if (OptStayResultsInSupplierCurrency.length === 0) {
+    return conversionRate;
+  }
+  const OptStayResultsInAgentCurrency = await getStayResults(
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    startDate,
+    noOfDaysRatesAvailable,
+    roomConfigs,
+    'No', // fetch the rates in the agent currency
+    callTourplan,
+  );
+  const SCheckPassInAgentCurrency = Boolean(OptStayResultsInAgentCurrency.length);
+  if (!SCheckPassInAgentCurrency) {
+    return conversionRate;
+  }
+  if (OptStayResultsInSupplierCurrency.length > 0) {
+    const rate = OptStayResultsInSupplierCurrency[0];
+    const totalPrice = Number(R.pathOr(0, ['TotalPrice'], rate));
+    const rateGetInAgentCurrency = OptStayResultsInAgentCurrency.find(rate2 =>
+      rate2 && rate2.RateId === rate.RateId);
+    const totalPriceGetInAgentCurrency = Number(R.pathOr(0, ['TotalPrice'], rateGetInAgentCurrency));
+    conversionRate = totalPrice > 0 && totalPriceGetInAgentCurrency > 0
+      ? totalPrice / totalPriceGetInAgentCurrency : 1;
+    // Round to 3 decimal places
+    conversionRate = Math.round(conversionRate * 1000) / 1000;
+  }
+
+  return conversionRate;
+};
+
 module.exports = {
   getAgentCurrencyCode,
   getAvailabilityConfig,
@@ -959,6 +1038,7 @@ module.exports = {
   getRatesObjectArray,
   getOptionDateRanges,
   getEmptyRateObject,
+  getConversionRate,
   // Constants
   MIN_MARKUP_PERCENTAGE,
   MAX_MARKUP_PERCENTAGE,

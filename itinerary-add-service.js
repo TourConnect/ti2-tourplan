@@ -68,12 +68,12 @@ const addServiceToItinerary = async ({
     pricing = {
       ItemDescription: itemDescription,
       CostCurrency: R.path(['currency'], availCheckObj),
-      CostConversionRate: R.pathOr(1, ['costConversionRate'], availCheckObj),
+      CostConversionRate: R.pathOr(1, ['conversionRate'], availCheckObj),
       CostExclusive: R.path(['costPrice'], availCheckObj),
       RetailExclusive: R.path(['totalPrice'], availCheckObj),
       RetailTax: 0,
       // CostTax: R.path(['totalTax'], product),
-      AgentCurrency: R.path(['currency'], availCheckObj),
+      AgentCurrency: R.path(['agentCurrency'], availCheckObj),
       AgentExclusive: R.path(['agentPrice'], availCheckObj),
       // AgentTax: R.path(['totalTax'], product),
     };

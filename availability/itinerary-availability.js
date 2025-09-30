@@ -3,6 +3,7 @@ const moment = require('moment');
 const {
   validateMaxPaxPerCharge,
   validateDateRanges,
+  validateStartDay,
   getMatchingRateSet,
 } = require('./itinerary-availability-utils');
 
@@ -12,6 +13,7 @@ const {
 
 const {
   getAgentCurrencyCode,
+  getConversionRate,
 } = require('./itinerary-availability-helper');
 
 const {
@@ -57,6 +59,7 @@ const RATE_NOT_ELIGIBLE_ERROR_MESSAGE = 'The rate selected is not an eligible ra
 const CROSS_SEASON_NOT_ALLOWED_ERROR_MESSAGE = 'Cross season is not allowed for this option. Please select another rate or option and try again.';
 const PRODUCT_CONNECT_OPTION_INFO_ERROR_MESSAGE = 'Error getting option info from Product Connect';
 const PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE = 'Error getting rates info from Product Connect';
+const PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE = 'Please note that the start day is not valid for the previous rate. Allowed days: {allowedDays}.';
 
 /**
  * Validate that all rate statuses in the ratesInfo are eligible
@@ -355,6 +358,14 @@ const searchAvailabilityForItinerary = async ({
   let allDatesHaveRatesAvailable = false;
 
   if (dateRanges.length > 0) {
+    const startDateIsInvalid = validateStartDay({
+      dateRanges,
+      startDate,
+    });
+    if (startDateIsInvalid) {
+      return startDateIsInvalid;
+    }
+
     const lastDateRangeEndDate = moment(dateRanges[dateRanges.length - 1].endDate);
     noOfDaysRatesAvailable = lastDateRangeEndDate.diff(moment(startDate), 'days') + 1;
     // eslint-disable-next-line max-len
@@ -485,11 +496,10 @@ const searchAvailabilityForItinerary = async ({
 
   let sWarningMsg = '';
   let minStayRequired = 0;
-  let matchingRateSet = null;
   if (dateRangesError) {
     if (dateRangesError.message.includes('minimum stay')) {
       // If minimum stay error, return availability with a warning message
-      matchingRateSet = getMatchingRateSet(dateRangeToUse.rateSets, dateRangeToUse.startDate, chargeUnitQuantity);
+      const { matchingRateSet } = getMatchingRateSet(dateRangeToUse.rateSets, dateRangeToUse.startDate, chargeUnitQuantity);
       minStayRequired = matchingRateSet ? matchingRateSet.minSCU : 0;
       sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
     } else if (dateRangesError.message.includes('rates are closed')) {
@@ -508,6 +518,8 @@ const searchAvailabilityForItinerary = async ({
     isRoundRatesEnabled,
     isRoundToTheNearestDollarEnabled,
     costForNoRatesDays: 0, // default cost for days without rates
+    buyCurrency: agentCurrencyCode,
+    agentCurrency: agentCurrencyCode,
   };
 
   if (isProductConnectAvailable) {
@@ -565,33 +577,39 @@ const searchAvailabilityForItinerary = async ({
       // Get rates for the first rate set (using first date range as baseline)
       const firstDateRange = productConnectDateRanges[0];
       // eslint-disable-next-line max-len
-      const matchingProductConnectRateSet = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
+      const { matchingRateSet: matchingProductConnectRateSet, rateSetMatchingError } = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
+      if (rateSetMatchingError) {
+        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', rateSetMatchingError);
+      }
+      // Validate date ranges
+      const productConnectDateRangesError = validateDateRanges({
+        dateRanges: [firstDateRange],
+        startDate: dateRangeToUse.startDate,
+        chargeUnitQuantity,
+      });
+
+      if (productConnectDateRangesError) {
+        if (matchingProductConnectRateSet && productConnectDateRangesError.message.includes('minimum stay')) {
+          // If minimum stay error, return availability with a warning message
+          minStayRequired = matchingProductConnectRateSet && matchingProductConnectRateSet.minSCU;
+          if (sWarningMsg) {
+            sWarningMsg += MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
+          } else {
+            sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
+          }
+        } else if (productConnectDateRangesError.message.includes('rates are closed')) {
+          // If rates are closed, return an error message
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
+          };
+        }
+      }
 
       let costPrice = 0;
       if (matchingProductConnectRateSet) {
-        // Validate date ranges
-        const productConnectDateRangesError = validateDateRanges({
-          dateRanges: [firstDateRange],
-          startDate: dateRangeToUse.startDate,
-          chargeUnitQuantity,
-        });
-
-        if (productConnectDateRangesError) {
-          if (productConnectDateRangesError.message.includes('minimum stay')) {
-            // If minimum stay error, return availability with a warning message
-            minStayRequired = matchingProductConnectRateSet ? matchingProductConnectRateSet.minSCU : 0;
-            sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
-          } else if (productConnectDateRangesError.message.includes('rates are closed')) {
-            // If rates are closed, return an error message
-            return {
-              bookable: false,
-              type: 'inventory',
-              rates: [],
-              message: PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
-            };
-          }
-        }
-        // eslint-disable-next-line max-len
         costPrice = getPriceForPaxBreaks(
           matchingProductConnectRateSet.rates,
           firstDateRange.taxes,
@@ -600,7 +618,9 @@ const searchAvailabilityForItinerary = async ({
           daysToChargeAtLastRate,
         );
       }
+
       settings.costForNoRatesDays = costPrice;
+      settings.buyCurrency = firstDateRange.buyCurrency;
     }
   }
 
@@ -610,6 +630,8 @@ const searchAvailabilityForItinerary = async ({
     : CUSTOM_RATE_NO_MARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg);
   const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
+  let conversionRate = 1;
+  let conversionRateFetched = false;
   // Step 2 : Now get rates
   // Step 2.1 : First get rates for the days that have rates available
   let OptStayResults = [];
@@ -636,6 +658,23 @@ const searchAvailabilityForItinerary = async ({
         message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
       };
     }
+
+    // fetch the conversion rate if the rate are displayed in supplier currency
+    if (displayRateInSupplierCurrency) {
+      conversionRate = await getConversionRate({
+        OptStayResultsInSupplierCurrency: OptStayResults,
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        startDate,
+        noOfDaysRatesAvailable,
+        roomConfigs,
+        callTourplan,
+      });
+      conversionRateFetched = true;
+    }
   }
 
   if (daysToChargeAtLastRate > 0) {
@@ -654,7 +693,24 @@ const searchAvailabilityForItinerary = async ({
     );
     const SCheckPass = Boolean(OptStayResultsExtendedDates.length);
     if (SCheckPass) {
-      if (OptStayResults.length === 0) {
+      // fetch the conversion rate if the rate are displayed in supplier currency
+      if (displayRateInSupplierCurrency && !conversionRateFetched) {
+        conversionRate = await getConversionRate({
+          OptStayResultsInSupplierCurrency: OptStayResultsExtendedDates,
+          optionId,
+          hostConnectEndpoint,
+          hostConnectAgentID,
+          hostConnectAgentPassword,
+          axios,
+          startDate: dateRangeToUse.startDate,
+          noOfDaysRatesAvailable: Math.max(daysToChargeAtLastRate, minStayRequired),
+          roomConfigs,
+          callTourplan,
+        });
+        conversionRateFetched = true;
+      }
+
+      if (OptStayResults.length === 0 && SCheckPass) {
         OptStayResults = OptStayResultsExtendedDates;
         OptStayResultsExtendedDates = [];
       }
@@ -665,6 +721,7 @@ const searchAvailabilityForItinerary = async ({
         ...(successMessage && SCheckPass ? { message: successMessage } : {}),
         rates: getRatesObjectArray(
           OptStayResults,
+          conversionRate,
           markupPercentage,
           OptStayResultsExtendedDates,
           minStayRequired,

@@ -10,6 +10,7 @@ const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the '
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. '
   + 'Please adjust the stay length and try again.';
 const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
+const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
 
 /**
  * Validate that each RoomConfig does not exceed maxPaxPerCharge.
@@ -48,7 +49,40 @@ const validateMaxPaxPerCharge = ({
 };
 
 /**
- * Validates date ranges and room configurations
+ * Validate that the start date day of week is valid for the rate set
+ * @param {Object} params - Validation parameters
+ * @returns {Object|null} Returns error object if validation fails, null if valid
+ */
+const validateStartDay = ({
+  dateRanges,
+  startDate,
+}) => {
+  const invalidDayOfWeekMessages = [];
+  dateRanges.forEach(dateRange => {
+    dateRange.rateSets.forEach(rateSet => {
+      // Check if the start date day of week is valid for this rate set
+      const dayIsValid = isValidDayOfWeek(rateSet, startDate);
+
+      if (!dayIsValid) {
+        const allowedDays = getAllowedDaysText(rateSet);
+        invalidDayOfWeekMessages.push(INVALID_DAY_OF_WEEK_ERROR_TEMPLATE.replace('{allowedDays}', allowedDays));
+      }
+    });
+  });
+  if (invalidDayOfWeekMessages.length > 0) {
+    return {
+      bookable: false,
+      type: 'inventory',
+      rates: [],
+      message: invalidDayOfWeekMessages.join('. '),
+    };
+  }
+
+  return null;
+};
+/**
+ * Validates date ranges to check if any rate set is closed
+ * and if any rate set has a minimum stay length that is greater than the charge unit quantity
  * @param {Object} params - Validation parameters
  * @returns {Object|null} Returns error object if validation fails, null if valid
  */
@@ -254,6 +288,32 @@ const getModifiedPaxConfigs = (
   return modifiedPaxConfigs;
 };
 
+// Helper function to parse AppliesDaysOfWeek object
+const parseAppliesDaysOfWeek = appliesDaysOfWeek => {
+  if (!appliesDaysOfWeek || typeof appliesDaysOfWeek !== 'object') {
+    // If no apply days are specified, default to all days being allowed
+    return {
+      applyMon: true,
+      applyTue: true,
+      applyWed: true,
+      applyThu: true,
+      applyFri: true,
+      applySat: true,
+      applySun: true,
+    };
+  }
+
+  return {
+    applyMon: appliesDaysOfWeek['@Mon'] === 'Y',
+    applyTue: appliesDaysOfWeek['@Tue'] === 'Y',
+    applyWed: appliesDaysOfWeek['@Wed'] === 'Y',
+    applyThu: appliesDaysOfWeek['@Thu'] === 'Y',
+    applyFri: appliesDaysOfWeek['@Fri'] === 'Y',
+    applySat: appliesDaysOfWeek['@Sat'] === 'Y',
+    applySun: appliesDaysOfWeek['@Sun'] === 'Y',
+  };
+};
+
 const parseDateRanges = dateRanges => {
   const dateRangesResult = [];
 
@@ -278,6 +338,9 @@ const parseDateRanges = dateRanges => {
       const optionRates = R.pathOr([], ['OptRate', 'OptionRates', 'OptionRate'], rateSet);
       const optionRatesArray = Array.isArray(optionRates) ? optionRates : [optionRates];
 
+      // Parse the AppliesDaysOfWeek object to individual day flags
+      const appliesDaysOfWeek = parseAppliesDaysOfWeek(rateSet.AppliesDaysOfWeek);
+
       return {
         rateName: rateSet.RateName,
         rateText: rateSet.RateText,
@@ -286,6 +349,7 @@ const parseDateRanges = dateRanges => {
         cancelHours: rateSet.CancelHours,
         isClosed: rateSet.IsClosed,
         scuCheckOverlapOnly: rateSet.ScuCheckOverlapOnly,
+        ...appliesDaysOfWeek,
         optionRates: optionRatesArray.filter(rate => rate !== undefined && rate !== null),
       };
     });
@@ -340,35 +404,57 @@ const extractCancelPolicies = (rate, path, isOptionCancelPolicy) => {
   });
 };
 
+const getAllowedDaysText = rateSet => {
+  const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const dayProperties = ['applySun', 'applyMon', 'applyTue', 'applyWed', 'applyThu', 'applyFri', 'applySat'];
+  const allowedDays = [];
+  for (let i = 0; i < dayProperties.length; i += 1) {
+    if (rateSet[dayProperties[i]]) {
+      allowedDays.push(dayNames[i]);
+    }
+  }
+  if (allowedDays.length === 0) {
+    return 'any day';
+  }
+  if (allowedDays.length === 1) {
+    return allowedDays[0];
+  }
+  if (allowedDays.length === 2) {
+    return `${allowedDays[0]} and ${allowedDays[1]}`;
+  }
+  return `${allowedDays.slice(0, -1).join(', ')}, and ${allowedDays[allowedDays.length - 1]}`;
+};
+
+// Helper function to check if start date day matches rate set apply days
+const isValidDayOfWeek = (rateSet, date) => {
+  const dayOfWeek = moment(date).day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  // Map days to corresponding apply properties
+  const dayMapping = {
+    0: rateSet.applySun,
+    1: rateSet.applyMon,
+    2: rateSet.applyTue,
+    3: rateSet.applyWed,
+    4: rateSet.applyThu,
+    5: rateSet.applyFri,
+    6: rateSet.applySat,
+  };
+
+  // If no apply days are specified (all false/undefined), assume all days are valid
+  const hasAnyApplyDay = rateSet.applyMon || rateSet.applyTue || rateSet.applyWed ||
+                        rateSet.applyThu || rateSet.applyFri || rateSet.applySat ||
+                        rateSet.applySun;
+
+  if (!hasAnyApplyDay) {
+    return true; // Default to allowing all days if no restrictions are set
+  }
+
+  return dayMapping[dayOfWeek] === true;
+};
+
 const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
   const chargeUnitQuantity = Number(chargeUnitQuantityRaw);
-
-  // Helper function to check if start date day matches rate set apply days
-  const isValidDayOfWeek = (rateSet, date) => {
-    const dayOfWeek = moment(date).day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-    // Map days to corresponding apply properties
-    const dayMapping = {
-      0: rateSet.applySun,
-      1: rateSet.applyMon,
-      2: rateSet.applyTue,
-      3: rateSet.applyWed,
-      4: rateSet.applyThu,
-      5: rateSet.applyFri,
-      6: rateSet.applySat,
-    };
-
-    // If no apply days are specified (all false/undefined), assume all days are valid
-    const hasAnyApplyDay = rateSet.applyMon || rateSet.applyTue || rateSet.applyWed ||
-                          rateSet.applyThu || rateSet.applyFri || rateSet.applySat ||
-                          rateSet.applySun;
-
-    if (!hasAnyApplyDay) {
-      return true; // Default to allowing all days if no restrictions are set
-    }
-
-    return dayMapping[dayOfWeek] === true;
-  };
+  let rateSetMatchingError = null;
 
   const matchingRateSet = rateSets.find(rateSet => {
     // First check if the charge unit quantity matches
@@ -381,14 +467,19 @@ const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
     // Then check if the start date day of week is valid for this rate set
     const dayIsValid = isValidDayOfWeek(rateSet, startDate);
 
+    if (!dayIsValid) {
+      rateSetMatchingError = getAllowedDaysText(rateSet);
+    }
+
     return quantityMatches && dayIsValid;
   });
 
-  return matchingRateSet;
+  return { matchingRateSet, rateSetMatchingError };
 };
 
 module.exports = {
   validateMaxPaxPerCharge,
+  validateStartDay,
   validateDateRanges,
   calculateEndDate,
   getOptionMessage,
