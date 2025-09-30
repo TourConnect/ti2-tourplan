@@ -7,10 +7,13 @@ Object {
   "rates": Array [
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 54900,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 54900,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -22,10 +25,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 54900,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 54900,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -37,10 +43,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 58600,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 58600,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -52,10 +61,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 58600,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 58600,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -67,10 +79,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 61800,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 61800,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -82,10 +97,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 65100,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 65100,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -97,10 +115,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 65600,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 65600,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -112,10 +133,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 68800,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 68800,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -127,10 +151,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 83700,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 83700,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -142,10 +169,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 88400,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 88400,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -157,10 +187,13 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 97700,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [],
-      "costPrice": 97700,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -241,7 +274,9 @@ Object {
   "rates": Array [
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 109800,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -272,7 +307,8 @@ Object {
           "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
         },
       ],
-      "costPrice": 109800,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [
@@ -314,7 +350,9 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 117200,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -336,7 +374,8 @@ Object {
           "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
         },
       ],
-      "costPrice": 117200,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -348,7 +387,9 @@ Object {
     },
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 123600,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -379,7 +420,8 @@ Object {
           "penaltyDescription": "No show or same day cancellation - 100% cancellation fee",
         },
       ],
-      "costPrice": 123600,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -413,7 +455,9 @@ Object {
           "detailName": "Itinerary",
         },
       ],
+      "agentCurrency": undefined,
       "agentPrice": 115450,
+      "buyCurrency": undefined,
       "cancelHours": 24,
       "cancelPolicies": Array [
         Object {
@@ -430,7 +474,8 @@ Object {
           "penaltyDescription": "Full refund for cancellations more than 24 hours before tour",
         },
       ],
-      "costPrice": 150000,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "USD",
       "currencyPrecision": 2,
       "doInfoList": Array [
@@ -509,7 +554,9 @@ Object {
           "detailName": "Itinerary",
         },
       ],
+      "agentCurrency": undefined,
       "agentPrice": 115450,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -528,7 +575,8 @@ Object {
           "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
         },
       ],
-      "costPrice": 150000,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "USD",
       "currencyPrecision": 2,
       "doInfoList": Array [
@@ -594,7 +642,9 @@ Object {
   "rates": Array [
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 109800,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -607,7 +657,8 @@ Object {
           "penaltyDescription": "48 hours prior to arrival - 25% cancellation fee",
         },
       ],
-      "costPrice": 109800,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "NZD",
       "currencyPrecision": 2,
       "doInfoList": Array [],
@@ -647,7 +698,9 @@ Object {
           "detailName": "Itinerary",
         },
       ],
+      "agentCurrency": undefined,
       "agentPrice": 100000,
+      "buyCurrency": undefined,
       "cancelHours": "",
       "cancelPolicies": Array [
         Object {
@@ -656,7 +709,8 @@ Object {
           "penaltyDescription": "No refund for cancellations within 2 hours of tour start",
         },
       ],
-      "costPrice": 120000,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "USD",
       "currencyPrecision": 2,
       "doInfoList": Array [
@@ -698,10 +752,13 @@ Object {
   "rates": Array [
     Object {
       "additionalDetails": Array [],
+      "agentCurrency": undefined,
       "agentPrice": 1083800,
+      "buyCurrency": undefined,
       "cancelHours": 744,
       "cancelPolicies": Array [],
-      "costPrice": 1083800,
+      "conversionRate": 1,
+      "costPrice": 0,
       "currency": "ZAR",
       "currencyPrecision": 2,
       "doInfoList": Array [],
