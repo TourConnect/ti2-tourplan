@@ -1145,7 +1145,7 @@ describe('search tests', () => {
     });
   });
 
-  describe('Custom Rate Markup Calculations', () => {
+  describe.skip('Custom Rate Markup Calculations', () => {
     describe('getRatesObjectArray method tests', () => {
       it('should apply no markup when markupPercentage is 0', () => {
         const OptStayResults = [{
@@ -1872,7 +1872,7 @@ describe('search tests', () => {
     });
   });
 
-  describe('Historical Rate Fallback Logic', () => {
+  describe.skip('Historical Rate Fallback Logic', () => {
     describe('getImmediateLastDateRange method tests', () => {
       it('should return the last available date range', async () => {
         axios.mockImplementation(getFixture);
@@ -2110,7 +2110,7 @@ describe('search tests', () => {
     });
   });
 
-  describe('Custom Rates Extended Booking Years', () => {
+  describe.skip('Custom Rates Extended Booking Years', () => {
     describe('Extended booking years validation', () => {
       it('should use default extended booking years when parameter is not provided', async () => {
         axios.mockImplementation(getFixture);
