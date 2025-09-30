@@ -20,6 +20,14 @@ const resolvers = {
         comment ? `-${comment}` : ''
       }`;
     },
+    location: option => R.path(['OptGeneral', 'LocalityDescription'], option),
+    starRating: option => {
+      // convert 1* to 1, 2* to 2, etc.
+      // AC Group they set it as 3* 4* 5*, in PDNZ they set it as 30 40 50
+      const classType = R.pathOr('', ['OptGeneral', 'Class'], option);
+      const star = Number(classType.slice(0, 1));
+      return Number.isNaN(star) ? null : star;
+    },
     comment: option => R.path(['OptGeneral', 'Comment'], option),
     lastUpdateTimestamp: option => {
       const lastUpdateISO = R.path(['OptGeneral', 'LastUpdate'], option);
@@ -149,7 +157,7 @@ const translateTPOption = async ({
   const supplierData = {
     supplierId: R.path(['SupplierId'], OptGeneral),
     supplierName,
-    supplierAddress: `${R.pathOr('', ['Address1'], OptGeneral)}, ${R.pathOr('', ['Address2'], OptGeneral)},  ${R.pathOr('', ['Address3'], OptGeneral)}, ${R.pathOr('', ['Address4'], OptGeneral)}, ${R.pathOr('', ['Address5'], OptGeneral)}`,
+    supplierAddress: [R.pathOr('', ['Address1'], OptGeneral), R.pathOr('', ['Address2'], OptGeneral), R.pathOr('', ['Address3'], OptGeneral), R.pathOr('', ['Address4'], OptGeneral), R.pathOr('', ['Address5'], OptGeneral)].filter(Boolean).join(','),
     serviceTypes: R.uniq(optionsGroupedBySupplierId.map(R.path(['OptGeneral', 'ButtonName']))),
   };
   const schema = makeExecutableSchema({
