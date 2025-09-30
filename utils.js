@@ -2,7 +2,7 @@ const R = require('ramda');
 
 // Constants exported
 const CUSTOM_RATE_ID_NAME = 'Custom';
-const CUSTOM_NO_RATE_NAME = 'CustomNoRates';
+const CUSTOM_NO_RATE_NAME = 'Default';
 const passengerTypeMap = {
   Adult: 'Adult',
   Child: 'Child',
@@ -17,6 +17,14 @@ const hostConnectXmlOptions = {
   dtd: {
     include: true,
     name: 'hostConnect_4_06_009.dtd',
+  },
+};
+
+const productConnectXmlOptions = {
+  prettyPrinting: { enabled: false },
+  dtd: {
+    include: true,
+    name: 'productConnect_5_05_010.dtd',
   },
 };
 
@@ -155,5 +163,6 @@ module.exports = {
   CUSTOM_RATE_ID_NAME,
   CUSTOM_NO_RATE_NAME,
   hostConnectXmlOptions,
+  productConnectXmlOptions,
   passengerTypeMap,
 };

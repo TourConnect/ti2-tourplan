@@ -13,6 +13,7 @@ const { addServiceToItinerary } = require('./itinerary-add-service');
 const { searchProductsForItinerary } = require('./itinerary-products-search');
 const { searchItineraries } = require('./itinerary-search');
 const { hostConnectXmlOptions } = require('./utils');
+const { validateProductConnect } = require('./availability/product-connect/itinerary-pc-api-validation-helper');
 
 const xmlParser = new xml2js.Parser();
 const fastParser = new XMLParser();
@@ -65,6 +66,19 @@ class BuyerPlugin {
         type: 'text',
         regExp: /.+/,
       },
+      productConnectEndpoint: {
+        type: 'text',
+        regExp: /.+/,
+      },
+      productConnectUser: {
+        type: 'text',
+        regExp: /.+/,
+      },
+      productConnectUserPassword: {
+        type: 'text',
+        regExp: /.+/,
+        description: 'The tourplan provided product connect user password',
+      },
       displayRateInSupplierCurrency: {
         type: 'text',
         regExp: /^(yes|no)$/i,
@@ -78,7 +92,7 @@ class BuyerPlugin {
       customRatesMarkupPercentage: {
         type: 'number',
         regExp: /^(100|[1-9]?\d)(\.\d{1,2})?$/,
-        default: 10,
+        default: 0,
       },
       customRatesCalculateWithLastYearsRate: {
         type: 'text',
@@ -89,6 +103,22 @@ class BuyerPlugin {
         type: 'number',
         regExp: /^(1|2|3|4|5|6|7|8|9|10)$/i,
         default: 1,
+      },
+      customRatesEligibleRateTypes: {
+        type: 'text',
+        regExp: /.+/,
+        default: 'Confirmed',
+      },
+      customRatesRoundRates: {
+        type: 'text',
+        regExp: /^(Yes|No)$/i,
+        default: 'No',
+      },
+      // applicable only if customRatesRoundRates is Yes
+      customRatesRoundToTheNearestDollar: {
+        type: 'text',
+        regExp: /^(Yes|No)$/i,
+        default: 'No',
       },
       sendServicesWithoutARate: {
         type: 'text',
@@ -326,49 +356,12 @@ class BuyerPlugin {
         } else if (error.includes('1052 SCN')) {
           error = '1052 - OptionId not found(Check if it is Internet Enabled)';
         } else if (error.includes('SCN Server overloaded')) {
-          error = "2051 - The Tourplan server is unavailable. Please wait a minute and try again. If you keep getting this error, please contact your team's Tourplan administrator or Tourplan support."
+          error = "2051 - The Tourplan server is unavailable. Please wait a minute and try again. If you keep getting this error, please contact your team's Tourplan administrator or Tourplan support.";
         }
         throw new Error(`${requestType} failed: ${error}`);
       }
       return R.path(['Reply'], replyObj);
     };
-  }
-
-  // Get agent currency code from cache or fetch it
-  async getAgentCurrencyCode({
-    hostConnectEndpoint,
-    hostConnectAgentID,
-    hostConnectAgentPassword,
-    axios,
-  }) {
-    if (this.cache && this.cache.getOrExec) {
-      try {
-        const sanitizedHostConnectEndpoint = hostConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
-        const cacheKey = `agentCurrencyCode_${hostConnectAgentID}_${hostConnectAgentPassword}_${sanitizedHostConnectEndpoint}`;
-        const model = {
-          AgentInfoRequest: {
-            AgentID: hostConnectAgentID,
-            Password: hostConnectAgentPassword,
-          },
-        };
-
-        const replyObj = await this.cache.getOrExec({
-          fnParams: [cacheKey],
-          fn: () => this.callTourplan({
-            model,
-            endpoint: hostConnectEndpoint,
-            axios,
-            xmlOptions: hostConnectXmlOptions,
-          }),
-          ttl: 60 * 60 * 24 * 7, // 7 days
-        });
-        const agentCurrencyCode = R.path(['AgentInfoReply', 'Currency'], replyObj);
-        return agentCurrencyCode;
-      } catch (cacheErr) {
-        console.warn('Cache read error:', cacheErr.message);
-      }
-    }
-    return null;
   }
 
   async validateToken({
@@ -380,9 +373,13 @@ class BuyerPlugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
+      productConnectEndpoint,
+      productConnectUser,
+      productConnectUserPassword,
     },
   }) {
     try {
+      // validate host connect endpoint
       if (hostConnectEndpoint) {
         assert(hostConnectAgentID && hostConnectAgentPassword);
         const model = {
@@ -398,8 +395,22 @@ class BuyerPlugin {
           xmlOptions: hostConnectXmlOptions,
         });
         assert(R.path(['AgentInfoReply', 'Currency'], replyObj));
+
+        const isProductConnectValid = await validateProductConnect({
+          productConnectEndpoint,
+          productConnectUser,
+          productConnectUserPassword,
+          axios,
+          callTourplan: this.callTourplan,
+          cache: this.cache,
+          useCache: false,
+        });
+
+        assert(isProductConnectValid);
+
         return true;
       }
+
       const model = {
         AuthenticationRequest: {
           Login: username,
@@ -410,6 +421,7 @@ class BuyerPlugin {
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
       assert(R.path(['AuthenticationReply'], replyObj) === '');
+
       return true;
     } catch (err) {
       console.error(err.message);
@@ -606,7 +618,7 @@ class BuyerPlugin {
       token,
       payload,
       callTourplan: this.callTourplan.bind(this),
-      getAgentCurrencyCode: this.getAgentCurrencyCode.bind(this),
+      cache: this.cache,
     });
   }
 
