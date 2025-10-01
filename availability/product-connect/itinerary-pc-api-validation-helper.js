@@ -26,13 +26,13 @@ const testProductConnectAPI = async ({
 }) => {
   // Input validation
   if (!productConnectEndpoint || typeof productConnectEndpoint !== 'string') {
-    throw new Error('Invalid productConnectEndpoint provided - must be a non-empty string');
+    return false;
   }
   if (!productConnectUser || typeof productConnectUser !== 'string') {
-    throw new Error('Invalid productConnectUser provided - must be a non-empty string');
+    return false;
   }
   if (!productConnectUserPassword || typeof productConnectUserPassword !== 'string') {
-    throw new Error('Invalid productConnectUserPassword provided - must be a non-empty string');
+    return false;
   }
   try {
     const productConnectModel = {
