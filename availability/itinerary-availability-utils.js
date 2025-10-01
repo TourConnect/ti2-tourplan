@@ -10,7 +10,6 @@ const RATES_CLOSED_ERROR_TEMPLATE = 'The rates are closed for the '
 const MIN_STAY_LENGTH_ERROR_TEMPLATE = '{minSCUDateRangesText}. '
   + 'Please adjust the stay length and try again.';
 const USER_FRIENDLY_DATE_FORMAT = 'DD-MMM-YYYY';
-const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
 
 /**
  * Validate that each RoomConfig does not exceed maxPaxPerCharge.
@@ -58,24 +57,41 @@ const validateStartDay = ({
   startDate,
 }) => {
   const invalidDayOfWeekMessages = [];
-  dateRanges.forEach(dateRange => {
-    dateRange.rateSets.forEach(rateSet => {
-      // Check if the start date day of week is valid for this rate set
-      const dayIsValid = isValidDayOfWeek(rateSet, startDate);
+  let startDayIsValid = false;
 
-      if (!dayIsValid) {
-        const allowedDays = getAllowedDaysText(rateSet);
-        invalidDayOfWeekMessages.push(INVALID_DAY_OF_WEEK_ERROR_TEMPLATE.replace('{allowedDays}', allowedDays));
-      }
-    });
+  // Filter date ranges to only include those where the date range start date
+  // is between the booking startDate and endDate
+  const filteredDateRanges = dateRanges.filter(dateRange => {
+    const rangeStartDate = moment(dateRange.startDate);
+    const rangeEndDate = moment(dateRange.endDate);
+    const bookingStartDate = moment(startDate);
+    return bookingStartDate.isBetween(rangeStartDate, rangeEndDate, null, '[]');
   });
+
+  filteredDateRanges.some(dateRange => {
+    dateRange.rateSets.some(rateSet => {
+      // Check if the start date day of week is valid for this rate set
+      const dayIsValid = isStartDayValid(rateSet, startDate);
+      if (dayIsValid) {
+        startDayIsValid = true;
+        return true; // Exit both loops
+      }
+
+      const allowedDays = getAllowedDaysText(rateSet);
+      invalidDayOfWeekMessages.push(allowedDays);
+      return false; // Continue iteration
+    });
+    return false;
+  });
+
+  // If the start date is valid for any rate set, return null (no error)
+  if (startDayIsValid) {
+    return null;
+  }
+
+  // Only return error if no rate sets allow this day
   if (invalidDayOfWeekMessages.length > 0) {
-    return {
-      bookable: false,
-      type: 'inventory',
-      rates: [],
-      message: invalidDayOfWeekMessages.join('. '),
-    };
+    return invalidDayOfWeekMessages.join(', ');
   }
 
   return null;
@@ -118,12 +134,13 @@ const validateDateRanges = ({
   const minSCUDateRangesText = [];
   dateRanges.forEach(dateRange => {
     if (dateRange.rateSets) {
-      const daysBeforeDateRange = moment(dateRange.startDate)
+      const dateRangeStartDate = dateRange.startDate || dateRange.dateFrom;
+      const dateRangeEndDate = dateRange.endDate || dateRange.dateTo;
+      const daysBeforeDateRange = moment(dateRangeStartDate)
         .diff(moment(startDate), 'days');
       const daysAfterDateRange = daysBeforeDateRange > 0
-        ? chargeUnitQuantity - daysBeforeDateRange
-        : chargeUnitQuantity;
-
+        ? Number(chargeUnitQuantity) - daysBeforeDateRange
+        : Number(chargeUnitQuantity);
       // Check if any rate set has a minimum stay length that is less than
       // the charge unit quantity
       const rateSetsWithMinSCULessThanQuantity = dateRange.rateSets
@@ -142,9 +159,9 @@ const validateDateRanges = ({
         return;
       }
       // Return min stay length error message
-      const formattedStartDate = moment(dateRange.startDate)
+      const formattedStartDate = moment(dateRangeStartDate)
         .format(USER_FRIENDLY_DATE_FORMAT);
-      const formattedEndDate = moment(dateRange.endDate)
+      const formattedEndDate = moment(dateRangeEndDate)
         .format(USER_FRIENDLY_DATE_FORMAT);
       minSCUDateRangesText.push(
         `The date range ${formattedStartDate} to ${formattedEndDate} `
@@ -306,8 +323,8 @@ const parseAppliesDaysOfWeek = appliesDaysOfWeek => {
   return {
     applyMon: appliesDaysOfWeek['@Mon'] === 'Y',
     applyTue: appliesDaysOfWeek['@Tue'] === 'Y',
-    applyWed: appliesDaysOfWeek['@Wed'] === 'Y',
-    applyThu: appliesDaysOfWeek['@Thu'] === 'Y',
+    applyWed: appliesDaysOfWeek['@Wed'] === 'Y' || appliesDaysOfWeek['@Weds'] === 'Y',
+    applyThu: appliesDaysOfWeek['@Thu'] === 'Y' || appliesDaysOfWeek['@Thur'] === 'Y',
     applyFri: appliesDaysOfWeek['@Fri'] === 'Y',
     applySat: appliesDaysOfWeek['@Sat'] === 'Y',
     applySun: appliesDaysOfWeek['@Sun'] === 'Y',
@@ -426,7 +443,7 @@ const getAllowedDaysText = rateSet => {
 };
 
 // Helper function to check if start date day matches rate set apply days
-const isValidDayOfWeek = (rateSet, date) => {
+const isStartDayValid = (rateSet, date) => {
   const dayOfWeek = moment(date).day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
 
   // Map days to corresponding apply properties
@@ -440,21 +457,13 @@ const isValidDayOfWeek = (rateSet, date) => {
     6: rateSet.applySat,
   };
 
-  // If no apply days are specified (all false/undefined), assume all days are valid
-  const hasAnyApplyDay = rateSet.applyMon || rateSet.applyTue || rateSet.applyWed ||
-                        rateSet.applyThu || rateSet.applyFri || rateSet.applySat ||
-                        rateSet.applySun;
-
-  if (!hasAnyApplyDay) {
-    return true; // Default to allowing all days if no restrictions are set
-  }
-
   return dayMapping[dayOfWeek] === true;
 };
 
 const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
   const chargeUnitQuantity = Number(chargeUnitQuantityRaw);
   let rateSetMatchingError = null;
+  const invalidDayOfWeekMessages = [];
 
   const matchingRateSet = rateSets.find(rateSet => {
     // First check if the charge unit quantity matches
@@ -465,14 +474,18 @@ const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
                            (chargeUnitQuantity < Number(rateSet.minSCU));
 
     // Then check if the start date day of week is valid for this rate set
-    const dayIsValid = isValidDayOfWeek(rateSet, startDate);
-
+    const dayIsValid = isStartDayValid(rateSet, startDate);
     if (!dayIsValid) {
-      rateSetMatchingError = getAllowedDaysText(rateSet);
+      const allowedDays = getAllowedDaysText(rateSet);
+      invalidDayOfWeekMessages.push(allowedDays);
     }
 
     return quantityMatches && dayIsValid;
   });
+
+  if (!matchingRateSet) {
+    rateSetMatchingError = invalidDayOfWeekMessages.join(', ');
+  }
 
   return { matchingRateSet, rateSetMatchingError };
 };

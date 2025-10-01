@@ -285,7 +285,7 @@ const parseGetOptionData = optionDataObj => {
   @param {Object} callTourplan - The callTourplan function
   @returns {Object} Parsed configuration object
 */
-const getOptionFromProductConnect = async ({
+const getOption = async ({
   optionId,
   productConnectEndpoint,
   productConnectUser,
@@ -295,16 +295,16 @@ const getOptionFromProductConnect = async ({
 }) => {
   // Input validation
   if (!optionId || typeof optionId !== 'string') {
-    throw new Error('Invalid optionId provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectEndpoint || typeof productConnectEndpoint !== 'string') {
-    throw new Error('Invalid productConnectEndpoint provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectUser || typeof productConnectUser !== 'string') {
-    throw new Error('Invalid productConnectUser provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectUserPassword || typeof productConnectUserPassword !== 'string') {
-    throw new Error('Invalid productConnectUserPassword provided - must be a non-empty string');
+    return null;
   }
   const getOptionModel = ({
     GetOptionRequest: {
@@ -330,10 +330,53 @@ const getOptionFromProductConnect = async ({
   return optionData;
 };
 
+/*
+  Get option info from Product Connect API
+
+  @param {Object} params - Configuration parameters
+  @param {string} optionId - The option ID
+  @param {string} productConnectEndpoint - The product connect endpoint
+  @param {string} productConnectUser - The product connect user
+  @param {string} productConnectUserPassword - The product connect user password
+  @param {Object} axios - The axios instance
+  @param {Object} callTourplan - The callTourplan function
+  @returns {Object} Parsed option info
+*/
+const getOptionFromProductConnect = async (
+  optionId,
+  productConnectEndpoint,
+  productConnectUser,
+  productConnectUserPassword,
+  axios,
+  callTourplan,
+) => {
+  const optionInfo = await getOption({
+    optionId,
+    productConnectEndpoint,
+    productConnectUser,
+    productConnectUserPassword,
+    axios,
+    callTourplan,
+  });
+
+  if (!optionInfo) {
+    return null;
+  }
+
+  // Read the parametes required
+  // eslint-disable-next-line max-len
+  const crossSeason = optionInfo.ratePolicy ? optionInfo.ratePolicy.crossSeason : CROSS_SEASON_CAL_SPLIT_RATE;
+  const paxBreaks = optionInfo.costData ? optionInfo.costData.paxBreaks : {};
+
+  return {
+    crossSeason: crossSeason.toUpperCase(),
+    paxBreaks,
+  };
+};
+
 module.exports = {
   getOptionFromProductConnect,
   // Cross-season calculation constants
-  // CROSS_SEASON_CAL_AVERAGE,
   CROSS_SEASON_NOT_ALLOWED,
   CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
   CROSS_SEASON_CAL_SPLIT_RATE,

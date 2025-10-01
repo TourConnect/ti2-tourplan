@@ -41,13 +41,12 @@ const calculateRateWithMinStay = (
 };
 
 // Helper function to apply cross-season calculation
-const applyCrossSeasonCalculation = (
+const applyCrossSeasonFirstRate = (
   totalPrice,
   agentPrice,
   noOfDaysRatesAvailable,
   daysToChargeAtLastRate,
   crossSeason,
-  markupFactor,
 ) => {
   if (crossSeason === CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD) {
     // Calculate rate for entire period using rate of first rate period
@@ -56,12 +55,7 @@ const applyCrossSeasonCalculation = (
     const finalTotalPrice = perDayPrice * (daysToChargeAtLastRate + noOfDaysRatesAvailable);
     const finalAgentPrice = perDayAgentPrice * (daysToChargeAtLastRate + noOfDaysRatesAvailable);
 
-    if (markupFactor > 1) {
-      return {
-        finalTotalPrice: Math.round(finalTotalPrice * markupFactor),
-        finalAgentPrice: Math.round(finalAgentPrice * markupFactor),
-      };
-    }
+    // DO NOT apply markup factor for first rate period cross-season calculation
     return { finalTotalPrice, finalAgentPrice };
   }
   return null; // Indicates no cross-season calculation was applied
@@ -71,12 +65,13 @@ const applyCrossSeasonCalculation = (
 const applyRateRounding = (
   finalTotalPrice,
   finalAgentPrice,
+  totalCostPrice,
   currencyPrecision,
   isRoundRatesEnabled,
   isRoundToTheNearestDollarEnabled,
 ) => {
   if (!isRoundRatesEnabled) {
-    return { finalTotalPrice, finalAgentPrice };
+    return { finalTotalPrice, finalAgentPrice, totalCostPrice };
   }
 
   const divisor = 10 ** currencyPrecision;
@@ -84,24 +79,29 @@ const applyRateRounding = (
   // Convert from cents to dollars if currency precision indicates cents
   const finalTotalPriceInDollars = finalTotalPrice / divisor;
   const finalAgentPriceInDollars = finalAgentPrice / divisor;
+  const finalTotalCostPriceInDollars = totalCostPrice / divisor;
 
   let roundedTotalPrice = finalTotalPriceInDollars;
   let roundedAgentPrice = finalAgentPriceInDollars;
+  let roundedTotalCostPrice = finalTotalCostPriceInDollars;
 
   if (isRoundToTheNearestDollarEnabled) {
     // Round to the nearest dollar
     roundedTotalPrice = Math.round(finalTotalPriceInDollars);
     roundedAgentPrice = Math.round(finalAgentPriceInDollars);
+    roundedTotalCostPrice = Math.round(finalTotalCostPriceInDollars);
   } else {
     // Round UP to the next dollar amount
     roundedTotalPrice = Math.ceil(finalTotalPriceInDollars);
     roundedAgentPrice = Math.ceil(finalAgentPriceInDollars);
+    roundedTotalCostPrice = Math.ceil(finalTotalCostPriceInDollars);
   }
 
   // Convert back to the original currency format
   return {
     finalTotalPrice: roundedTotalPrice * divisor,
     finalAgentPrice: roundedAgentPrice * divisor,
+    totalCostPrice: roundedTotalCostPrice * divisor,
   };
 };
 
@@ -522,17 +522,19 @@ const getRatesObjectArray = (
 ) => {
   // Add input validation
   if (!Array.isArray(OptStayResults)) {
-    throw new Error('OptStayResults must be an array');
+    console.error('OptStayResults must be an array');
+    return [];
   }
 
   return OptStayResults.map(rate => {
     // Add null/undefined check for rate object
     if (!rate || typeof rate !== 'object') {
-      throw new Error('Invalid rate object provided');
+      console.error('Invalid rate object provided');
+      return [];
     }
 
     const {
-      costForNoRatesDays,
+      costPrice,
       buyCurrency,
       agentCurrency,
       crossSeason,
@@ -556,7 +558,8 @@ const getRatesObjectArray = (
     let markupFactor = 1;
 
     if (Number.isNaN(totalPrice) || Number.isNaN(agentPrice)) {
-      throw new Error(`Invalid price values: totalPrice=${totalPriceRaw}, agentPrice=${agentPriceRaw}`);
+      console.error(`Invalid price values: totalPrice=${totalPriceRaw}, agentPrice=${agentPriceRaw}`);
+      return [];
     }
 
     // Get the markup factor
@@ -575,14 +578,9 @@ const getRatesObjectArray = (
     const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
     const divisor = 10 ** currencyPrecision;
 
-    // eslint-disable-next-line max-len
-    const costForNoRatesDaysInCents = costForNoRatesDays > 0 ? costForNoRatesDays * divisor : finalTotalPrice;
-
     if (noOfDaysRatesAvailable > 0) {
-      totalCostPrice = finalTotalPrice + costForNoRatesDaysInCents;
-
       // Case: Partial rates (some days have rates available & some days don't have rates available)
-      const crossSeasonResult = applyCrossSeasonCalculation(
+      const firstRateResult = applyCrossSeasonFirstRate(
         finalTotalPrice,
         finalAgentPrice,
         noOfDaysRatesAvailable,
@@ -591,9 +589,13 @@ const getRatesObjectArray = (
         markupFactor,
       );
 
-      if (crossSeasonResult) {
-        finalTotalPrice = crossSeasonResult.finalTotalPrice;
-        finalAgentPrice = crossSeasonResult.finalAgentPrice;
+      if (firstRateResult) {
+        // the cross season is use first rate
+        finalTotalPrice = firstRateResult.finalTotalPrice;
+        finalAgentPrice = firstRateResult.finalAgentPrice;
+
+        // in this case no markup to be applied to the cost price
+        totalCostPrice = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
       // eslint-disable-next-line max-len
       } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
         // Handle extended dates with different markup calculation
@@ -610,22 +612,24 @@ const getRatesObjectArray = (
           if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
             finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
             finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
-            // costPrice += (totalPriceNoRatesDays * markupFactor);
           }
         }
+        totalCostPrice = finalTotalPrice; // this is with markup applied
       }
     } else if (markupFactor > 1) {
       // Case: Rates for NO dates are available
       finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
       finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
-      totalCostPrice = costForNoRatesDaysInCents;
+      const costForNoRatesDaysInCents = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
+      totalCostPrice = Math.round(costForNoRatesDaysInCents); // this is with markup applied
     }
 
     // Apply rate rounding if enabled
     const roundingResult = applyRateRounding(
       finalTotalPrice,
       finalAgentPrice,
+      totalCostPrice,
       currencyPrecision,
       isRoundRatesEnabled,
       isRoundToTheNearestDollarEnabled,
@@ -633,6 +637,7 @@ const getRatesObjectArray = (
 
     finalTotalPrice = roundingResult.finalTotalPrice;
     finalAgentPrice = roundingResult.finalAgentPrice;
+    totalCostPrice = roundingResult.totalCostPrice;
 
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.

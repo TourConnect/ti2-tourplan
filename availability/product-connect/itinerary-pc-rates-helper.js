@@ -2,6 +2,13 @@
 const R = require('ramda');
 const { productConnectXmlOptions } = require('../../utils');
 
+const {
+  getMatchingRateSet,
+} = require('../itinerary-availability-utils');
+
+const PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE = 'Error getting rates info from Product Connect. Check Product Connect credentials and try again.';
+const RATE_NOT_ELIGIBLE_ERROR_MESSAGE = 'The rate selected is not an eligible rate type allowed. Please select another rate or option and try again.';
+
 // Constants for parsing limits
 const MAX_PXB_FIELDS = 24; // Maximum number of Pxb fields supported by Product Connect API
 const MAX_VTEXT_FIELDS = 20; // Maximum number of Vtext fields supported by Product Connect API
@@ -219,7 +226,9 @@ const parseGetRatesData = dateRanges => {
     const rateSetArrayNormalized = Array.isArray(rateSetsContainer)
       ? rateSetsContainer
       : [rateSetsContainer];
-    const rateSets = rateSetArrayNormalized.map(parseRateSet);
+    // Sort rate sets by minSCU in ascending order
+    // eslint-disable-next-line max-len
+    const rateSets = rateSetArrayNormalized.map(parseRateSet).sort((a, b) => (a.minSCU || 0) - (b.minSCU || 0));
 
     // Parse Taxes information
     const taxData = parseTaxes(dateRange);
@@ -286,22 +295,22 @@ const getRatesInfoFromProductConnect = async ({
 }) => {
   // Input validation
   if (!optionId || typeof optionId !== 'string') {
-    throw new Error('Invalid optionId provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectEndpoint || typeof productConnectEndpoint !== 'string') {
-    throw new Error('Invalid productConnectEndpoint provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectUser || typeof productConnectUser !== 'string') {
-    throw new Error('Invalid productConnectUser provided - must be a non-empty string');
+    return null;
   }
   if (!productConnectUserPassword || typeof productConnectUserPassword !== 'string') {
-    throw new Error('Invalid productConnectUserPassword provided - must be a non-empty string');
+    return null;
   }
   if (!startDate || typeof startDate !== 'string') {
-    throw new Error('Invalid startDate provided - must be a non-empty string');
+    return null;
   }
   if (!endDate || typeof endDate !== 'string') {
-    throw new Error('Invalid endDate provided - must be a non-empty string');
+    return null;
   }
   const getRatesModel = ({
     GetRateRequest: {
@@ -503,8 +512,118 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
   return 0;
 };
 
+/**
+ * Validate that all rate statuses in the ratesInfo are eligible
+ * @param {Array} ratesInfo - Array of rate information from Product Connect
+ * @param {Array} eligibleRateTypesCodes - Array of eligible rate type codes
+ * @returns {Object|null} Returns error object if validation fails, null if valid
+ */
+const validateRateStatusEligibility = (dateRanges, eligibleRateTypesCodes) => {
+  if (!dateRanges || !Array.isArray(dateRanges) || dateRanges.length === 0) {
+    return false; // No rates to validate
+  }
+
+  // Check each date range and its rate sets using array methods instead of for...of
+  const invalidRateFound = dateRanges.some(dateRange => {
+    if (dateRange.rateSets && Array.isArray(dateRange.rateSets)) {
+      return dateRange.rateSets.some(rateSet => (
+        rateSet.rateStatus && !eligibleRateTypesCodes.includes(rateSet.rateStatus)
+      ));
+    }
+    return false;
+  });
+
+  if (invalidRateFound) {
+    return false;
+  }
+
+  return true; // All rate statuses are eligible
+};
+
+/*
+  Get cost info from Product Connect API
+
+  @param {Object} params - Configuration parameters
+  @param {string} optionId - The option ID
+  @param {string} productConnectEndpoint - The product connect endpoint
+  @param {string} productConnectUser - The product connect user
+  @param {string} productConnectUserPassword - The product connect user password
+  @param {Object} axios - The axios instance
+  @param {Object} callTourplan - The callTourplan function
+  @returns {Object} Parsed cost info
+*/
+const getCostFromProductConnect = async ({
+  optionId,
+  productConnectEndpoint,
+  productConnectUser,
+  productConnectUserPassword,
+  axios,
+  callTourplan,
+  startDate,
+  endDate,
+  startDateToUse,
+  customRatesEligibleRateTypes,
+  roomConfigs,
+  paxBreaks,
+  daysToChargeAtLastRate,
+}) => {
+  // Parallelize Product Connect API calls for better performance
+  const productConnectDateRanges = await getRatesInfoFromProductConnect({
+    optionId,
+    productConnectEndpoint,
+    productConnectUser,
+    productConnectUserPassword,
+    startDate,
+    endDate,
+    axios,
+    callTourplan,
+  });
+  if (!productConnectDateRanges || productConnectDateRanges.length === 0) {
+    console.warn(PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE);
+    return {
+      cost: null,
+      error: false,
+      message: PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE,
+    };
+  }
+
+  // Validate that all rate statuses are eligible
+  const eligibleRateTypesCodes = getEligibleRateTypesCodes(customRatesEligibleRateTypes);
+  const areRatesValid = validateRateStatusEligibility(
+    productConnectDateRanges,
+    eligibleRateTypesCodes,
+  );
+  if (!areRatesValid) {
+    return {
+      cost: null,
+      error: true,
+      message: RATE_NOT_ELIGIBLE_ERROR_MESSAGE,
+    };
+  }
+
+  // Get rates for the first rate set (using first date range as baseline)
+  const firstDateRange = productConnectDateRanges[0];
+  // eslint-disable-next-line max-len
+  const { matchingRateSet: matchingProductConnectRateSet, rateSetMatchingError } = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
+
+  let cost = 0;
+  if (matchingProductConnectRateSet) {
+    cost = getPriceForPaxBreaks(
+      matchingProductConnectRateSet.rates,
+      firstDateRange.taxes,
+      roomConfigs,
+      paxBreaks,
+      daysToChargeAtLastRate,
+    );
+  }
+
+  return {
+    cost,
+    error: false,
+    message: rateSetMatchingError,
+  };
+};
+
 module.exports = {
-  getRatesInfoFromProductConnect,
-  getEligibleRateTypesCodes,
-  getPriceForPaxBreaks,
+  getCostFromProductConnect,
 };

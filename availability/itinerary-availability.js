@@ -31,16 +31,20 @@ const {
 } = require('./itinerary-availability-helper');
 
 const {
-  getEligibleRateTypesCodes,
-  getRatesInfoFromProductConnect,
-  getPriceForPaxBreaks,
+  getCostFromProductConnect,
 } = require('./product-connect/itinerary-pc-rates-helper');
 
 const {
   getOptionFromProductConnect,
   CROSS_SEASON_NOT_ALLOWED,
   CROSS_SEASON_CAL_SPLIT_RATE,
+  CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
 } = require('./product-connect/itinerary-pc-option-helper');
+
+const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
+const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
+const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
+const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
@@ -48,51 +52,13 @@ const CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG = 'last available rate.';
 const CUSTOM_PERIOD_LAST_YEAR_INFO_MSG = 'last year\'s rate.';
 const CUSTOM_RATE_WITHMARKUP_INFO_MSG = 'Custom rate applied, calculated using a markup on {customPeriodInfoMsg} {sWarningMsg}';
 const CUSTOM_RATE_NO_MARKUP_INFO_MSG = 'Custom rate applied with no markup on {customPeriodInfoMsg} {sWarningMsg}';
-const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
-const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
-const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
 const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
 const SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE = 'No rates available for the requested date/stay. Rates will be sent as 0.00 per your company settings.';
-const RATE_NOT_ELIGIBLE_ERROR_MESSAGE = 'The rate selected is not an eligible rate type allowed. Please select another rate or option and try again.';
 const CROSS_SEASON_NOT_ALLOWED_ERROR_MESSAGE = 'Cross season is not allowed for this option. Please select another rate or option and try again.';
-const PRODUCT_CONNECT_OPTION_INFO_ERROR_MESSAGE = 'Error getting option info from Product Connect';
-const PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE = 'Error getting rates info from Product Connect';
 const PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE = 'Please note that the start day is not valid for the previous rate. Allowed days: {allowedDays}.';
-
-/**
- * Validate that all rate statuses in the ratesInfo are eligible
- * @param {Array} ratesInfo - Array of rate information from Product Connect
- * @param {Array} eligibleRateTypesCodes - Array of eligible rate type codes
- * @returns {Object|null} Returns error object if validation fails, null if valid
- */
-const validateRateStatusEligibility = (dateRanges, eligibleRateTypesCodes) => {
-  if (!dateRanges || !Array.isArray(dateRanges) || dateRanges.length === 0) {
-    return null; // No rates to validate
-  }
-
-  // Check each date range and its rate sets using array methods instead of for...of
-  const invalidRateFound = dateRanges.some(dateRange => {
-    if (dateRange.rateSets && Array.isArray(dateRange.rateSets)) {
-      return dateRange.rateSets.some(rateSet => (
-        rateSet.rateStatus && !eligibleRateTypesCodes.includes(rateSet.rateStatus)
-      ));
-    }
-    return false;
-  });
-
-  if (invalidRateFound) {
-    return {
-      bookable: false,
-      type: 'inventory',
-      rates: [],
-      message: RATE_NOT_ELIGIBLE_ERROR_MESSAGE,
-    };
-  }
-
-  return null; // All rate statuses are eligible
-};
+const PRODUCT_CONNECT_OPTION_INFO_ERROR_MESSAGE = 'Error getting option info from Product Connect. Check Product Connect credentials and try again.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
   const ratesRequiredTillDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
@@ -322,8 +288,6 @@ const searchAvailabilityForItinerary = async ({
     && customRatesRoundToTheNearestDollar.toUpperCase() === 'YES'
   );
 
-  const eligibleRateTypesCodes = getEligibleRateTypesCodes(customRatesEligibleRateTypes);
-
   // Get availability configuration parameters from Tourplan(General and Date Ranges)
   const availabilityConfig = await getAvailabilityConfig({
     optionId,
@@ -361,9 +325,15 @@ const searchAvailabilityForItinerary = async ({
     const startDateIsInvalid = validateStartDay({
       dateRanges,
       startDate,
+      endDate,
     });
     if (startDateIsInvalid) {
-      return startDateIsInvalid;
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: INVALID_DAY_OF_WEEK_ERROR_TEMPLATE.replace('{allowedDays}', startDateIsInvalid),
+      };
     }
 
     const lastDateRangeEndDate = moment(dateRanges[dateRanges.length - 1].endDate);
@@ -517,125 +487,123 @@ const searchAvailabilityForItinerary = async ({
     crossSeason: CROSS_SEASON_CAL_SPLIT_RATE, // default to split rate
     isRoundRatesEnabled,
     isRoundToTheNearestDollarEnabled,
-    costForNoRatesDays: 0, // default cost for days without rates
-    buyCurrency: agentCurrencyCode,
+    // default set to 0, so that if product connect is not enabled or if there is
+    // an error getting info from product connect then in the method getRatesObjectArray
+    // the retail price will be used as the cost price
+    costPrice: 0,
+    buyCurrency: dateRangeToUse.buyCurrency,
     agentCurrency: agentCurrencyCode,
   };
 
   if (isProductConnectAvailable) {
-    // Parallelize Product Connect API calls for better performance
-    const [optionInfo, productConnectDateRanges] = await Promise.all([
-      getOptionFromProductConnect({
-        optionId,
-        productConnectEndpoint,
-        productConnectUser,
-        productConnectUserPassword,
-        axios,
-        callTourplan,
-      }),
-      getRatesInfoFromProductConnect({
-        optionId,
-        productConnectEndpoint,
-        productConnectUser,
-        productConnectUserPassword,
-        startDate: dateRangeToUse.startDate,
-        endDate: dateRangeToUse.endDate,
-        axios,
-        callTourplan,
-      }),
-    ]);
-
     let paxBreaks = {};
+    const optionInfo = await getOptionFromProductConnect(
+      optionId,
+      productConnectEndpoint,
+      productConnectUser,
+      productConnectUserPassword,
+      axios,
+      callTourplan,
+      dateRangeToUse,
+    );
     if (!optionInfo) {
       console.warn(PRODUCT_CONNECT_OPTION_INFO_ERROR_MESSAGE);
     } else {
-      // Read the parametes required for the custom rates
-      const { crossSeason } = optionInfo.ratePolicy;
-      if (crossSeason && crossSeason.toUpperCase() === CROSS_SEASON_NOT_ALLOWED) {
+      settings.crossSeason = optionInfo.crossSeason;
+      paxBreaks = optionInfo.paxBreaks;
+    }
+    if (settings.crossSeason === CROSS_SEASON_NOT_ALLOWED) {
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: CROSS_SEASON_NOT_ALLOWED_ERROR_MESSAGE,
+      };
+    }
+
+    // get cost for the days that have rates available
+    let costInfoForDaysWithRates = {
+      cost: 0,
+      error: false,
+      message: '',
+    };
+    if (noOfDaysRatesAvailable > 0) {
+      costInfoForDaysWithRates = await getCostFromProductConnect({
+        optionId,
+        productConnectEndpoint,
+        productConnectUser,
+        productConnectUserPassword,
+        axios,
+        callTourplan,
+        startDate,
+        endDate,
+        startDateToUse: startDate,
+        customRatesEligibleRateTypes,
+        roomConfigs,
+        paxBreaks,
+        daysToChargeAtLastRate: noOfDaysRatesAvailable,
+      });
+
+      if (costInfoForDaysWithRates.error) {
         return {
           bookable: false,
           type: 'inventory',
           rates: [],
-          message: CROSS_SEASON_NOT_ALLOWED_ERROR_MESSAGE,
+          message: costInfoForDaysWithRates.message,
         };
       }
-      settings.crossSeason = crossSeason;
-      paxBreaks = optionInfo.costData.paxBreaks;
+
+      if (costInfoForDaysWithRates.message) {
+        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+      }
     }
-    if (!productConnectDateRanges || productConnectDateRanges.length === 0) {
-      console.warn(PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE);
-    } else {
-      // Validate that all rate statuses are eligible
-      const rateStatusValidationError = validateRateStatusEligibility(
-        productConnectDateRanges,
-        eligibleRateTypesCodes,
-      );
-      if (rateStatusValidationError) {
-        return rateStatusValidationError;
-      }
 
-      // Get rates for the first rate set (using first date range as baseline)
-      const firstDateRange = productConnectDateRanges[0];
-      // eslint-disable-next-line max-len
-      const { matchingRateSet: matchingProductConnectRateSet, rateSetMatchingError } = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
-      if (rateSetMatchingError) {
-        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', rateSetMatchingError);
-      }
-      // Validate date ranges
-      const productConnectDateRangesError = validateDateRanges({
-        dateRanges: [firstDateRange],
-        startDate: dateRangeToUse.startDate,
-        chargeUnitQuantity,
-      });
+    // get cost for the days that do not have rates available
+    const costInfoForDaysWithoutRates = await getCostFromProductConnect({
+      optionId,
+      productConnectEndpoint,
+      productConnectUser,
+      productConnectUserPassword,
+      axios,
+      callTourplan,
+      startDate: dateRangeToUse.startDate,
+      endDate: dateRangeToUse.endDate,
+      startDateToUse,
+      customRatesEligibleRateTypes,
+      roomConfigs,
+      paxBreaks,
+      daysToChargeAtLastRate,
+    });
 
-      if (productConnectDateRangesError) {
-        if (matchingProductConnectRateSet && productConnectDateRangesError.message.includes('minimum stay')) {
-          // If minimum stay error, return availability with a warning message
-          minStayRequired = matchingProductConnectRateSet && matchingProductConnectRateSet.minSCU;
-          if (sWarningMsg) {
-            sWarningMsg += MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
-          } else {
-            sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
-          }
-        } else if (productConnectDateRangesError.message.includes('rates are closed')) {
-          // If rates are closed, return an error message
-          return {
-            bookable: false,
-            type: 'inventory',
-            rates: [],
-            message: PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
-          };
-        }
-      }
-
-      let costPrice = 0;
-      if (matchingProductConnectRateSet) {
-        costPrice = getPriceForPaxBreaks(
-          matchingProductConnectRateSet.rates,
-          firstDateRange.taxes,
-          roomConfigs,
-          paxBreaks,
-          daysToChargeAtLastRate,
-        );
-      }
-
-      settings.costForNoRatesDays = costPrice;
-      settings.buyCurrency = firstDateRange.buyCurrency;
+    if (costInfoForDaysWithoutRates.error) {
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: costInfoForDaysWithoutRates.message,
+      };
     }
+    if (costInfoForDaysWithoutRates.message) {
+      sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
+    }
+    settings.costPrice = costInfoForDaysWithoutRates.cost + costInfoForDaysWithRates.cost;
   }
 
   // Format the success message for the custom rates
-  const customRateInfoMsg = markupPercentage > 0
+  // eslint-disable-next-line max-len
+  const bShowMarkupMsg = ((settings.crossSeason === CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD
+    && noOfDaysRatesAvailable === 0)
+    || settings.crossSeason !== CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD);
+  const customRateInfoMsg = (markupPercentage > 0 && bShowMarkupMsg)
     ? CUSTOM_RATE_WITHMARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg)
     : CUSTOM_RATE_NO_MARKUP_INFO_MSG.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{sWarningMsg}', sWarningMsg);
   const successMessage = message ? `${message}. ${customRateInfoMsg}` : `${customRateInfoMsg}`;
 
   let conversionRate = 1;
   let conversionRateFetched = false;
+  let OptStayResults = [];
   // Step 2 : Now get rates
   // Step 2.1 : First get rates for the days that have rates available
-  let OptStayResults = [];
-  // Get stay rates for the given dates
   if (noOfDaysRatesAvailable > 0) {
     OptStayResults = await getStayResults(
       optionId,
