@@ -614,15 +614,15 @@ const getRatesObjectArray = (
             finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
           }
         }
-        totalCostPrice = finalTotalPrice; // this is with markup applied
+
+        totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
       }
     } else if (markupFactor > 1) {
       // Case: Rates for NO dates are available
       finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
       finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
-      const costForNoRatesDaysInCents = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
-      totalCostPrice = Math.round(costForNoRatesDaysInCents); // this is with markup applied
+      totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
     }
 
     // Apply rate rounding if enabled
