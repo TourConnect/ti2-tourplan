@@ -580,11 +580,7 @@ const getCostFromProductConnect = async ({
   });
   if (!productConnectDateRanges || productConnectDateRanges.length === 0) {
     console.warn(PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE);
-    return {
-      cost: null,
-      error: false,
-      message: PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE,
-    };
+    return null;
   }
 
   // Validate that all rate statuses are eligible

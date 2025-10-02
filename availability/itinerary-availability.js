@@ -497,6 +497,8 @@ const searchAvailabilityForItinerary = async ({
 
   if (isProductConnectAvailable) {
     let paxBreaks = {};
+    let costForDaysWithRates = 0;
+    let costForDaysWithoutRates = 0;
     const optionInfo = await getOptionFromProductConnect(
       optionId,
       productConnectEndpoint,
@@ -522,13 +524,8 @@ const searchAvailabilityForItinerary = async ({
     }
 
     // get cost for the days that have rates available
-    let costInfoForDaysWithRates = {
-      cost: 0,
-      error: false,
-      message: '',
-    };
     if (noOfDaysRatesAvailable > 0) {
-      costInfoForDaysWithRates = await getCostFromProductConnect({
+      const costInfoForDaysWithRates = await getCostFromProductConnect({
         optionId,
         productConnectEndpoint,
         productConnectUser,
@@ -544,17 +541,20 @@ const searchAvailabilityForItinerary = async ({
         daysToChargeAtLastRate: noOfDaysRatesAvailable,
       });
 
-      if (costInfoForDaysWithRates.error) {
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: costInfoForDaysWithRates.message,
-        };
-      }
+      if (costInfoForDaysWithRates) {
+        if (costInfoForDaysWithRates.error) {
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: costInfoForDaysWithRates.message,
+          };
+        }
 
-      if (costInfoForDaysWithRates.message) {
-        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+        if (costInfoForDaysWithRates.message) {
+          sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+        }
+        costForDaysWithRates = costInfoForDaysWithRates.cost;
       }
     }
 
@@ -575,18 +575,21 @@ const searchAvailabilityForItinerary = async ({
       daysToChargeAtLastRate,
     });
 
-    if (costInfoForDaysWithoutRates.error) {
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: costInfoForDaysWithoutRates.message,
-      };
+    if (costInfoForDaysWithoutRates) {
+      if (costInfoForDaysWithoutRates.error) {
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: costInfoForDaysWithoutRates.message,
+        };
+      }
+      if (costInfoForDaysWithoutRates.message) {
+        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
+      }
+      costForDaysWithoutRates = costInfoForDaysWithoutRates.cost;
     }
-    if (costInfoForDaysWithoutRates.message) {
-      sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
-    }
-    settings.costPrice = costInfoForDaysWithoutRates.cost + costInfoForDaysWithRates.cost;
+    settings.costPrice = costForDaysWithoutRates + costForDaysWithRates;
   }
 
   // Format the success message for the custom rates
