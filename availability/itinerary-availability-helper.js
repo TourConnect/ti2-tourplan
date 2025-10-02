@@ -483,10 +483,11 @@ const getStayResults = async (
   @param {string} currency - The currency
   @returns {Object} The empty rate object
 */
-const getEmptyRateObject = currency => {
+const getEmptyRateObject = agentCurrency => {
   const rateObj = [{
     rateId: CUSTOM_NO_RATE_NAME,
-    currency,
+    currency: agentCurrency,
+    agentCurrency,
     totalPrice: 0,
     costPrice: 0,
     agentPrice: 0,
@@ -1033,6 +1034,73 @@ const getConversionRate = async ({
   return conversionRate;
 };
 
+/**
+ * Find the next valid date based on rateset day-of-week criteria
+ * @param {string} startDate - The initial start date in YYYY-MM-DD format
+ * @param {Array} dateRanges - Array of date ranges with rateSets
+ * @returns {string} The next valid date in YYYY-MM-DD format
+ */
+const findNextValidDate = (startDate, dateRanges) => {
+  let nextValidDate = moment(startDate);
+
+  // Filter date ranges to only include those where the current date
+  // is between the booking startDate and endDate
+  const filteredDateRanges = dateRanges.filter(dateRange => {
+    const rangeStartDate = moment(dateRange.startDate);
+    const rangeEndDate = moment(dateRange.endDate);
+    const bookingDate = moment(nextValidDate);
+    return bookingDate.isBetween(rangeStartDate, rangeEndDate, null, '[]');
+  });
+
+  const dayOfWeek = nextValidDate.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
+
+  const validDaysOfWeek = filteredDateRanges.map(dateRange =>
+    dateRange.rateSets && dateRange.rateSets.map(rateSet => {
+      // Map days to corresponding apply properties
+      const dayMapping = {
+        0: rateSet.applySun,
+        1: rateSet.applyMon,
+        2: rateSet.applyTue,
+        3: rateSet.applyWed,
+        4: rateSet.applyThu,
+        5: rateSet.applyFri,
+        6: rateSet.applySat,
+      };
+
+      // Filter dayMapping to only include days that are true
+      const filteredDayMapping = Object.fromEntries(
+        Object.entries(dayMapping).filter(([_, isApplicable]) => isApplicable === true && _ >= dayOfWeek),
+      );
+      return filteredDayMapping;
+    }));
+
+  if (validDaysOfWeek && validDaysOfWeek.length > 0) {
+    // Extract the first valid day from the nested structure: [ [ { '6': true } ] ]
+    const getNextValidDay = () => {
+      // Get the first dateRange's rateSets
+      const firstDateRangeRateSets = validDaysOfWeek[0];
+      if (firstDateRangeRateSets && firstDateRangeRateSets.length > 0) {
+        // Get the first rateSet's filtered day mapping
+        const firstRateSetDays = firstDateRangeRateSets[0];
+        if (firstRateSetDays && Object.keys(firstRateSetDays).length > 0) {
+          // Get the first valid day number (convert string key to number)
+          return parseInt(Object.keys(firstRateSetDays)[0], 10);
+        }
+      }
+      return null;
+    };
+
+    const nextValidDay = getNextValidDay();
+    if (nextValidDay !== null) {
+      const nDaysToAdd = nextValidDay - dayOfWeek;
+      nextValidDate = nextValidDate.add(nDaysToAdd, 'day');
+    }
+  }
+
+  // If no valid date found within maxDaysToCheck, return the original start date
+  return nextValidDate.format('YYYY-MM-DD');
+};
+
 module.exports = {
   getAgentCurrencyCode,
   getAvailabilityConfig,
@@ -1044,6 +1112,7 @@ module.exports = {
   getOptionDateRanges,
   getEmptyRateObject,
   getConversionRate,
+  findNextValidDate,
   // Constants
   MIN_MARKUP_PERCENTAGE,
   MAX_MARKUP_PERCENTAGE,

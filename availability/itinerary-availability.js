@@ -14,6 +14,7 @@ const {
 const {
   getAgentCurrencyCode,
   getConversionRate,
+  findNextValidDate,
 } = require('./itinerary-availability-helper');
 
 const {
@@ -41,10 +42,11 @@ const {
   CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
 } = require('./product-connect/itinerary-pc-option-helper');
 
-const MIN_STAY_WARNING_MESSAGE = 'Please note that the previous rate had a minimum stay requirement of {minSCU}.';
-const PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
+const MIN_STAY_WARNING_MESSAGE = 'Please note that the a minimum stay requirement of {minSCU} was required for {customPeriodInfoMsg}';
+const PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
+const INVALID_DAY_OF_WEEK_WARNING_TEMPLATE = 'Please note that start date day of {allowedDays} was required in the {customPeriodInfoMsg}';
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
@@ -457,6 +459,28 @@ const searchAvailabilityForItinerary = async ({
   // eslint-disable-next-line max-len
   const customPeriodInfoMsg = useLastYearRate ? CUSTOM_PERIOD_LAST_YEAR_INFO_MSG : CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG;
 
+  let sWarningMsg = '';
+
+  const startDateIsInvalid = validateStartDay({
+    dateRanges: [dateRangeToUse],
+    startDate: dateRangeToUse.startDate,
+  });
+  if (startDateIsInvalid) {
+    // if start day is not valid find the date for the next valid day
+    sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', startDateIsInvalid).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
+    const newStartDate = findNextValidDate(dateRangeToUse.startDate, [dateRangeToUse]);
+    if (newStartDate && moment(newStartDate).isSameOrBefore(dateRangeToUse.endDate)) {
+      dateRangeToUse.startDate = newStartDate;
+    } else {
+      return {
+        bookable: false,
+        type: 'inventory',
+        rates: [],
+        message: useLastYearRate ? NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE : NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE,
+      };
+    }
+  }
+
   // Validate date ranges
   const dateRangesError = validateDateRanges({
     dateRanges: [dateRangeToUse],
@@ -464,7 +488,6 @@ const searchAvailabilityForItinerary = async ({
     chargeUnitQuantity,
   });
 
-  let sWarningMsg = '';
   let minStayRequired = 0;
   if (dateRangesError) {
     if (dateRangesError.message.includes('minimum stay')) {
@@ -478,7 +501,7 @@ const searchAvailabilityForItinerary = async ({
         bookable: false,
         type: 'inventory',
         rates: [],
-        message: PREVIOUS_RATE_CLOSED_PERIODS_WARNING_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
+        message: PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
       };
     }
   }
@@ -497,6 +520,8 @@ const searchAvailabilityForItinerary = async ({
 
   if (isProductConnectAvailable) {
     let paxBreaks = {};
+    let costForDaysWithRates = 0;
+    let costForDaysWithoutRates = 0;
     const optionInfo = await getOptionFromProductConnect(
       optionId,
       productConnectEndpoint,
@@ -522,13 +547,8 @@ const searchAvailabilityForItinerary = async ({
     }
 
     // get cost for the days that have rates available
-    let costInfoForDaysWithRates = {
-      cost: 0,
-      error: false,
-      message: '',
-    };
     if (noOfDaysRatesAvailable > 0) {
-      costInfoForDaysWithRates = await getCostFromProductConnect({
+      const costInfoForDaysWithRates = await getCostFromProductConnect({
         optionId,
         productConnectEndpoint,
         productConnectUser,
@@ -544,17 +564,20 @@ const searchAvailabilityForItinerary = async ({
         daysToChargeAtLastRate: noOfDaysRatesAvailable,
       });
 
-      if (costInfoForDaysWithRates.error) {
-        return {
-          bookable: false,
-          type: 'inventory',
-          rates: [],
-          message: costInfoForDaysWithRates.message,
-        };
-      }
+      if (costInfoForDaysWithRates) {
+        if (costInfoForDaysWithRates.error) {
+          return {
+            bookable: false,
+            type: 'inventory',
+            rates: [],
+            message: costInfoForDaysWithRates.message,
+          };
+        }
 
-      if (costInfoForDaysWithRates.message) {
-        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+        if (costInfoForDaysWithRates.message) {
+          sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+        }
+        costForDaysWithRates = costInfoForDaysWithRates.cost;
       }
     }
 
@@ -575,18 +598,21 @@ const searchAvailabilityForItinerary = async ({
       daysToChargeAtLastRate,
     });
 
-    if (costInfoForDaysWithoutRates.error) {
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: costInfoForDaysWithoutRates.message,
-      };
+    if (costInfoForDaysWithoutRates) {
+      if (costInfoForDaysWithoutRates.error) {
+        return {
+          bookable: false,
+          type: 'inventory',
+          rates: [],
+          message: costInfoForDaysWithoutRates.message,
+        };
+      }
+      if (costInfoForDaysWithoutRates.message) {
+        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
+      }
+      costForDaysWithoutRates = costInfoForDaysWithoutRates.cost;
     }
-    if (costInfoForDaysWithoutRates.message) {
-      sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
-    }
-    settings.costPrice = costInfoForDaysWithoutRates.cost + costInfoForDaysWithRates.cost;
+    settings.costPrice = costForDaysWithoutRates + costForDaysWithRates;
   }
 
   // Format the success message for the custom rates

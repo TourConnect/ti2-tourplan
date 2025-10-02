@@ -2,7 +2,7 @@ const R = require('ramda');
 
 // Constants exported
 const CUSTOM_RATE_ID_NAME = 'Custom';
-const CUSTOM_NO_RATE_NAME = 'Default';
+const CUSTOM_NO_RATE_NAME = 'CustomNoRates';
 const passengerTypeMap = {
   Adult: 'Adult',
   Child: 'Child',
