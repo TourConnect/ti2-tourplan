@@ -19,6 +19,20 @@ const {
   CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
 } = require('./product-connect/itinerary-pc-option-helper');
 
+const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
+const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
+
+// Day of week constants for better readability
+const DAY_OF_WEEK = {
+  SUNDAY: 0,
+  MONDAY: 1,
+  TUESDAY: 2,
+  WEDNESDAY: 3,
+  THURSDAY: 4,
+  FRIDAY: 5,
+  SATURDAY: 6,
+};
+
 // Helper function to calculate rate with minimum stay requirements
 const calculateRateWithMinStay = (
   totalPrice,
@@ -376,6 +390,121 @@ const getImmediateLastDateRange = async (
   );
 
   return pastYearDateRange;
+};
+
+/**
+ * Configuration object for custom rate date range retrieval
+ * @typedef {Object} CustomRateDateRangeConfig
+ * @property {boolean} useLastYearRate - Whether to use last year's rate
+ * @property {string} optionId - The option ID
+ * @property {string} hostConnectEndpoint - HostConnect endpoint
+ * @property {string} hostConnectAgentID - Agent ID
+ * @property {string} hostConnectAgentPassword - Agent password
+ * @property {Object} axios - Axios instance
+ * @property {string} startDate - Start date
+ * @property {number} chargeUnitQuantity - Charge unit quantity
+ * @property {Object} roomConfigs - Room configurations
+ * @property {Function} callTourplan - TourPlan API function
+ * @property {string} [endDate] - End date (optional)
+ * @property {number} [extendedBookingYears] - Extended booking years (optional)
+ */
+
+/**
+ * Get the appropriate date range to use for custom rates
+ * @param {CustomRateDateRangeConfig} config - Configuration object
+ * @returns {Promise<Object>} Date range and error message
+ */
+const getCustomRateDateRange = async config => {
+  // Parameter validation
+  if (!config || typeof config !== 'object') {
+    console.error('Configuration object is required');
+    return { dateRangeToUse: null, errorMsg: 'Configuration object is required' };
+  }
+
+  const {
+    useLastYearRate,
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    startDate,
+    chargeUnitQuantity,
+    roomConfigs,
+    callTourplan,
+    endDate,
+    extendedBookingYears,
+  } = config;
+
+  // Validate required parameters
+  const requiredParams = {
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    startDate,
+    chargeUnitQuantity,
+    roomConfigs,
+    callTourplan,
+  };
+
+  const missingParam = Object.keys(requiredParams).find(key =>
+    requiredParams[key] === undefined || requiredParams[key] === null);
+
+  if (missingParam) {
+    console.error(`Required parameter '${missingParam}' is missing`);
+    return { dateRangeToUse: null, errorMsg: `Required parameter '${missingParam}' is missing` };
+  }
+
+  let dateRangeToUse = null;
+  let errorMsg = '';
+
+  const noOfYears = 1;
+  const returnLastDateRange = false;
+
+  if (useLastYearRate) {
+    dateRangeToUse = await getPastDateRange(
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      chargeUnitQuantity,
+      roomConfigs,
+      callTourplan,
+      noOfYears,
+      returnLastDateRange,
+    );
+    if (!dateRangeToUse) {
+      errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+    } else {
+      const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').subtract(noOfYears, 'year');
+      if (periodEndDate.isAfter(moment(dateRangeToUse.endDate))) {
+        errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
+        dateRangeToUse = null;
+      }
+    }
+  } else {
+    dateRangeToUse = await getImmediateLastDateRange(
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      endDate || startDate,
+      roomConfigs,
+      callTourplan,
+      extendedBookingYears,
+    );
+    if (!dateRangeToUse) {
+      // The code should never reach here
+      errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
+    }
+  }
+
+  return { dateRangeToUse, errorMsg };
 };
 
 /* Helper function to extract time from datetime string
@@ -1035,69 +1164,124 @@ const getConversionRate = async ({
 };
 
 /**
+ * Create day mapping for a rate set
+ * @param {Object} rateSet - The rate set object
+ * @returns {Object} Day mapping object
+ */
+const createDayMapping = rateSet => ({
+  [DAY_OF_WEEK.SUNDAY]: rateSet.applySun,
+  [DAY_OF_WEEK.MONDAY]: rateSet.applyMon,
+  [DAY_OF_WEEK.TUESDAY]: rateSet.applyTue,
+  [DAY_OF_WEEK.WEDNESDAY]: rateSet.applyWed,
+  [DAY_OF_WEEK.THURSDAY]: rateSet.applyThu,
+  [DAY_OF_WEEK.FRIDAY]: rateSet.applyFri,
+  [DAY_OF_WEEK.SATURDAY]: rateSet.applySat,
+});
+
+/**
+ * Filter date ranges that contain the given date
+ * @param {Array} dateRanges - Array of date ranges
+ * @param {moment.Moment} targetDate - The target date to check
+ * @returns {Array} Filtered date ranges
+ */
+const filterDateRangesContainingDate = (dateRanges, targetDate) => dateRanges.filter(dateRange => {
+  const rangeStartDate = moment(dateRange.startDate);
+  const rangeEndDate = moment(dateRange.endDate);
+  return targetDate.isBetween(rangeStartDate, rangeEndDate, null, '[]');
+});
+
+/**
+ * Get valid days from rate sets for the given current day of week
+ * @param {Array} dateRanges - Filtered date ranges
+ * @param {number} currentDayOfWeek - Current day of week (0-6)
+ * @returns {Array} Valid days of week
+ */
+const getValidDaysFromRateSets = (dateRanges, currentDayOfWeek) => dateRanges.map(dateRange => {
+  if (!dateRange.rateSets) return [];
+
+  return dateRange.rateSets.map(rateSet => {
+    const dayMapping = createDayMapping(rateSet);
+
+    // Filter to only include days that are true and >= current day
+    const validDays = Object.fromEntries(
+      Object.entries(dayMapping).filter(([day, isApplicable]) =>
+        isApplicable === true && parseInt(day, 10) >= currentDayOfWeek),
+    );
+
+    return validDays;
+  });
+});
+
+/**
+ * Extract the next valid day from the nested valid days structure
+ * @param {Array} validDaysOfWeek - Nested array of valid days
+ * @returns {number|null} Next valid day of week or null if none found
+ */
+const extractNextValidDay = validDaysOfWeek => {
+  if (!validDaysOfWeek || validDaysOfWeek.length === 0) {
+    return null;
+  }
+
+  // Get the first dateRange's rateSets
+  const firstDateRangeRateSets = validDaysOfWeek[0];
+  if (!firstDateRangeRateSets || firstDateRangeRateSets.length === 0) {
+    return null;
+  }
+
+  // Get the first rateSet's filtered day mapping
+  const firstRateSetDays = firstDateRangeRateSets[0];
+  if (!firstRateSetDays || Object.keys(firstRateSetDays).length === 0) {
+    return null;
+  }
+
+  // Get the first valid day number (convert string key to number)
+  const firstValidDayStr = Object.keys(firstRateSetDays)[0];
+  return parseInt(firstValidDayStr, 10);
+};
+
+/**
  * Find the next valid date based on rateset day-of-week criteria
  * @param {string} startDate - The initial start date in YYYY-MM-DD format
  * @param {Array} dateRanges - Array of date ranges with rateSets
  * @returns {string} The next valid date in YYYY-MM-DD format
  */
 const findNextValidDate = (startDate, dateRanges) => {
-  let nextValidDate = moment(startDate);
-
-  // Filter date ranges to only include those where the current date
-  // is between the booking startDate and endDate
-  const filteredDateRanges = dateRanges.filter(dateRange => {
-    const rangeStartDate = moment(dateRange.startDate);
-    const rangeEndDate = moment(dateRange.endDate);
-    const bookingDate = moment(nextValidDate);
-    return bookingDate.isBetween(rangeStartDate, rangeEndDate, null, '[]');
-  });
-
-  const dayOfWeek = nextValidDate.day(); // 0 = Sunday, 1 = Monday, ..., 6 = Saturday
-
-  const validDaysOfWeek = filteredDateRanges.map(dateRange =>
-    dateRange.rateSets && dateRange.rateSets.map(rateSet => {
-      // Map days to corresponding apply properties
-      const dayMapping = {
-        0: rateSet.applySun,
-        1: rateSet.applyMon,
-        2: rateSet.applyTue,
-        3: rateSet.applyWed,
-        4: rateSet.applyThu,
-        5: rateSet.applyFri,
-        6: rateSet.applySat,
-      };
-
-      // Filter dayMapping to only include days that are true
-      const filteredDayMapping = Object.fromEntries(
-        Object.entries(dayMapping).filter(([_, isApplicable]) => isApplicable === true && _ >= dayOfWeek),
-      );
-      return filteredDayMapping;
-    }));
-
-  if (validDaysOfWeek && validDaysOfWeek.length > 0) {
-    // Extract the first valid day from the nested structure: [ [ { '6': true } ] ]
-    const getNextValidDay = () => {
-      // Get the first dateRange's rateSets
-      const firstDateRangeRateSets = validDaysOfWeek[0];
-      if (firstDateRangeRateSets && firstDateRangeRateSets.length > 0) {
-        // Get the first rateSet's filtered day mapping
-        const firstRateSetDays = firstDateRangeRateSets[0];
-        if (firstRateSetDays && Object.keys(firstRateSetDays).length > 0) {
-          // Get the first valid day number (convert string key to number)
-          return parseInt(Object.keys(firstRateSetDays)[0], 10);
-        }
-      }
-      return null;
-    };
-
-    const nextValidDay = getNextValidDay();
-    if (nextValidDay !== null) {
-      const nDaysToAdd = nextValidDay - dayOfWeek;
-      nextValidDate = nextValidDate.add(nDaysToAdd, 'day');
-    }
+  // Parameter validation
+  if (!startDate || typeof startDate !== 'string') {
+    console.error('startDate must be a non-empty string');
+    return null;
   }
 
-  // If no valid date found within maxDaysToCheck, return the original start date
+  if (!Array.isArray(dateRanges)) {
+    console.error('dateRanges must be an array');
+    return null;
+  }
+
+  const nextValidDate = moment(startDate);
+
+  // Validate date format
+  if (!nextValidDate.isValid()) {
+    console.error('startDate must be a valid date string');
+    return null;
+  }
+
+  const currentDayOfWeek = nextValidDate.day();
+
+  // Filter date ranges to only include those containing the target date
+  const filteredDateRanges = filterDateRangesContainingDate(dateRanges, nextValidDate);
+
+  // Get valid days from rate sets
+  const validDaysOfWeek = getValidDaysFromRateSets(filteredDateRanges, currentDayOfWeek);
+
+  // Extract the next valid day
+  const nextValidDay = extractNextValidDay(validDaysOfWeek);
+
+  // Calculate and return the next valid date
+  if (nextValidDay !== null) {
+    const daysToAdd = nextValidDay - currentDayOfWeek;
+    nextValidDate.add(daysToAdd, 'day');
+  }
+
   return nextValidDate.format('YYYY-MM-DD');
 };
 
@@ -1107,6 +1291,7 @@ module.exports = {
   getNoRatesAvailableError,
   getStayResults,
   getImmediateLastDateRange,
+  getCustomRateDateRange,
   getPastDateRange,
   getRatesObjectArray,
   getOptionDateRanges,
