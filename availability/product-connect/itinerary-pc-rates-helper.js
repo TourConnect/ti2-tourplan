@@ -7,7 +7,7 @@ const {
 } = require('../itinerary-availability-utils');
 
 const PRODUCT_CONNECT_RATES_INFO_ERROR_MESSAGE = 'Error getting rates info from Product Connect. Check Product Connect credentials and try again.';
-const RATE_NOT_ELIGIBLE_ERROR_MESSAGE = 'The rate selected is not an eligible rate type allowed. Please select another rate or option and try again.';
+const RATE_NOT_ELIGIBLE_ERROR_MESSAGE = 'The rate selected does not have an eligible rate type. Please select another rate or option and try again.';
 
 // Constants for parsing limits
 const MAX_PXB_FIELDS = 24; // Maximum number of Pxb fields supported by Product Connect API

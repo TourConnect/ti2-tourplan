@@ -21,8 +21,7 @@ const {
   getAvailabilityConfig,
   getNoRatesAvailableError,
   getStayResults,
-  getImmediateLastDateRange,
-  getPastDateRange,
+  getCustomRateDateRange,
   getRatesObjectArray,
   getEmptyRateObject,
   MIN_MARKUP_PERCENTAGE,
@@ -46,7 +45,7 @@ const MIN_STAY_WARNING_MESSAGE = 'Please note that the a minimum stay requiremen
 const PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
-const INVALID_DAY_OF_WEEK_WARNING_TEMPLATE = 'Please note that start date day of {allowedDays} was required in the {customPeriodInfoMsg}';
+const INVALID_DAY_OF_WEEK_WARNING_TEMPLATE = 'Please note that start day of {allowedDays} was required in the {customPeriodInfoMsg}';
 
 const DEFAULT_CUSTOM_RATE_MARKUP_PERCENTAGE = 0;
 const DEFAULT_CUSTOM_RATES_EXTENDED_BOOKING_YEARS = 2;
@@ -55,11 +54,8 @@ const CUSTOM_PERIOD_LAST_YEAR_INFO_MSG = 'last year\'s rate.';
 const CUSTOM_RATE_WITHMARKUP_INFO_MSG = 'Custom rate applied, calculated using a markup on {customPeriodInfoMsg} {sWarningMsg}';
 const CUSTOM_RATE_NO_MARKUP_INFO_MSG = 'Custom rate applied with no markup on {customPeriodInfoMsg} {sWarningMsg}';
 const EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE = 'Last available rate until: {lastRateEndDate}. Custom rates can only be extended by {extendedBookingYears} year(s), please change the date and try again.';
-const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
-const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
 const SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE = 'No rates available for the requested date/stay. Rates will be sent as 0.00 per your company settings.';
 const CROSS_SEASON_NOT_ALLOWED_ERROR_MESSAGE = 'Cross season is not allowed for this option. Please select another rate or option and try again.';
-const PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE = 'Please note that the start day is not valid for the previous rate. Allowed days: {allowedDays}.';
 const PRODUCT_CONNECT_OPTION_INFO_ERROR_MESSAGE = 'Error getting option info from Product Connect. Check Product Connect credentials and try again.';
 
 const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUnitQuantity) => {
@@ -120,73 +116,6 @@ const handleFullAvailability = async ({
     ...(message && SCheckPass ? { message } : {}),
     rates: getRatesObjectArray(OptStayResults),
   };
-};
-
-/**
- * Get the appropriate date range to use for custom rates
- */
-const getCustomRateDateRange = async ({
-  useLastYearRate,
-  optionId,
-  hostConnectEndpoint,
-  hostConnectAgentID,
-  hostConnectAgentPassword,
-  axios,
-  startDate,
-  chargeUnitQuantity,
-  roomConfigs,
-  callTourplan,
-  endDate,
-  extendedBookingYears,
-}) => {
-  let dateRangeToUse = null;
-  let errorMsg = '';
-
-  const noOfYears = 1;
-  const returnLastDateRange = false;
-
-  if (useLastYearRate) {
-    dateRangeToUse = await getPastDateRange(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      startDate,
-      chargeUnitQuantity,
-      roomConfigs,
-      callTourplan,
-      noOfYears,
-      returnLastDateRange,
-    );
-    if (!dateRangeToUse) {
-      errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
-    } else {
-      const periodEndDate = moment(startDate).add(chargeUnitQuantity - 1, 'days').subtract(noOfYears, 'year');
-      if (periodEndDate.isAfter(moment(dateRangeToUse.endDate))) {
-        errorMsg = NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE;
-        dateRangeToUse = null;
-      }
-    }
-  } else {
-    dateRangeToUse = await getImmediateLastDateRange(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      endDate || startDate,
-      roomConfigs,
-      callTourplan,
-      extendedBookingYears,
-    );
-    if (!dateRangeToUse) {
-      // The code should never reach here
-      errorMsg = NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE;
-    }
-  }
-
-  return { dateRangeToUse, errorMsg };
 };
 
 const searchAvailabilityForItinerary = async ({
@@ -461,26 +390,6 @@ const searchAvailabilityForItinerary = async ({
 
   let sWarningMsg = '';
 
-  const startDateIsInvalid = validateStartDay({
-    dateRanges: [dateRangeToUse],
-    startDate: dateRangeToUse.startDate,
-  });
-  if (startDateIsInvalid) {
-    // if start day is not valid find the date for the next valid day
-    sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', startDateIsInvalid).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
-    const newStartDate = findNextValidDate(dateRangeToUse.startDate, [dateRangeToUse]);
-    if (newStartDate && moment(newStartDate).isSameOrBefore(dateRangeToUse.endDate)) {
-      dateRangeToUse.startDate = newStartDate;
-    } else {
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: useLastYearRate ? NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE : NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE,
-      };
-    }
-  }
-
   // Validate date ranges
   const dateRangesError = validateDateRanges({
     dateRanges: [dateRangeToUse],
@@ -503,6 +412,20 @@ const searchAvailabilityForItinerary = async ({
         rates: [],
         message: PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE.replace('{customPeriodInfoMsg}', customPeriodInfoMsg).replace('{closedDateRanges}', dateRangesError.message),
       };
+    }
+  }
+
+  const startDateIsInvalid = validateStartDay({
+    dateRanges: [dateRangeToUse],
+    startDate: dateRangeToUse.startDate,
+  });
+  if (startDateIsInvalid) {
+    // if start day is not valid find the date for the next valid day
+    sWarningMsg += INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', startDateIsInvalid).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
+    const newStartDate = findNextValidDate(dateRangeToUse.startDate, [dateRangeToUse]);
+    if (newStartDate) {
+      dateRangeToUse.startDate = newStartDate;
+      dateRangeToUse.endDate = moment(newStartDate).add(chargeUnitQuantity - 1, 'days').format('YYYY-MM-DD');
     }
   }
 
@@ -575,7 +498,7 @@ const searchAvailabilityForItinerary = async ({
         }
 
         if (costInfoForDaysWithRates.message) {
-          sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithRates.message);
+          sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', costInfoForDaysWithRates.message).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
         }
         costForDaysWithRates = costInfoForDaysWithRates.cost;
       }
@@ -608,7 +531,7 @@ const searchAvailabilityForItinerary = async ({
         };
       }
       if (costInfoForDaysWithoutRates.message) {
-        sWarningMsg = PREVIOUS_RATE_START_DAY_NOT_VALID_WARNING_MESSAGE.replace('{allowedDays}', costInfoForDaysWithoutRates.message);
+        sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', costInfoForDaysWithoutRates.message).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
       }
       costForDaysWithoutRates = costInfoForDaysWithoutRates.cost;
     }
@@ -651,23 +574,6 @@ const searchAvailabilityForItinerary = async ({
         rates: [],
         message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
       };
-    }
-
-    // fetch the conversion rate if the rate are displayed in supplier currency
-    if (displayRateInSupplierCurrency) {
-      conversionRate = await getConversionRate({
-        OptStayResultsInSupplierCurrency: OptStayResults,
-        optionId,
-        hostConnectEndpoint,
-        hostConnectAgentID,
-        hostConnectAgentPassword,
-        axios,
-        startDate,
-        noOfDaysRatesAvailable,
-        roomConfigs,
-        callTourplan,
-      });
-      conversionRateFetched = true;
     }
   }
 
