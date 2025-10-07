@@ -642,6 +642,7 @@ const getEmptyRateObject = agentCurrency => {
 */
 const getRatesObjectArray = (
   OptStayResults,
+  isBookingForCustomRatesEnabled,
   conversionRate = 1,
   markupPercentage = 0,
   OptStayResultsExtendedDates = [],
@@ -649,7 +650,6 @@ const getRatesObjectArray = (
   daysToChargeAtLastRate = 0,
   settings = {},
   noOfDaysRatesAvailable = 0,
-  isBookingForCustomRatesEnabled = false,
 ) => {
   // Add input validation
   if (!Array.isArray(OptStayResults)) {

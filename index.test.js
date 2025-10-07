@@ -8,7 +8,7 @@ const hash = require('object-hash');
 const { XMLParser } = require('fast-xml-parser');
 const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
 const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
-
+const { CUSTOM_RATE_ID_NAME } = require('./utils');
 const {
   getRatesObjectArray,
   getImmediateLastDateRange,
@@ -1145,7 +1145,17 @@ describe('search tests', () => {
     });
   });
 
-  describe.skip('Custom Rate Markup Calculations', () => {
+  describe('Custom Rate Markup Calculations', () => {
+    const isBookingForCustomRatesEnabled = true;
+    const conversionRate = 1;
+    const settings = {
+      costPrice: 0,
+      buyCurrency: 'USD',
+      agentCurrency: 'USD',
+      crossSeason: false,
+      isRoundRatesEnabled: false,
+      isRoundToTheNearestDollarEnabled: false,
+    };
     describe('getRatesObjectArray method tests', () => {
       it('should apply no markup when markupPercentage is 0', () => {
         const OptStayResults = [{
@@ -1155,10 +1165,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 0);
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 0);
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('TEST_RATE_ID');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(10000);
         expect(result[0].agentPrice).toBe(9000);
       });
@@ -1171,10 +1181,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 10); // 10% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 10); // 10% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(11000); // 10000 * 1.1
         expect(result[0].agentPrice).toBe(9900); // 9000 * 1.1
       });
@@ -1187,10 +1197,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 1); // 1% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 1); // 1% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(10100); // 10000 * 1.01
         expect(result[0].agentPrice).toBe(9090); // 9000 * 1.01
       });
@@ -1203,10 +1213,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 100); // 100% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 100); // 100% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(20000); // 10000 * 2
         expect(result[0].agentPrice).toBe(18000); // 9000 * 2
       });
@@ -1219,10 +1229,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 15.5); // 15.5% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 15.5); // 15.5% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(11550); // 10000 * 1.155 = 11550 (already integer)
         expect(result[0].agentPrice).toBe(10395); // 9000 * 1.155 = 10395 (already integer)
       });
@@ -1241,10 +1251,11 @@ describe('search tests', () => {
           AgentPrice: '4500',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 10, OptStayResultsExtendedDates);
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, 
+          conversionRate, 10, OptStayResultsExtendedDates, 0, 1, settings, 1);
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         // Total: 10000 + (5000 * 1.1) = 15500
         expect(result[0].totalPrice).toBe(15500);
         // Agent: 9000 + (4500 * 1.1) = 13950
@@ -1265,10 +1276,11 @@ describe('search tests', () => {
           AgentPrice: '2999',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 6.66, OptStayResultsExtendedDates);
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, 
+          conversionRate, 6.66, OptStayResultsExtendedDates, 0, 1, settings, 1);
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         // Total: 8333 + (3333 * 1.0666) = 8333 + 3554.9778 = 11887.9778, rounded to 11888
         expect(result[0].totalPrice).toBe(11888);
         // Agent: 7777 + (2999 * 1.0666) = 7777 + 3198.7334 = 10975.7334, rounded to 10976
@@ -1286,7 +1298,7 @@ describe('search tests', () => {
           AgentPrice: '9033',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 7); // 7% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 7); // 7% markup
 
         expect(result).toHaveLength(1);
         expect(result[0].totalPrice).toBe(10735); // 10033 * 1.07 = 10735.31, rounded to integer
@@ -1301,10 +1313,10 @@ describe('search tests', () => {
           AgentPrice: '11111',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 3.33); // 3.33% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 3.33); // 3.33% markup
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         // 12345 * 1.0333 = 12756.2985, rounded to 12756
         expect(result[0].totalPrice).toBe(12756);
         // 11111 * 1.0333 = 11481.0963, rounded to 11481  
@@ -1330,15 +1342,15 @@ describe('search tests', () => {
           }
         ];
 
-        const result = getRatesObjectArray(OptStayResults, 20); // 20% markup
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 20); // 20% markup
 
         expect(result).toHaveLength(2);
 
-        expect(result[0].rateId).toBe('Custom');
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[0].totalPrice).toBe(12000); // 10000 * 1.2
         expect(result[0].agentPrice).toBe(10800); // 9000 * 1.2
 
-        expect(result[1].rateId).toBe('Custom');
+        expect(result[1].rateId).toBe(CUSTOM_RATE_ID_NAME);
         expect(result[1].totalPrice).toBe(24000); // 20000 * 1.2
         expect(result[1].agentPrice).toBe(21600); // 18000 * 1.2
       });
@@ -1351,10 +1363,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 0.5); // Below MIN_MARKUP_PERCENTAGE
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 0.5); // Below MIN_MARKUP_PERCENTAGE
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom'); // Still creates custom rate but with no markup
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME); // Still creates custom rate but with no markup
         expect(result[0].totalPrice).toBe(10000); // No markup applied
         expect(result[0].agentPrice).toBe(9000); // No markup applied
       });
@@ -1367,10 +1379,10 @@ describe('search tests', () => {
           AgentPrice: '9000',
         }];
 
-        const result = getRatesObjectArray(OptStayResults, 101); // Above MAX_MARKUP_PERCENTAGE
+        const result = getRatesObjectArray(OptStayResults, isBookingForCustomRatesEnabled, conversionRate, 101); // Above MAX_MARKUP_PERCENTAGE
 
         expect(result).toHaveLength(1);
-        expect(result[0].rateId).toBe('Custom'); // Still creates custom rate but with no markup
+        expect(result[0].rateId).toBe(CUSTOM_RATE_ID_NAME); // Still creates custom rate but with no markup
         expect(result[0].totalPrice).toBe(10000); // No markup applied
         expect(result[0].agentPrice).toBe(9000); // No markup applied
       });
@@ -1399,7 +1411,7 @@ describe('search tests', () => {
         });
 
         expect(result.bookable).toBeTruthy();
-        expect(result.rates[0].rateId).toBe('Custom');
+        expect(result.rates[0].rateId).toBe(CUSTOM_RATE_ID_NAME);
         // 15% markup applied: 10000 * 1.15 = 11500
         expect(result.rates[0].totalPrice).toBe(11500);
         expect(result.rates[0].agentPrice).toBe(10350); // 9000 * 1.15
@@ -1428,7 +1440,7 @@ describe('search tests', () => {
         expect(result.bookable).toBeTruthy();
         expect(result.rates[0].totalPrice).toBe(10000); // No markup applied
         expect(result.rates[0].agentPrice).toBe(9000); // No markup applied
-        expect(result.rates[0].rateId).toBe('Custom'); // Original rate ID
+        expect(result.rates[0].rateId).toBe(CUSTOM_RATE_ID_NAME); // Original rate ID
       });
     });
   });
