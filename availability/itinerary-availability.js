@@ -628,6 +628,7 @@ const searchAvailabilityForItinerary = async ({
           daysToChargeAtLastRate,
           settings,
           noOfDaysRatesAvailable,
+          isBookingForCustomRatesEnabled,
         ),
       };
     }
