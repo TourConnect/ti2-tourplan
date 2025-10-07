@@ -114,7 +114,7 @@ const handleFullAvailability = async ({
     type: 'inventory',
     ...(endDate && SCheckPass ? { endDate } : {}),
     ...(message && SCheckPass ? { message } : {}),
-    rates: getRatesObjectArray(OptStayResults),
+    rates: getRatesObjectArray(OptStayResults, false),
   };
 };
 
@@ -621,6 +621,7 @@ const searchAvailabilityForItinerary = async ({
         ...(successMessage && SCheckPass ? { message: successMessage } : {}),
         rates: getRatesObjectArray(
           OptStayResults,
+          isBookingForCustomRatesEnabled,
           conversionRate,
           markupPercentage,
           OptStayResultsExtendedDates,
@@ -628,7 +629,6 @@ const searchAvailabilityForItinerary = async ({
           daysToChargeAtLastRate,
           settings,
           noOfDaysRatesAvailable,
-          isBookingForCustomRatesEnabled,
         ),
       };
     }
