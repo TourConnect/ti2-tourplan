@@ -649,6 +649,7 @@ const getRatesObjectArray = (
   daysToChargeAtLastRate = 0,
   settings = {},
   noOfDaysRatesAvailable = 0,
+  isBookingForCustomRatesEnabled = false,
 ) => {
   // Add input validation
   if (!Array.isArray(OptStayResults)) {
@@ -672,7 +673,7 @@ const getRatesObjectArray = (
       isRoundToTheNearestDollarEnabled,
     } = settings;
 
-    const rateId = markupPercentage > 0 ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
+    const rateId = isBookingForCustomRatesEnabled ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
     const currency = R.pathOr('', ['Currency'], rate);
 
     const totalPriceRaw = R.pathOr(0, ['TotalPrice'], rate);
