@@ -1872,7 +1872,7 @@ describe('search tests', () => {
     });
   });
 
-  describe.skip('Historical Rate Fallback Logic', () => {
+  describe('Historical Rate Fallback Logic', () => {
     describe('getImmediateLastDateRange method tests', () => {
       it('should return the last available date range', async () => {
         axios.mockImplementation(getFixture);
@@ -2110,7 +2110,7 @@ describe('search tests', () => {
     });
   });
 
-  describe.skip('Custom Rates Extended Booking Years', () => {
+  describe('Custom Rates Extended Booking Years', () => {
     describe('Extended booking years validation', () => {
       it('should use default extended booking years when parameter is not provided', async () => {
         axios.mockImplementation(getFixture);
