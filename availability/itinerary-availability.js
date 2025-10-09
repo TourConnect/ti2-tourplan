@@ -65,58 +65,6 @@ const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUni
   return !atLeastOneDateDoesNotHaveRatesAvailable;
 };
 
-/**
- * Handle availability when all dates have rates available
- */
-const handleFullAvailability = async ({
-  dateRanges,
-  startDate,
-  chargeUnitQuantity,
-  optionId,
-  hostConnectEndpoint,
-  hostConnectAgentID,
-  hostConnectAgentPassword,
-  axios,
-  roomConfigs,
-  displayRateInSupplierCurrency,
-  callTourplan,
-  endDate,
-  message,
-}) => {
-  // Validate date ranges and room configurations
-  const dateRangesError = validateDateRanges({
-    dateRanges,
-    startDate,
-    chargeUnitQuantity,
-  });
-
-  if (dateRangesError) {
-    return dateRangesError;
-  }
-
-  // get stay rates for the given dates
-  const OptStayResults = await getStayResults(
-    optionId,
-    hostConnectEndpoint,
-    hostConnectAgentID,
-    hostConnectAgentPassword,
-    axios,
-    startDate,
-    chargeUnitQuantity,
-    roomConfigs,
-    displayRateInSupplierCurrency,
-    callTourplan,
-  );
-
-  const SCheckPass = Boolean(OptStayResults.length);
-  return {
-    bookable: Boolean(SCheckPass),
-    type: 'inventory',
-    ...(endDate && SCheckPass ? { endDate } : {}),
-    ...(message && SCheckPass ? { message } : {}),
-    rates: getRatesObjectArray(OptStayResults, false),
-  };
-};
 
 const searchAvailabilityForItinerary = async ({
   axios,
@@ -274,22 +222,46 @@ const searchAvailabilityForItinerary = async ({
   }
 
   if (allDatesHaveRatesAvailable) {
-    // all dates have rates available get stay rates for the given dates
-    return handleFullAvailability({
+    // all dates have rates available, get stay rates for the given dates
+    // Validate date ranges and room configurations
+    const dateRangesError = validateDateRanges({
       dateRanges,
       startDate,
       chargeUnitQuantity,
+    });
+
+    if (dateRangesError) {
+      return dateRangesError;
+    }
+
+    // get stay rates for the given dates
+    const OptStayResults = await getStayResults(
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
       axios,
+      startDate,
+      chargeUnitQuantity,
       roomConfigs,
       displayRateInSupplierCurrency,
       callTourplan,
-      endDate,
-      message,
-    });
+    );
+
+    const SCheckPass = Boolean(OptStayResults.length);
+    if (SCheckPass) {
+      return {
+        bookable: SCheckPass,
+        type: 'inventory',
+        ...(endDate && SCheckPass ? { endDate } : {}),
+        ...(message && SCheckPass ? { message } : {}),
+        rates: getRatesObjectArray(OptStayResults, false),
+      };
+    }
+
+    // reset values to see if custom rates can be applied
+    allDatesHaveRatesAvailable = false;
+    noOfDaysRatesAvailable = 0;
   }
 
   // At least one date does not have rates available.
@@ -371,18 +343,6 @@ const searchAvailabilityForItinerary = async ({
       rates: [],
       message: EXTENDED_BOOKING_YEARS_ERROR_TEMPLATE.replace('{lastRateEndDate}', dateRangeToUse.endDate).replace('{extendedBookingYears}', extendedBookingYears),
     };
-  }
-
-  // This happens for SD and hence a special check is needed to send services without a rate
-  if (!dateRangeToUse.rateSets[0].rateName) {
-    if (allowSendingServicesWithoutARate && agentCurrencyCode) {
-      return {
-        bookable: true,
-        type: 'inventory',
-        rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
-        message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
-      };
-    }
   }
 
   // eslint-disable-next-line max-len
@@ -578,6 +538,9 @@ const searchAvailabilityForItinerary = async ({
   }
 
   if (daysToChargeAtLastRate > 0) {
+    const daysInDateRangeToUse = moment(dateRangeToUse.endDate).diff(moment(dateRangeToUse.startDate), 'days') + 1;
+    const ratesForDays = Math.min(daysToChargeAtLastRate, daysInDateRangeToUse);
+    const lastRateProratedDays = Math.max(ratesForDays, minStayRequired);
     // Step 2.2 : Get rates for the days that do not have rates available
     let OptStayResultsExtendedDates = await getStayResults(
       optionId,
@@ -586,7 +549,7 @@ const searchAvailabilityForItinerary = async ({
       hostConnectAgentPassword,
       axios,
       dateRangeToUse.startDate,
-      Math.max(daysToChargeAtLastRate, minStayRequired),
+      lastRateProratedDays,
       roomConfigs,
       displayRateInSupplierCurrency,
       callTourplan,
@@ -603,7 +566,7 @@ const searchAvailabilityForItinerary = async ({
           hostConnectAgentPassword,
           axios,
           startDate: dateRangeToUse.startDate,
-          noOfDaysRatesAvailable: Math.max(daysToChargeAtLastRate, minStayRequired),
+          noOfDaysRatesAvailable: lastRateProratedDays,
           roomConfigs,
           callTourplan,
         });
@@ -625,7 +588,7 @@ const searchAvailabilityForItinerary = async ({
           conversionRate,
           markupPercentage,
           OptStayResultsExtendedDates,
-          minStayRequired,
+          lastRateProratedDays,
           daysToChargeAtLastRate,
           settings,
           noOfDaysRatesAvailable,
@@ -633,6 +596,15 @@ const searchAvailabilityForItinerary = async ({
       };
     }
   }
+  if (allowSendingServicesWithoutARate && agentCurrencyCode) {
+    return {
+      bookable: true,
+      type: 'inventory',
+      rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
+      message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
+    };
+  }
+
   return {
     bookable: false,
     type: 'inventory',

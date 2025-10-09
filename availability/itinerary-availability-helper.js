@@ -33,16 +33,16 @@ const DAY_OF_WEEK = {
   SATURDAY: 6,
 };
 
-// Helper function to calculate rate with minimum stay requirements
-const calculateRateWithMinStay = (
+// Helper function to calculate the total price using price for prorated days
+const calculateTotalStayPrice = (
   totalPrice,
   agentPrice,
-  minStayRequired,
+  totalPriceDays,
   daysToChargeAtLastRate,
 ) => {
-  if (minStayRequired > daysToChargeAtLastRate) {
-    const oneDayTotalPrice = totalPrice / minStayRequired;
-    const oneDayAgentPrice = agentPrice / minStayRequired;
+  if (Number(totalPriceDays) > 0 && Number(totalPriceDays) !== Number(daysToChargeAtLastRate)) {
+    const oneDayTotalPrice = totalPrice / totalPriceDays;
+    const oneDayAgentPrice = agentPrice / totalPriceDays;
     return {
       finalTotalPrice: oneDayTotalPrice * daysToChargeAtLastRate,
       finalAgentPrice: oneDayAgentPrice * daysToChargeAtLastRate,
@@ -646,7 +646,7 @@ const getRatesObjectArray = (
   conversionRate = 1,
   markupPercentage = 0,
   OptStayResultsExtendedDates = [],
-  minStayRequired = 0,
+  totalPriceDays = 0, // if non-zero, the total price is for these many days
   daysToChargeAtLastRate = 0,
   settings = {},
   noOfDaysRatesAvailable = 0,
@@ -683,92 +683,93 @@ const getRatesObjectArray = (
     const totalPrice = Number(totalPriceRaw);
     const agentPrice = Number(agentPriceRaw);
 
-    let finalTotalPrice = 0;
-    let finalAgentPrice = 0;
-    let totalCostPrice = 0;
-    let markupFactor = 1;
-
     if (Number.isNaN(totalPrice) || Number.isNaN(agentPrice)) {
       console.error(`Invalid price values: totalPrice=${totalPriceRaw}, agentPrice=${agentPriceRaw}`);
       return [];
     }
 
-    // Get the markup factor
-    if (markupPercentage >= MIN_MARKUP_PERCENTAGE && markupPercentage <= MAX_MARKUP_PERCENTAGE) {
-      markupFactor = 1 + (Number(markupPercentage) / 100);
-    }
-
-    // Apply minimum stay calculation if needed
-    const { finalTotalPrice: adjustedTotalPrice, finalAgentPrice: adjustedAgentPrice } =
-      calculateRateWithMinStay(totalPrice, agentPrice, minStayRequired, daysToChargeAtLastRate);
-
-    finalTotalPrice = adjustedTotalPrice;
-    finalAgentPrice = adjustedAgentPrice;
-
+    let finalTotalPrice = totalPrice;
+    let finalAgentPrice = agentPrice;
+    let totalCostPrice = totalPrice;
     // the cost price is always in dollars
     const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
-    const divisor = 10 ** currencyPrecision;
 
-    if (noOfDaysRatesAvailable > 0) {
-      // Case: Partial rates (some days have rates available & some days don't have rates available)
-      const firstRateResult = applyCrossSeasonFirstRate(
-        finalTotalPrice,
-        finalAgentPrice,
-        noOfDaysRatesAvailable,
-        daysToChargeAtLastRate,
-        crossSeason,
-        markupFactor,
-      );
+    if (isBookingForCustomRatesEnabled) {
+      let markupFactor = 1;
+      // Get the markup factor
+      if (markupPercentage >= MIN_MARKUP_PERCENTAGE && markupPercentage <= MAX_MARKUP_PERCENTAGE) {
+        markupFactor = 1 + (Number(markupPercentage) / 100);
+      }
 
-      if (firstRateResult) {
-        // the cross season is use first rate
-        finalTotalPrice = firstRateResult.finalTotalPrice;
-        finalAgentPrice = firstRateResult.finalAgentPrice;
+      // Calculate the total stay price if the total price was provided on prorated days
+      const { finalTotalPrice: adjustedTotalPrice, finalAgentPrice: adjustedAgentPrice } =
+        calculateTotalStayPrice(totalPrice, agentPrice, totalPriceDays, daysToChargeAtLastRate);
+      finalTotalPrice = adjustedTotalPrice;
+      finalAgentPrice = adjustedAgentPrice;
+      totalCostPrice = costPrice > 0 ? costPrice * markupFactor : adjustedTotalPrice;
+      const divisor = 10 ** currencyPrecision;
 
-        // in this case no markup to be applied to the cost price
-        totalCostPrice = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
-      // eslint-disable-next-line max-len
-      } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
-        // Handle extended dates with different markup calculation
-        const rateOfNoRatesDays = OptStayResultsExtendedDates.find(rate2 =>
-          rate2 && rate2.RateId === rate.RateId);
+      if (noOfDaysRatesAvailable > 0) {
+        // Case: Partial rates (some days have rates available & some days don't have rates available)
+        const firstRateResult = applyCrossSeasonFirstRate(
+          finalTotalPrice,
+          finalAgentPrice,
+          noOfDaysRatesAvailable,
+          daysToChargeAtLastRate,
+          crossSeason,
+          markupFactor,
+        );
 
-        if (rateOfNoRatesDays) {
-          const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], rateOfNoRatesDays);
-          const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], rateOfNoRatesDays);
+        if (firstRateResult) {
+          // the cross season is use first rate
+          finalTotalPrice = firstRateResult.finalTotalPrice;
+          finalAgentPrice = firstRateResult.finalAgentPrice;
 
-          const totalPriceNoRatesDays = Number(totalPriceNoRatesDaysRaw);
-          const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
+          // in this case no markup to be applied to the cost price
+          totalCostPrice = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
+        // eslint-disable-next-line max-len
+        } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
+          // Handle extended dates with different markup calculation
+          const rateOfNoRatesDays = OptStayResultsExtendedDates.find(rate2 =>
+            rate2 && rate2.RateId === rate.RateId);
 
-          if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
-            finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
-            finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
+          if (rateOfNoRatesDays) {
+            const totalPriceNoRatesDaysRaw = R.pathOr(0, ['TotalPrice'], rateOfNoRatesDays);
+            const agentPriceNoRatesDaysRaw = R.pathOr(0, ['AgentPrice'], rateOfNoRatesDays);
+
+            const totalPriceNoRatesDays = Number(totalPriceNoRatesDaysRaw);
+            const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
+
+            if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
+              finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
+              finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
+            }
           }
+
+          totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
         }
+      } else if (markupFactor > 1) {
+        // Case: Rates for NO dates are available
+        finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
+        finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
         totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
       }
-    } else if (markupFactor > 1) {
-      // Case: Rates for NO dates are available
-      finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
-      finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
-      totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
+      // Apply rate rounding if enabled
+      const roundingResult = applyRateRounding(
+        finalTotalPrice,
+        finalAgentPrice,
+        totalCostPrice,
+        currencyPrecision,
+        isRoundRatesEnabled,
+        isRoundToTheNearestDollarEnabled,
+      );
+
+      finalTotalPrice = roundingResult.finalTotalPrice;
+      finalAgentPrice = roundingResult.finalAgentPrice;
+      totalCostPrice = roundingResult.totalCostPrice;
     }
-
-    // Apply rate rounding if enabled
-    const roundingResult = applyRateRounding(
-      finalTotalPrice,
-      finalAgentPrice,
-      totalCostPrice,
-      currencyPrecision,
-      isRoundRatesEnabled,
-      isRoundToTheNearestDollarEnabled,
-    );
-
-    finalTotalPrice = roundingResult.finalTotalPrice;
-    finalAgentPrice = roundingResult.finalAgentPrice;
-    totalCostPrice = roundingResult.totalCostPrice;
 
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.
