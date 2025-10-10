@@ -219,54 +219,60 @@ const searchAvailabilityForItinerary = async ({
     noOfDaysRatesAvailable = lastDateRangeEndDate.diff(moment(startDate), 'days') + 1;
     // eslint-disable-next-line max-len
     allDatesHaveRatesAvailable = doAllDatesHaveRatesAvailable(lastDateRangeEndDate, startDate, chargeUnitQuantity);
-  }
 
-  if (allDatesHaveRatesAvailable) {
-    // all dates have rates available, get stay rates for the given dates
-    // Validate date ranges and room configurations
-    const dateRangesError = validateDateRanges({
-      dateRanges,
-      startDate,
-      chargeUnitQuantity,
-    });
+    if (allDatesHaveRatesAvailable) {
+      // all dates have rates available, get stay rates for the given dates
+      // Validate date ranges and room configurations
+      const dateRangesError = validateDateRanges({
+        dateRanges,
+        startDate,
+        chargeUnitQuantity,
+      });
 
-    if (dateRangesError) {
-      return dateRangesError;
-    }
+      if (dateRangesError) {
+        return dateRangesError;
+      }
 
-    // get stay rates for the given dates
-    const OptStayResults = await getStayResults(
-      optionId,
-      hostConnectEndpoint,
-      hostConnectAgentID,
-      hostConnectAgentPassword,
-      axios,
-      startDate,
-      chargeUnitQuantity,
-      roomConfigs,
-      displayRateInSupplierCurrency,
-      callTourplan,
-    );
+      // get stay rates for the given dates
+      const OptStayResults = await getStayResults(
+        optionId,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+        axios,
+        startDate,
+        chargeUnitQuantity,
+        roomConfigs,
+        displayRateInSupplierCurrency,
+        callTourplan,
+      );
 
-    const SCheckPass = Boolean(OptStayResults.length);
-    if (SCheckPass) {
+      const SCheckPass = Boolean(OptStayResults.length);
+      if (SCheckPass) {
+        return {
+          bookable: SCheckPass,
+          type: 'inventory',
+          ...(endDate && SCheckPass ? { endDate } : {}),
+          ...(message && SCheckPass ? { message } : {}),
+          rates: getRatesObjectArray(OptStayResults, false),
+        };
+      }
+
+      // return generic error - failed to get rates for an avaialble date range
       return {
-        bookable: SCheckPass,
+        bookable: false,
         type: 'inventory',
-        ...(endDate && SCheckPass ? { endDate } : {}),
-        ...(message && SCheckPass ? { message } : {}),
-        rates: getRatesObjectArray(OptStayResults, false),
+        rates: [],
+        message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
       };
     }
-
-    // reset values to see if custom rates can be applied
-    allDatesHaveRatesAvailable = false;
-    noOfDaysRatesAvailable = 0;
   }
 
-  // At least one date does not have rates available.
+  // At least one date does not have rates available
   if (!isBookingForCustomRatesEnabled) {
+    // custom rates are not enabled
     if (allowSendingServicesWithoutARate && agentCurrencyCode) {
+      // sending services without a rate is enabled retrun empty rates (0.00)
       return {
         bookable: true,
         type: 'inventory',
