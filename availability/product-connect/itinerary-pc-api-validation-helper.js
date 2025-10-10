@@ -85,7 +85,7 @@ const validateProductConnect = async ({
 }) => {
   if (!productConnectEndpoint) {
     console.warn('WARNING: ProductConnect Endpoint is not set.');
-    return true;
+    return false;
   }
   if (!productConnectUser || !productConnectUserPassword) {
     console.warn('WARNING: ProductConnect User or Password is not set.');

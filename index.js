@@ -396,17 +396,19 @@ class BuyerPlugin {
         });
         assert(R.path(['AgentInfoReply', 'Currency'], replyObj));
 
-        const isProductConnectValid = await validateProductConnect({
-          productConnectEndpoint,
-          productConnectUser,
-          productConnectUserPassword,
-          axios,
-          callTourplan: this.callTourplan,
-          cache: this.cache,
-          useCache: false,
-        });
+        if (productConnectEndpoint) {
+          const isProductConnectValid = await validateProductConnect({
+            productConnectEndpoint,
+            productConnectUser,
+            productConnectUserPassword,
+            axios,
+            callTourplan: this.callTourplan,
+            cache: this.cache,
+            useCache: false,
+          });
 
-        assert(isProductConnectValid);
+          assert(isProductConnectValid);
+        }
 
         return true;
       }
