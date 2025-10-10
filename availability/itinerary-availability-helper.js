@@ -356,7 +356,7 @@ const getImmediateLastDateRange = async (
   extendedBookingYears = 1,
 ) => {
   // Prevent a very long period by limiting the number of days
-  const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days'));
+  const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days') + 1);
   const dateFrom = moment().format('YYYY-MM-DD');
   const dateRanges = await getOptionDateRanges(
     optionId,
