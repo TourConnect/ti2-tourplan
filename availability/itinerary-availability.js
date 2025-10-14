@@ -28,6 +28,7 @@ const {
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
+  GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
 } = require('./itinerary-availability-helper');
 
 const {
@@ -43,7 +44,6 @@ const {
 
 const MIN_STAY_WARNING_MESSAGE = 'Please note that the a minimum stay requirement of {minSCU} was required for {customPeriodInfoMsg}';
 const PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
-const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
 const INVALID_DAY_OF_WEEK_WARNING_TEMPLATE = 'Please note that start day of {allowedDays} was required in the {customPeriodInfoMsg}';
 
@@ -65,6 +65,26 @@ const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUni
   return !atLeastOneDateDoesNotHaveRatesAvailable;
 };
 
+const returnEmptyRatesOrError = (allowSendingServicesWithoutARate, agentCurrencyCode, errorMsg) => {
+  // if sending services without a rate is enabled return empty rates (0.00)
+  if (allowSendingServicesWithoutARate && agentCurrencyCode) {
+    return {
+      bookable: true,
+      type: 'inventory',
+      rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
+      message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
+    };
+  }
+
+  // return generic error - failed to get rates for an avaialble date range
+  // and sending services without a rate is not enabled
+  return {
+    bookable: false,
+    type: 'inventory',
+    rates: [],
+    message: errorMsg,
+  };
+};
 
 const searchAvailabilityForItinerary = async ({
   axios,
@@ -258,31 +278,18 @@ const searchAvailabilityForItinerary = async ({
         };
       }
 
-      // return generic error - failed to get rates for an avaialble date range
-      return {
-        bookable: false,
-        type: 'inventory',
-        rates: [],
-        message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
-      };
+      return returnEmptyRatesOrError(
+        allowSendingServicesWithoutARate,
+        agentCurrencyCode,
+        GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
+      );
     }
   }
 
   // At least one date does not have rates available
   if (!isBookingForCustomRatesEnabled) {
     // custom rates are not enabled
-    if (allowSendingServicesWithoutARate && agentCurrencyCode) {
-      // sending services without a rate is enabled retrun empty rates (0.00)
-      return {
-        bookable: true,
-        type: 'inventory',
-        rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
-        message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
-      };
-    }
-    // If both "custom rates" and "sending services without a rate" are not enabled
-    // return error
-    return getNoRatesAvailableError({
+    const noRatesAvailableError = await getNoRatesAvailableError({
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
@@ -293,6 +300,11 @@ const searchAvailabilityForItinerary = async ({
       callTourplan,
       extendedBookingYears,
     });
+    return returnEmptyRatesOrError(
+      allowSendingServicesWithoutARate,
+      agentCurrencyCode,
+      noRatesAvailableError,
+    );
   }
 
   // Custom Rates are Enabled or Sending Services Without a Rate is Enabled
@@ -321,21 +333,7 @@ const searchAvailabilityForItinerary = async ({
   });
 
   if (!dateRangeToUse) {
-    if (allowSendingServicesWithoutARate && agentCurrencyCode) {
-      return {
-        bookable: true,
-        type: 'inventory',
-        rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
-        message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
-      };
-    }
-
-    return {
-      bookable: false,
-      type: 'inventory',
-      rates: [],
-      message: errorMsg,
-    };
+    return returnEmptyRatesOrError(allowSendingServicesWithoutARate, agentCurrencyCode, errorMsg);
   }
 
   // Check if the end date of the date range to use is beyond the permitted future booking years
@@ -455,12 +453,11 @@ const searchAvailabilityForItinerary = async ({
 
       if (costInfoForDaysWithRates) {
         if (costInfoForDaysWithRates.error) {
-          return {
-            bookable: false,
-            type: 'inventory',
-            rates: [],
-            message: costInfoForDaysWithRates.message,
-          };
+          return returnEmptyRatesOrError(
+            allowSendingServicesWithoutARate,
+            agentCurrencyCode,
+            costInfoForDaysWithRates.message,
+          );
         }
 
         if (costInfoForDaysWithRates.message) {
@@ -534,12 +531,11 @@ const searchAvailabilityForItinerary = async ({
     );
     const SCheckPass = Boolean(OptStayResults.length);
     if (!SCheckPass) {
-      return {
-        bookable: Boolean(SCheckPass),
-        type: 'inventory',
-        rates: [],
-        message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
-      };
+      return returnEmptyRatesOrError(
+        allowSendingServicesWithoutARate,
+        agentCurrencyCode,
+        GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
+      );
     }
   }
 
@@ -602,21 +598,22 @@ const searchAvailabilityForItinerary = async ({
       };
     }
   }
-  if (allowSendingServicesWithoutARate && agentCurrencyCode) {
-    return {
-      bookable: true,
-      type: 'inventory',
-      rates: getEmptyRateObject(agentCurrencyCode.toUpperCase()),
-      message: SERVICE_WITHOUT_A_RATE_APPLIED_WARNING_MESSAGE,
-    };
-  }
-
-  return {
-    bookable: false,
-    type: 'inventory',
-    rates: [],
-    message: GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
-  };
+  const noRatesAvailableError = await getNoRatesAvailableError({
+    optionId,
+    hostConnectEndpoint,
+    hostConnectAgentID,
+    hostConnectAgentPassword,
+    axios,
+    endDate: endDate || startDate,
+    roomConfigs,
+    callTourplan,
+    extendedBookingYears,
+  });
+  return returnEmptyRatesOrError(
+    allowSendingServicesWithoutARate,
+    agentCurrencyCode,
+    noRatesAvailableError,
+  );
 };
 
 module.exports = {

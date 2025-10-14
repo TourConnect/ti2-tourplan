@@ -127,8 +127,8 @@ const MAX_EXTENDED_BOOKING_YEARS = 100;
 
 // constants not exported
 const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested date/stay. '
-  + '(e.g. no rates, block out period, on request, minimum stay etc.)';
-const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = 'Rates are only available until {dateTill}. '
+  + '(e.g. no rates, block out period, on request, minimum stay etc.).';
+const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = ' Rates are only available until {dateTill}. '
   + 'Please change the date and try again.';
 /**
  * Calculate days in a year for a given date, accounting for leap years
@@ -1044,14 +1044,9 @@ const getNoRatesAvailableError = async ({
   const dateTill = immediateLastDateRange ? immediateLastDateRange.endDate : null;
   if (dateTill) {
     const formattedDateTill = moment(dateTill).format(USER_FRIENDLY_DATE_FORMAT);
-    errorMessage = RATES_AVAILABLE_TILL_ERROR_TEMPLATE.replace('{dateTill}', formattedDateTill);
+    errorMessage += RATES_AVAILABLE_TILL_ERROR_TEMPLATE.replace('{dateTill}', formattedDateTill);
   }
-  return {
-    bookable: false,
-    type: 'inventory',
-    rates: [],
-    message: errorMessage,
-  };
+  return errorMessage;
 };
 
 // Get agent currency code from cache or fetch it
@@ -1305,4 +1300,5 @@ module.exports = {
   MAX_MARKUP_PERCENTAGE,
   MIN_EXTENDED_BOOKING_YEARS,
   MAX_EXTENDED_BOOKING_YEARS,
+  GENERIC_AVALABILITY_CHK_ERROR_MESSAGE,
 };
