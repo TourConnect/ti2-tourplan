@@ -409,6 +409,8 @@ const searchAvailabilityForItinerary = async ({
     let paxBreaks = {};
     let costForDaysWithRates = 0;
     let costForDaysWithoutRates = 0;
+    let taxRateForDaysWithRates = 0;
+    let taxRateForDaysWithoutRates = 0;
     const optionInfo = await getOptionFromProductConnect(
       optionId,
       productConnectEndpoint,
@@ -464,6 +466,7 @@ const searchAvailabilityForItinerary = async ({
           sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', costInfoForDaysWithRates.message).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
         }
         costForDaysWithRates = costInfoForDaysWithRates.cost;
+        taxRateForDaysWithRates = costInfoForDaysWithRates.taxRate;
       }
     }
 
@@ -497,8 +500,10 @@ const searchAvailabilityForItinerary = async ({
         sWarningMsg = INVALID_DAY_OF_WEEK_WARNING_TEMPLATE.replace('{allowedDays}', costInfoForDaysWithoutRates.message).replace('{customPeriodInfoMsg}', customPeriodInfoMsg);
       }
       costForDaysWithoutRates = costInfoForDaysWithoutRates.cost;
+      taxRateForDaysWithoutRates = costInfoForDaysWithoutRates.taxRate;
     }
     settings.costPrice = costForDaysWithoutRates + costForDaysWithRates;
+    settings.taxRate = Math.max(taxRateForDaysWithRates, taxRateForDaysWithoutRates);
   }
 
   // Format the success message for the custom rates

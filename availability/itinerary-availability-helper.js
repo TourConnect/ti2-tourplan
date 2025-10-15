@@ -112,10 +112,11 @@ const applyRateRounding = (
   }
 
   // Convert back to the original currency format
+  // Use Math.round to avoid floating-point precision issues
   return {
-    finalTotalPrice: roundedTotalPrice * divisor,
-    finalAgentPrice: roundedAgentPrice * divisor,
-    totalCostPrice: roundedTotalCostPrice * divisor,
+    finalTotalPrice: Math.round(roundedTotalPrice * divisor),
+    finalAgentPrice: Math.round(roundedAgentPrice * divisor),
+    totalCostPrice: Math.round(roundedTotalCostPrice * divisor),
   };
 };
 
@@ -671,6 +672,7 @@ const getRatesObjectArray = (
       crossSeason,
       isRoundRatesEnabled,
       isRoundToTheNearestDollarEnabled,
+      taxRate,
     } = settings;
 
     const rateId = isBookingForCustomRatesEnabled ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
@@ -690,7 +692,7 @@ const getRatesObjectArray = (
 
     let finalTotalPrice = totalPrice;
     let finalAgentPrice = agentPrice;
-    let totalCostPrice = totalPrice;
+    let totalCostPrice = costPrice > 0 ? costPrice : totalPrice;
     // the cost price is always in dollars
     const currencyPrecision = R.pathOr(2, ['currencyPrecision'], rate);
 
@@ -710,7 +712,8 @@ const getRatesObjectArray = (
       const divisor = 10 ** currencyPrecision;
 
       if (noOfDaysRatesAvailable > 0) {
-        // Case: Partial rates (some days have rates available & some days don't have rates available)
+        // Case: Partial rates (some days have rates available &
+        // some days don't have rates available)
         const firstRateResult = applyCrossSeasonFirstRate(
           finalTotalPrice,
           finalAgentPrice,
@@ -726,7 +729,7 @@ const getRatesObjectArray = (
           finalAgentPrice = firstRateResult.finalAgentPrice;
 
           // in this case no markup to be applied to the cost price
-          totalCostPrice = costPrice > 0 ? costPrice * divisor : finalTotalPrice;
+          totalCostPrice = costPrice > 0 ? Math.round(costPrice * divisor) : finalTotalPrice;
         // eslint-disable-next-line max-len
         } else if (Array.isArray(OptStayResultsExtendedDates) && OptStayResultsExtendedDates.length > 0) {
           // Handle extended dates with different markup calculation
@@ -741,19 +744,27 @@ const getRatesObjectArray = (
             const agentPriceNoRatesDays = Number(agentPriceNoRatesDaysRaw);
 
             if (!Number.isNaN(totalPriceNoRatesDays) && !Number.isNaN(agentPriceNoRatesDays)) {
-              finalTotalPrice = Math.round(finalTotalPrice + (totalPriceNoRatesDays * markupFactor));
-              finalAgentPrice = Math.round(finalAgentPrice + (agentPriceNoRatesDays * markupFactor));
+              finalTotalPrice = Math.round(
+                finalTotalPrice + (totalPriceNoRatesDays * markupFactor),
+              );
+              finalAgentPrice = Math.round(
+                finalAgentPrice + (agentPriceNoRatesDays * markupFactor),
+              );
             }
           }
 
-          totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
+          totalCostPrice = costPrice > 0
+            ? Math.round(costPrice * divisor * markupFactor)
+            : finalTotalPrice;
         }
       } else if (markupFactor > 1) {
         // Case: Rates for NO dates are available
         finalTotalPrice = Math.round(finalTotalPrice * markupFactor);
         finalAgentPrice = Math.round(finalAgentPrice * markupFactor);
 
-        totalCostPrice = costPrice > 0 ? costPrice * divisor * markupFactor : finalTotalPrice;
+        totalCostPrice = costPrice > 0
+          ? Math.round(costPrice * divisor * markupFactor)
+          : finalTotalPrice;
       }
 
       // Apply rate rounding if enabled
@@ -771,6 +782,10 @@ const getRatesObjectArray = (
       totalCostPrice = roundingResult.totalCostPrice;
     }
 
+    const retailTax = taxRate * finalTotalPrice;
+    const sellTax = taxRate * finalTotalPrice;
+    const costTax = taxRate * totalCostPrice;
+    const agentTax = taxRate * finalAgentPrice;
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.
     const cancelHours = R.pathOr('', ['CancelHours'], rate);
@@ -933,8 +948,13 @@ const getRatesObjectArray = (
       costPrice: totalCostPrice,
       buyCurrency,
       agentPrice: finalAgentPrice,
+      sellPrice: finalTotalPrice, // set it same as total price
       currencyPrecision,
       cancelHours,
+      costTax,
+      sellTax,
+      retailTax,
+      agentTax,
       externalRateText,
       cancelPolicies,
       startTimes: extStartTimes,
