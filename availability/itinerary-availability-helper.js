@@ -675,6 +675,11 @@ const getRatesObjectArray = (
       taxRate,
     } = settings;
 
+    let retailTax = 0;
+    let sellTax = 0;
+    let costTax = 0;
+    let agentTax = 0;
+
     const rateId = isBookingForCustomRatesEnabled ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
     const currency = R.pathOr('', ['Currency'], rate);
 
@@ -780,12 +785,14 @@ const getRatesObjectArray = (
       finalTotalPrice = roundingResult.finalTotalPrice;
       finalAgentPrice = roundingResult.finalAgentPrice;
       totalCostPrice = roundingResult.totalCostPrice;
+
+      // set the tax values
+      retailTax = taxRate * finalTotalPrice;
+      sellTax = taxRate * finalTotalPrice;
+      costTax = taxRate * totalCostPrice;
+      agentTax = taxRate * finalAgentPrice;
     }
 
-    const retailTax = taxRate * finalTotalPrice;
-    const sellTax = taxRate * finalTotalPrice;
-    const costTax = taxRate * totalCostPrice;
-    const agentTax = taxRate * finalAgentPrice;
     // Cancellations within this number of hours of service date incur a cancellation
     // penalty of some sort.
     const cancelHours = R.pathOr('', ['CancelHours'], rate);
@@ -1078,17 +1085,17 @@ const getAgentCurrencyCode = async ({
   callTourplan,
   cache,
 }) => {
+  const model = {
+    AgentInfoRequest: {
+      AgentID: hostConnectAgentID,
+      Password: hostConnectAgentPassword,
+    },
+  };
   if (cache && cache.getOrExec) {
     try {
       const sanitizedHostConnectEndpoint = hostConnectEndpoint.replace(/[^a-zA-Z0-9]/g, '');
       const sensitiveKey = `${hostConnectAgentID}|${hostConnectAgentPassword}|${sanitizedHostConnectEndpoint}`;
       const cacheKey = `agentCurrencyCode_${crypto.createHash('sha256').update(sensitiveKey).digest('hex').slice(0, 16)}`;
-      const model = {
-        AgentInfoRequest: {
-          AgentID: hostConnectAgentID,
-          Password: hostConnectAgentPassword,
-        },
-      };
 
       const replyObj = await cache.getOrExec({
         fnParams: [cacheKey],
@@ -1106,7 +1113,15 @@ const getAgentCurrencyCode = async ({
       console.warn('WARNING: Cache read error:', cacheErr.message);
     }
   }
-  return null;
+
+  const agentCurrencyCode = await callTourplan({
+    model,
+    endpoint: hostConnectEndpoint,
+    axios,
+    xmlOptions: hostConnectXmlOptions,
+  });
+
+  return R.pathOr(null, ['AgentInfoReply', 'Currency'], agentCurrencyCode);
 };
 
 /*

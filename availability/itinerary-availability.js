@@ -401,6 +401,7 @@ const searchAvailabilityForItinerary = async ({
     // an error getting info from product connect then in the method getRatesObjectArray
     // the retail price will be used as the cost price
     costPrice: 0,
+    taxRate: 0,
     buyCurrency: dateRangeToUse.buyCurrency,
     agentCurrency: agentCurrencyCode,
   };
