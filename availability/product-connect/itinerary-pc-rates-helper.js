@@ -336,6 +336,21 @@ const getRatesInfoFromProductConnect = async ({
   return parsedDateRanges;
 };
 
+// Generic function to extract tax rate from tax code (e.g., V20 -> 0.2, G15 -> 0.15)
+const extractTaxRate = taxCode => {
+  if (!taxCode || typeof taxCode !== 'string') {
+    return 0;
+  }
+
+  // Extract numeric part from tax code (e.g., "V20" -> "20", "G15" -> "15")
+  const numericMatch = taxCode.match(/(\d+)/);
+  if (!numericMatch) {
+    return 0;
+  }
+
+  const percentage = parseInt(numericMatch[0], 10);
+  return percentage / 100; // Convert percentage to decimal (20 -> 0.2)
+};
 /*
   Get price for pax breaks
   @param {Object} rateSets - The rate sets
@@ -603,6 +618,7 @@ const getCostFromProductConnect = async ({
   const { matchingRateSet: matchingProductConnectRateSet, rateSetMatchingError } = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
 
   let cost = 0;
+  const taxRate = extractTaxRate(firstDateRange.taxes.tax);
   if (matchingProductConnectRateSet) {
     cost = getPriceForPaxBreaks(
       matchingProductConnectRateSet.rates,
@@ -615,6 +631,7 @@ const getCostFromProductConnect = async ({
 
   return {
     cost,
+    taxRate,
     error: false,
     message: rateSetMatchingError,
   };
