@@ -619,8 +619,13 @@ const getEmptyRateObject = agentCurrency => {
     currency: agentCurrency,
     agentCurrency,
     totalPrice: 0,
+    sellPrice: 0,
     costPrice: 0,
     agentPrice: 0,
+    sellTax: 0,
+    retailTax: 0,
+    costTax: 0,
+    agentTax: 0,
     currencyPrecision: 2,
     cancelHours: '72',
     externalRateText: '',
@@ -787,10 +792,10 @@ const getRatesObjectArray = (
       totalCostPrice = roundingResult.totalCostPrice;
 
       // set the tax values
-      retailTax = taxRate * finalTotalPrice;
-      sellTax = taxRate * finalTotalPrice;
-      costTax = taxRate * totalCostPrice;
-      agentTax = taxRate * finalAgentPrice;
+      retailTax = Math.round(taxRate * finalTotalPrice);
+      sellTax = Math.round(taxRate * finalTotalPrice);
+      costTax = Math.round(taxRate * totalCostPrice);
+      agentTax = Math.round(taxRate * finalAgentPrice);
     }
 
     // Cancellations within this number of hours of service date incur a cancellation

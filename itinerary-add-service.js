@@ -76,10 +76,10 @@ const addServiceToItinerary = async ({
       AgentExclusive: R.path(['agentPrice'], availCheckObj),
 
       // Tax - adding only mandatory ones
-      RetailTax: R.path(['retailTax'], availCheckObj), // necessary if RetailExclusive is provided
-      SellTax: R.path(['sellTax'], availCheckObj), // necessary if SellExclusive is provided
-      CostTax: R.path(['costTax'], availCheckObj), // necessary if CostExclusive is provided
-      AgentTax: R.path(['agentTax'], availCheckObj), // necessary if AgentExclusive is provided
+      RetailTax: R.pathOr(0, ['retailTax'], availCheckObj), // necessary if RetailExclusive is provided
+      SellTax: R.pathOr(0, ['sellTax'], availCheckObj), // necessary if SellExclusive is provided
+      CostTax: R.pathOr(0, ['costTax'], availCheckObj), // necessary if CostExclusive is provided
+      AgentTax: R.pathOr(0, ['agentTax'], availCheckObj), // necessary if AgentExclusive is provided
     };
   }
   // if external pickup and dropoff details are provided, use that info
