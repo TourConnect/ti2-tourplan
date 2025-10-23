@@ -671,7 +671,7 @@ const getRatesObjectArray = (
     }
 
     const {
-      costPrice,
+      costPriceIncludingTax,
       buyCurrency,
       agentCurrency,
       crossSeason,
@@ -688,15 +688,17 @@ const getRatesObjectArray = (
     const rateId = isBookingForCustomRatesEnabled ? CUSTOM_RATE_ID_NAME : R.path(['RateId'], rate);
     const currency = R.pathOr('', ['Currency'], rate);
 
-    const totalPriceRaw = R.pathOr(0, ['TotalPrice'], rate);
-    const agentPriceRaw = R.pathOr(0, ['AgentPrice'], rate);
+    const totalPriceRawWithTax = R.pathOr(0, ['TotalPrice'], rate);
+    const agentPriceRawWithTax = R.pathOr(0, ['AgentPrice'], rate);
+    const taxRateFactor = (Number(taxRate)) > 0 ? 1 + (Number(taxRate)) : 1;
 
     // Ensure prices are valid numbers
-    const totalPrice = Number(totalPriceRaw);
-    const agentPrice = Number(agentPriceRaw);
+    const totalPrice = Number(totalPriceRawWithTax) / taxRateFactor;
+    const agentPrice = Number(agentPriceRawWithTax) / taxRateFactor;
+    const costPrice = costPriceIncludingTax > 0 ? costPriceIncludingTax / taxRateFactor : 0;
 
     if (Number.isNaN(totalPrice) || Number.isNaN(agentPrice)) {
-      console.error(`Invalid price values: totalPrice=${totalPriceRaw}, agentPrice=${agentPriceRaw}`);
+      console.error(`Invalid price values: totalPrice=${totalPriceRawWithTax}, agentPrice=${agentPriceRawWithTax}`);
       return [];
     }
 

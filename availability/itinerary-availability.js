@@ -400,7 +400,7 @@ const searchAvailabilityForItinerary = async ({
     // default set to 0, so that if product connect is not enabled or if there is
     // an error getting info from product connect then in the method getRatesObjectArray
     // the retail price will be used as the cost price
-    costPrice: 0,
+    costPriceIncludingTax: 0,
     taxRate: 0,
     buyCurrency: dateRangeToUse.buyCurrency,
     agentCurrency: agentCurrencyCode,
@@ -503,7 +503,7 @@ const searchAvailabilityForItinerary = async ({
       costForDaysWithoutRates = costInfoForDaysWithoutRates.cost;
       taxRateForDaysWithoutRates = costInfoForDaysWithoutRates.taxRate;
     }
-    settings.costPrice = costForDaysWithoutRates + costForDaysWithRates;
+    settings.costPriceIncludingTax = costForDaysWithoutRates + costForDaysWithRates;
     settings.taxRate = Math.max(taxRateForDaysWithRates, taxRateForDaysWithoutRates);
   }
 
