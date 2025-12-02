@@ -85,7 +85,7 @@ describe('search tests', () => {
     jest.clearAllMocks();
   });
   const token = {
-    endpoint: process.env.ti2_tourplan_endpoint,
+    endpoint: process.env.ti2_tourplan_endpoint || 'https://test.example.com',
     username: process.env.ti2_tourplan_username,
     password: process.env.ti2_tourplan_password,
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
