@@ -62,7 +62,8 @@ const getFixture = async requestObject => {
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';
-  const requestHash = hash(requestObject);
+  // Hash only the data field to ensure stable fixture names regardless of endpoint/headers changes
+  const requestHash = hash(requestObject.data || requestObject);
   // console.log('requestHash: ', requestHash);
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
