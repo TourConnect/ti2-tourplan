@@ -32,7 +32,6 @@ const typeDefsAndQueries = {
 };
 
 jest.mock('axios');
-const actualAxios = jest.requireActual('axios');
 
 // Extend the existing getFixture function to handle callTourplan mocks
 const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }) => {
@@ -62,7 +61,8 @@ const getFixture = async requestObject => {
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';
-  const requestHash = hash(requestObject);
+  // Hash only the data field to ensure stable fixture names regardless of endpoint/headers changes
+  const requestHash = hash(requestObject.data || requestObject);
   // console.log('requestHash: ', requestHash);
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
@@ -72,7 +72,12 @@ const getFixture = async requestObject => {
     return { data: fixture };
   } catch (err) {
     console.warn(`could not find ${file} for ${JSON.stringify(requestObject)}`);
-    return actualAxios(requestObject);
+    // Instead of making a real HTTP call, throw an error to prevent
+    // accidental network requests in tests
+    throw new Error(
+      `Fixture not found: ${file}. Please create the fixture file or ` +
+      'ensure the request matches an existing fixture.',
+    );
   }
 };
 
@@ -84,7 +89,7 @@ describe('search tests', () => {
     jest.clearAllMocks();
   });
   const token = {
-    endpoint: process.env.ti2_tourplan_endpoint,
+    endpoint: process.env.ti2_tourplan_endpoint || 'https://test.example.com',
     username: process.env.ti2_tourplan_username,
     password: process.env.ti2_tourplan_password,
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',

@@ -89,6 +89,11 @@ class BuyerPlugin {
         regExp: /^(yes|no)$/i,
         default: 'No',
       },
+      customRateServiceStatus: {
+        type: 'text',
+        regExp: /.+/,
+        default: 'IR',
+      },
       customRatesMarkupPercentage: {
         type: 'number',
         regExp: /^(100|[1-9]?\d)(\.\d{1,2})?$/,

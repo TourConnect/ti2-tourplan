@@ -16,6 +16,7 @@ const addServiceToItinerary = async ({
     hostConnectEndpoint,
     hostConnectAgentID,
     hostConnectAgentPassword,
+    customRateServiceStatus,
   },
   payload: {
     quoteName,
@@ -49,7 +50,7 @@ const addServiceToItinerary = async ({
   callTourplan,
 }) => {
   let pricing = null;
-  const tourplanServiceStatus = DEFAULT_TOURPLAN_SERVICE_STATUS;
+  const tourplanServiceStatus = customRateServiceStatus || DEFAULT_TOURPLAN_SERVICE_STATUS;
   const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
     .reduce((acc, f) => {
       if (f.type === 'extended-option') {

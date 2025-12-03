@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TEST_OPTION_NULL_EXTENDED_BOOKING_YEARS</Opt>
+            <OptionNumber>12345</OptionNumber>
+            <OptDateRanges>
+                <OptDateRange>
+                    <DateFrom>2025-08-01</DateFrom>
+                    <DateTo>2025-08-31</DateTo>
+                    <Currency>NZD</Currency>
+                    <PriceCode>STANDARD</PriceCode>
+                    <RateSets>
+                        <RateSet>
+                            <RateName>Standard Rate</RateName>
+                            <RateText>Standard accommodation rate</RateText>
+                            <MinSCU>1</MinSCU>
+                            <MaxSCU>14</MaxSCU>
+                            <CancelHours>48</CancelHours>
+                            <IsClosed>N</IsClosed>
+                            <ScuCheckOverlapOnly>N</ScuCheckOverlapOnly>
+                            <OptRate>
+                                <RoomRates>
+                                    <SingleRate>50000</SingleRate>
+                                    <DoubleRate>50000</DoubleRate>
+                                </RoomRates>
+                                <ExtrasRates>
+                                    <ExtrasRate>
+                                        <AdultRate>0</AdultRate>
+                                        <ChildRate>0</ChildRate>
+                                        <SequenceNumber>1</SequenceNumber>
+                                    </ExtrasRate>
+                                </ExtrasRates>
+                            </OptRate>
+                        </RateSet>
+                    </RateSets>
+                </OptDateRange>
+            </OptDateRanges>
+        </Option>
+    </OptionInfoReply>
+</Reply>
+

@@ -3,15 +3,15 @@
 <Reply>
     <OptionInfoReply>
         <Option>
-            <Opt>TESTSINGLECANCELPOLICY</Opt>
+            <Opt>TEST_OPTION_LAST_AVAILABLE_RATE</Opt>
             <OptionNumber>46053</OptionNumber>
             <OptStayResults>
                 <Availability>OK</Availability>
                 <Currency>NZD</Currency>
-                <TotalPrice>109800</TotalPrice>
+                <TotalPrice>60000</TotalPrice>
                 <CommissionPercent>0.00</CommissionPercent>
-                <AgentPrice>109800</AgentPrice>
-                <RateId>$NZD9704dbc4eaf60701,4,DOUB,SINGLE CANCEL POLICY TEST</RateId>
+                <AgentPrice>61000</AgentPrice>
+                <RateId>Custom</RateId>
                 <RateName />
                 <PeriodValueAdds>
                     <PeriodValueAdd>
