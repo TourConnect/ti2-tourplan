@@ -32,7 +32,6 @@ const typeDefsAndQueries = {
 };
 
 jest.mock('axios');
-const actualAxios = jest.requireActual('axios');
 
 // Extend the existing getFixture function to handle callTourplan mocks
 const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }) => {
@@ -73,7 +72,12 @@ const getFixture = async requestObject => {
     return { data: fixture };
   } catch (err) {
     console.warn(`could not find ${file} for ${JSON.stringify(requestObject)}`);
-    return actualAxios(requestObject);
+    // Instead of making a real HTTP call, throw an error to prevent
+    // accidental network requests in tests
+    throw new Error(
+      `Fixture not found: ${file}. Please create the fixture file or ` +
+      'ensure the request matches an existing fixture.',
+    );
   }
 };
 
