@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TEST_OPTION_HISTORICAL_RATE_LAST_DATE_RANGE</Opt>
+            <OptionNumber>12345</OptionNumber>
+            <OptDateRanges>
+                <OptDateRange>
+                    <DateFrom>2024-07-01</DateFrom>
+                    <DateTo>2024-12-31</DateTo>
+                    <Currency>USD</Currency>
+                    <PriceCode>STANDARD</PriceCode>
+                    <RateSets>
+                        <RateSet>
+                            <RateName>Standard Rate</RateName>
+                            <RateText>Standard accommodation rate</RateText>
+                            <MinSCU>1</MinSCU>
+                            <MaxSCU>14</MaxSCU>
+                            <CancelHours>48</CancelHours>
+                            <IsClosed>N</IsClosed>
+                            <ScuCheckOverlapOnly>N</ScuCheckOverlapOnly>
+                            <OptRate>
+                                <OptionRates>
+                                    <OptionRate>
+                                        <TotalPrice>10000</TotalPrice>
+                                        <AgentPrice>9000</AgentPrice>
+                                    </OptionRate>
+                                </OptionRates>
+                            </OptRate>
+                        </RateSet>
+                    </RateSets>
+                </OptDateRange>
+            </OptDateRanges>
+        </Option>
+    </OptionInfoReply>
+</Reply>

@@ -460,7 +460,8 @@ const isStartDayValid = (rateSet, date) => {
   return dayMapping[dayOfWeek] === true;
 };
 
-const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
+// eslint-disable-next-line max-len
+const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw, eligibleRateTypesCodes = []) => {
   const chargeUnitQuantity = Number(chargeUnitQuantityRaw);
   let rateSetMatchingError = null;
   const invalidDayOfWeekMessages = [];
@@ -480,7 +481,9 @@ const getMatchingRateSet = (rateSets, startDate, chargeUnitQuantityRaw) => {
       invalidDayOfWeekMessages.push(allowedDays);
     }
 
-    return quantityMatches && dayIsValid;
+    const isEligibleRateStatus = eligibleRateTypesCodes.length === 0 ||
+          eligibleRateTypesCodes.includes(rateSet.rateStatus);
+    return quantityMatches && dayIsValid && isEligibleRateStatus;
   });
 
   if (!matchingRateSet) {

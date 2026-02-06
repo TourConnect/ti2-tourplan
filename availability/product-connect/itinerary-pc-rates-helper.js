@@ -426,12 +426,12 @@ const extractTaxRate = taxCode => {
         }
       }
 */
-const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnitQuantity) => {
-  if (!rateSets || !rateSets.fitCost || !paxConfigs || !paxBreaks) {
+const getPriceForPaxBreaks = (rates, paxConfigs, paxBreaks, chargeUnitQuantity) => {
+  if (!rates || !rates.fitCost || !paxConfigs || !paxBreaks) {
     return 0;
   }
 
-  const { fitCost } = rateSets;
+  const { fitCost } = rates;
 
   // Get room configuration - assuming first room config for now
   const roomConfig = paxConfigs.RoomConfig && paxConfigs.RoomConfig[0];
@@ -527,34 +527,6 @@ const getPriceForPaxBreaks = (rateSets, taxes, paxConfigs, paxBreaks, chargeUnit
   return 0;
 };
 
-/**
- * Validate that all rate statuses in the ratesInfo are eligible
- * @param {Array} ratesInfo - Array of rate information from Product Connect
- * @param {Array} eligibleRateTypesCodes - Array of eligible rate type codes
- * @returns {Object|null} Returns error object if validation fails, null if valid
- */
-const validateRateStatusEligibility = (dateRanges, eligibleRateTypesCodes) => {
-  if (!dateRanges || !Array.isArray(dateRanges) || dateRanges.length === 0) {
-    return false; // No rates to validate
-  }
-
-  // Check each date range and its rate sets using array methods instead of for...of
-  const invalidRateFound = dateRanges.some(dateRange => {
-    if (dateRange.rateSets && Array.isArray(dateRange.rateSets)) {
-      return dateRange.rateSets.some(rateSet => (
-        rateSet.rateStatus && !eligibleRateTypesCodes.includes(rateSet.rateStatus)
-      ));
-    }
-    return false;
-  });
-
-  if (invalidRateFound) {
-    return false;
-  }
-
-  return true; // All rate statuses are eligible
-};
-
 /*
   Get cost info from Product Connect API
 
@@ -565,6 +537,7 @@ const validateRateStatusEligibility = (dateRanges, eligibleRateTypesCodes) => {
   @param {string} productConnectUserPassword - The product connect user password
   @param {Object} axios - The axios instance
   @param {Object} callTourplan - The callTourplan function
+  @param {string} agentCurrency - Agent currency code; only rates in this currency are returned
   @returns {Object} Parsed cost info
 */
 const getCostFromProductConnect = async ({
@@ -581,6 +554,7 @@ const getCostFromProductConnect = async ({
   roomConfigs,
   paxBreaks,
   daysToChargeAtLastRate,
+  agentCurrency,
 }) => {
   // Parallelize Product Connect API calls for better performance
   const productConnectDateRanges = await getRatesInfoFromProductConnect({
@@ -598,13 +572,25 @@ const getCostFromProductConnect = async ({
     return null;
   }
 
-  // Validate that all rate statuses are eligible
+  // Get rates from the first date range that has a matching rate set with eligible rate status
   const eligibleRateTypesCodes = getEligibleRateTypesCodes(customRatesEligibleRateTypes);
-  const areRatesValid = validateRateStatusEligibility(
-    productConnectDateRanges,
-    eligibleRateTypesCodes,
-  );
-  if (!areRatesValid) {
+
+  const matchingProductConnectRateSet = productConnectDateRanges.find(dateRange => {
+    // eslint-disable-next-line max-len
+    if (agentCurrency && dateRange.sellCurrency && dateRange.sellCurrency.toUpperCase() !== agentCurrency.toUpperCase()) {
+      return false;
+    }
+    const { matchingRateSet, rateSetMatchingError } = getMatchingRateSet(
+      dateRange.rateSets,
+      startDateToUse,
+      daysToChargeAtLastRate,
+      eligibleRateTypesCodes,
+    );
+    // eslint-disable-next-line max-len
+    return matchingRateSet && !rateSetMatchingError ? matchingRateSet : null;
+  });
+
+  if (!matchingProductConnectRateSet) {
     return {
       cost: null,
       error: true,
@@ -612,28 +598,20 @@ const getCostFromProductConnect = async ({
     };
   }
 
-  // Get rates for the first rate set (using first date range as baseline)
-  const firstDateRange = productConnectDateRanges[0];
-  // eslint-disable-next-line max-len
-  const { matchingRateSet: matchingProductConnectRateSet, rateSetMatchingError } = getMatchingRateSet(firstDateRange.rateSets, startDateToUse, daysToChargeAtLastRate);
-
   let cost = 0;
-  const taxRate = extractTaxRate(firstDateRange.taxes.tax);
-  if (matchingProductConnectRateSet) {
-    cost = getPriceForPaxBreaks(
-      matchingProductConnectRateSet.rates,
-      firstDateRange.taxes,
-      roomConfigs,
-      paxBreaks,
-      daysToChargeAtLastRate,
-    );
-  }
+  const taxRate = extractTaxRate(matchingProductConnectRateSet.taxes.tax);
+  cost = getPriceForPaxBreaks(
+    matchingProductConnectRateSet.rates,
+    roomConfigs,
+    paxBreaks,
+    daysToChargeAtLastRate,
+  );
 
   return {
     cost,
     taxRate,
     error: false,
-    message: rateSetMatchingError,
+    message: matchingProductConnectRateSet.rateSetMatchingError,
   };
 };
 

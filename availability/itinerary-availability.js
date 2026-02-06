@@ -452,6 +452,7 @@ const searchAvailabilityForItinerary = async ({
         roomConfigs,
         paxBreaks,
         daysToChargeAtLastRate: noOfDaysRatesAvailable,
+        agentCurrency: agentCurrencyCode,
       });
 
       if (costInfoForDaysWithRates) {
@@ -486,6 +487,7 @@ const searchAvailabilityForItinerary = async ({
       roomConfigs,
       paxBreaks,
       daysToChargeAtLastRate,
+      agentCurrency: agentCurrencyCode,
     });
 
     if (costInfoForDaysWithoutRates) {

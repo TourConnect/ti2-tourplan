@@ -356,9 +356,13 @@ const getImmediateLastDateRange = async (
   callTourplan,
   extendedBookingYears = 1,
 ) => {
+  // Calculate dateFrom based on endDate to ensure deterministic behavior
+  // Start from endDate minus extendedBookingYears years to look backwards for available rates
+  const dateFrom = moment(endDate).subtract(extendedBookingYears, 'years').format('YYYY-MM-DD');
   // Prevent a very long period by limiting the number of days
-  const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, moment(endDate).diff(moment(), 'days') + 1);
-  const dateFrom = moment().format('YYYY-MM-DD');
+  const daycount = moment(endDate).diff(moment(dateFrom), 'days') + 1;
+  const unitQuantity = Math.min(MAX_EXTENDED_BOOKING_YEARS * 365, daycount);
+
   const dateRanges = await getOptionDateRanges(
     optionId,
     hostConnectEndpoint,

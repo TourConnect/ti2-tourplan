@@ -61,8 +61,17 @@ const getFixture = async requestObject => {
   const requestName = requestObject.data && typeof requestObject.data === 'string' && R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     ? R.pathOr('UnknownRequest', [1], requestObject.data.match(/<(\w+Request)>/))
     : 'UnknownRequest';
-  // Hash only the data field to ensure stable fixture names regardless of endpoint/headers changes
-  const requestHash = hash(requestObject.data || requestObject);
+  // Normalize request so fixture lookup is stable across local vs CI (DTD, credentials, and XML formatting can differ).
+  let dataToHash = requestObject.data || requestObject;
+  if (typeof dataToHash === 'string') {
+    dataToHash = dataToHash
+      .replace(/tourConnect_\d+_\d+_\d+\.dtd/g, 'tourConnect_5_05_000.dtd')
+      .replace(/<Login>[^<]*<\/Login>/g, '<Login>***</Login>')
+      .replace(/<Password>[^<]*<\/Password>/g, '<Password>***</Password>')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+  const requestHash = hash(dataToHash);
   // console.log('requestHash: ', requestHash);
   const file = path.resolve(__dirname, `./__fixtures__/${requestName}_${requestHash}.txt`);
   try {
@@ -293,7 +302,7 @@ describe('search tests', () => {
     expect(Array.isArray(retVal.allotment)).toBeTruthy();
     expect(retVal.allotment.length).toBe(0);
     // Find the actual GetInventoryRequest call (not the DTD detection call)
-    const inventoryCall = request.mock.calls.find(call => 
+    const inventoryCall = request.mock.calls.find(call =>
       call[0].data && call[0].data.includes('GetInventoryRequest')
     );
     let sentPayload = await xmlParser.parseStringPromise(
@@ -333,7 +342,7 @@ describe('search tests', () => {
     });
     expect(retVal).toMatchSnapshot();
     // Find the actual GetInventoryRequest call (not the DTD detection call)
-    const inventoryCall = request.mock.calls.find(call => 
+    const inventoryCall = request.mock.calls.find(call =>
       call[0].data && call[0].data.includes('GetInventoryRequest')
     );
     let sentPayload = await xmlParser.parseStringPromise(
@@ -373,7 +382,7 @@ describe('search tests', () => {
     });
     expect(retVal).toMatchSnapshot();
     // Find the actual GetInventoryRequest call (not the DTD detection call)
-    const inventoryCall = request.mock.calls.find(call => 
+    const inventoryCall = request.mock.calls.find(call =>
       call[0].data && call[0].data.includes('GetInventoryRequest')
     );
     let sentPayload = await xmlParser.parseStringPromise(
