@@ -1,4 +1,4 @@
-/* globals describe, it, expect, jest, afterEach */
+/* globals describe, it, expect, jest, afterEach, beforeAll, afterAll */
 const { readFile } = require('fs').promises;
 const axios = require('axios');
 const path = require('path');
@@ -83,6 +83,15 @@ const getFixture = async requestObject => {
 
 const app = new Plugin();
 app.callTourplan = mockCallTourplan;
+
+// Freeze time for deterministic fixture hashes (SCUqty depends on moment())
+beforeAll(() => {
+  jest.useFakeTimers();
+  jest.setSystemTime(new Date('2026-02-17T00:00:00.000Z'));
+});
+afterAll(() => {
+  jest.useRealTimers();
+});
 
 describe('search tests', () => {
   afterEach(() => {

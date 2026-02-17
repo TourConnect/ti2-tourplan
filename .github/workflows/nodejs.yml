@@ -16,6 +16,7 @@ jobs:
       - run: npm run build --if-present
       - run: npm test
         env:
+          TZ: UTC
           ti2_tourplan_endpoint: ${{ secrets.TOURPLAN_ENDPOINT }}
           ti2_tourplan_username: ${{ secrets.TOURPLAN_USERNAME }}
           ti2_tourplan_password: ${{ secrets.TOURPLAN_PASSWORD }}

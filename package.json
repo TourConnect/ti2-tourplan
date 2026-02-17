@@ -21,6 +21,9 @@
     "coveragePathIgnorePatterns": [
       "/node_modules/"
     ],
+		"setupFiles": [
+        "./jest.timezone.js"
+    ],
     "setupFilesAfterEnv": [
       "./jest.setup.js"
     ],

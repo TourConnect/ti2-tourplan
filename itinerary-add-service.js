@@ -169,7 +169,7 @@ const addServiceToItinerary = async ({
         if (Number.isNaN(num) || num < 1) return 1;
         return num;
       })(),
-      AgentRef: reference,
+      AgentRef: escapeInvalidXmlChars(reference),
       RoomConfigs: getRoomConfigs(paxConfigs),
       ...(directLinePayload || {}),
       ...(cfvPerService || {}),

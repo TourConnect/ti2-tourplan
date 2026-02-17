@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_04_004.dtd">
+<Reply>
+    <OptionInfoReply>
+        <Option>
+            <Opt>TEST_OPTION_DO_NOT_APPLY_EXTENDED_BOOKING_YEARS_LIMIT_WHEN_CURRENT_RATES_ARE_AVAILABLE</Opt>
+            <OptionNumber>12345</OptionNumber>
+            <OptStayResults>
+                <Availability>OK</Availability>
+                <Currency>NZD</Currency>
+                <TotalPrice>50000</TotalPrice>
+                <CommissionPercent>0.00</CommissionPercent>
+                <AgentPrice>55000</AgentPrice>
+                <RateId>Standard</RateId>
+                <RateName />
+                <PeriodValueAdds>
+                    <PeriodValueAdd>
+                        <DateFrom>2027-08-01</DateFrom>
+                        <DateTo>2027-08-02</DateTo>
+                        <RateName />
+                    </PeriodValueAdd>
+                </PeriodValueAdds>
+                <RoomList>
+                    <RoomType>DB</RoomType>
+                </RoomList>
+            </OptStayResults>
+        </Option>
+    </OptionInfoReply>
+</Reply>
