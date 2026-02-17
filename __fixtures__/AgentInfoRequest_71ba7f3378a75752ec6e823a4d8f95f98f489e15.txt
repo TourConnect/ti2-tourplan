@@ -1,0 +1,7 @@
+<!DOCTYPE Reply SYSTEM "hostConnect_4_06_009.dtd"[]>
+<Reply>
+  <AgentInfoReply>
+    <AgentID>test_hostConnectAgentID</AgentID>
+    <Status>Error</Status>
+  </AgentInfoReply>
+</Reply>
