@@ -46,13 +46,11 @@ class BuyerPlugin {
         type: 'text',
         regExp: /.+/,
         description: 'The tourplan provided username',
-        default: 'en',
       },
       password: {
         type: 'text',
         regExp: /.+/,
         description: 'The tourplan provided password',
-        default: 'en',
       },
       hostConnectEndpoint: {
         type: 'text',
@@ -418,6 +416,8 @@ class BuyerPlugin {
         return true;
       }
 
+      assert(username, 'Must provide token.username for authentication');
+      assert(password, 'Must provide token.password for authentication');
       const model = {
         AuthenticationRequest: {
           Login: username,
@@ -439,9 +439,9 @@ class BuyerPlugin {
   async queryAllotment({
     axios,
     token: {
-      endpoint = this.endpoint,
-      username = this.username,
-      password = this.password,
+      endpoint,
+      username,
+      password,
     },
     payload: {
       dateFormat = 'DD/MM/YYYY',
@@ -456,6 +456,8 @@ class BuyerPlugin {
       (inputString || '').toString()
         .replaceAll(username, '****').replaceAll(password, '****');
     assert(endpoint);
+    assert(username, 'Must provide token.username for allotment API');
+    assert(password, 'Must provide token.password for allotment API');
     assert(startDate);
     assert(endDate);
     assert(keyPath, 'Must provide a supplier/product spec');
