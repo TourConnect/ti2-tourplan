@@ -63,7 +63,7 @@ const normalizeDate = date => {
   return [year, month, day].join('-');
 };
 
-const getConsectuiveDays = days => {
+const getConsecutiveDays = days => {
   const dayNumbers = _.map(days, mapDaysToNumbers).sort();
   let firstDay;
   let lastDay;
@@ -121,7 +121,7 @@ module.exports = {
       if (days.length === 7) return 'Everyday';
       if (days.length === 1) return `${days[0]} Only`;
 
-      consecutiveDays = getConsectuiveDays(days);
+      consecutiveDays = getConsecutiveDays(days);
       return consecutiveDays || days.join(', ');
     }
     return null;
