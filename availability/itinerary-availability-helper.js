@@ -1034,6 +1034,7 @@ const getAvailabilityConfig = async ({
     endDate,
     message,
     dateRanges,
+    duration,
     maxPaxPerCharge,
   };
 };

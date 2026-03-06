@@ -442,6 +442,27 @@ describe('search tests', () => {
       expect(retVal.type).toBe('inventory');
     });
 
+    it('searchAvailabilityForItinerary - default roomTypeRequired matches explicit true', async () => {
+      axios.mockImplementation(getFixture);
+      const payload = {
+        optionId: 'AKLACAKLSOFDYNAMC',
+        startDate: '2025-04-01',
+        chargeUnitQuantity: 2,
+        paxConfigs: [{ roomType: 'DB', adults: 1 }],
+      };
+      const defaultBehaviourResponse = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload,
+      });
+      const explicitTrueResponse = await app.searchAvailabilityForItinerary({
+        axios,
+        token,
+        payload: { ...payload, roomTypeRequired: true },
+      });
+      expect(defaultBehaviourResponse).toEqual(explicitTrueResponse);
+    });
+
     // Skip this test because we aren't using A check anymore
     it.skip('searchAvailabilityForItinerary - bookable - on request', async () => {
       axios.mockImplementation(getFixture);
