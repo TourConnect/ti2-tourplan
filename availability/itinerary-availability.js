@@ -119,6 +119,7 @@ const searchAvailabilityForItinerary = async ({
       Defaults to 1.
     */
     chargeUnitQuantity,
+    roomTypeRequired = true,
   },
   callTourplan,
   cache,
@@ -206,7 +207,19 @@ const searchAvailabilityForItinerary = async ({
     message,
     dateRanges,
     maxPaxPerCharge,
+    duration,
   } = availabilityConfig;
+
+  let isDateRangeValidationRequired = true;
+  // Skip date range validation for packages & non-accomodation products
+  // This is required because:
+  // 1. non-accomodation products that are not packages do not have date ranges
+  // and can be booked even on the last date of valid date range
+  // 2. packages (including multi-day packages) are allowed to be booked even on
+  // the last date of valid date range. (A package is when duration is > 1).
+  if ((duration && duration > 1) || !roomTypeRequired) {
+    isDateRangeValidationRequired = false;
+  }
 
   // Validate max pax per charge
   const maxPaxPerChargeError = validateMaxPaxPerCharge({
@@ -218,9 +231,9 @@ const searchAvailabilityForItinerary = async ({
   }
 
   let noOfDaysRatesAvailable = 0;
-  let allDatesHaveRatesAvailable = false;
 
   if (dateRanges.length > 0) {
+    let allDatesHaveRatesAvailable = true;
     const startDateIsInvalid = validateStartDay({
       dateRanges,
       startDate,
@@ -237,20 +250,24 @@ const searchAvailabilityForItinerary = async ({
 
     const lastDateRangeEndDate = moment(dateRanges[dateRanges.length - 1].endDate);
     noOfDaysRatesAvailable = lastDateRangeEndDate.diff(moment(startDate), 'days') + 1;
-    // eslint-disable-next-line max-len
-    allDatesHaveRatesAvailable = doAllDatesHaveRatesAvailable(lastDateRangeEndDate, startDate, chargeUnitQuantity);
+    if (isDateRangeValidationRequired) {
+      // eslint-disable-next-line max-len
+      allDatesHaveRatesAvailable = doAllDatesHaveRatesAvailable(lastDateRangeEndDate, startDate, chargeUnitQuantity);
+    }
 
     if (allDatesHaveRatesAvailable) {
       // all dates have rates available, get stay rates for the given dates
       // Validate date ranges and room configurations
-      const dateRangesError = validateDateRanges({
-        dateRanges,
-        startDate,
-        chargeUnitQuantity,
-      });
+      if (isDateRangeValidationRequired) {
+        const dateRangesError = validateDateRanges({
+          dateRanges,
+          startDate,
+          chargeUnitQuantity,
+        });
 
-      if (dateRangesError) {
-        return dateRangesError;
+        if (dateRangesError) {
+          return dateRangesError;
+        }
       }
 
       // get stay rates for the given dates
@@ -353,13 +370,16 @@ const searchAvailabilityForItinerary = async ({
   const customPeriodInfoMsg = useLastYearRate ? CUSTOM_PERIOD_LAST_YEAR_INFO_MSG : CUSTOM_PERIOD_LAST_AVAILABLE_INFO_MSG;
 
   let sWarningMsg = '';
+  let dateRangesError = null;
 
-  // Validate date ranges
-  const dateRangesError = validateDateRanges({
-    dateRanges: [dateRangeToUse],
-    startDate: dateRangeToUse.startDate,
-    chargeUnitQuantity,
-  });
+  if (isDateRangeValidationRequired) {
+    // Validate date ranges
+    dateRangesError = validateDateRanges({
+      dateRanges: [dateRangeToUse],
+      startDate: dateRangeToUse.startDate,
+      chargeUnitQuantity,
+    });
+  }
 
   let minStayRequired = 0;
   if (dateRangesError) {

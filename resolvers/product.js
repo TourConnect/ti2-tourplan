@@ -25,7 +25,8 @@ const resolvers = {
       const lastUpdateISO = R.path(['OptGeneral', 'LastUpdate'], option);
       return lastUpdateISO ? new Date(lastUpdateISO).getTime() / 1000 : null;
     },
-    // Guides, Accommodation, Transfers, Entrance Fees, Meals, Rail, Sightseeing Other
+    // Guides, Accommodation, Transfers, Entrance Fees, Meals, Rail, Sightseeing,
+    // Rental Cars, Apartments, Blank Web Services, Farm Stays, Packages
     serviceType: option => {
       const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
       return typeof st === 'string' ? st : '';
