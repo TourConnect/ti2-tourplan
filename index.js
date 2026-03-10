@@ -25,6 +25,7 @@ const defaultXmlOptions = {
     name: 'tourConnect_4_00_000.dtd',
   },
 };
+const urlRegExp = /^(?!mailto:)(?:(?:http|https|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[0-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))|localhost)(?::\d{2,5})?(?:(\/|\?|#)[^\s]*)?$/i;
 const getHeaders = ({ length }) => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
@@ -39,7 +40,7 @@ class BuyerPlugin {
     this.tokenTemplate = () => ({
       endpoint: {
         type: 'text',
-        regExp: /^(?!mailto:)(?:(?:http|https|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[0-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))|localhost)(?::\d{2,5})?(?:(\/|\?|#)[^\s]*)?$/i,
+        regExp: urlRegExp,
         description: 'The uri for the tourplan adapter',
       },
       username: {
@@ -63,6 +64,11 @@ class BuyerPlugin {
       hostConnectAgentPassword: {
         type: 'text',
         regExp: /.+/,
+      },
+      hostConnectBookingLinkBaseUrl: {
+        type: 'text',
+        regExp: urlRegExp,
+        description: 'The HostConnect base url used by the add-in to build FastBook booking reference links',
       },
       productConnectEndpoint: {
         type: 'text',

@@ -104,6 +104,7 @@ describe('search tests', () => {
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
     hostConnectAgentID: 'test_hostConnectAgentID',
     hostConnectAgentPassword: 'test_hostConnectAgentPassword',
+    hostConnectBookingLinkBaseUrl: 'https://example.tourplan.net/TourplanNX_Test',
     seeAvailabilityRateInSupplierCurrency: 'Y',
   };
   const dateFormat = 'DD/MM/YYYY';
@@ -134,6 +135,7 @@ describe('search tests', () => {
         expect(rules).toContain('endpoint');
         expect(rules).toContain('password');
         expect(rules).toContain('username');
+        expect(rules).toContain('hostConnectBookingLinkBaseUrl');
       });
       it('username', () => {
         const username = template.username.regExp;
@@ -149,6 +151,13 @@ describe('search tests', () => {
         const password = template.password.regExp;
         expect(password.test('')).toBeFalsy();
         expect(password.test('somepassword')).toBeTruthy();
+      });
+      it('hostConnectBookingLinkBaseUrl', () => {
+        const hostConnectBookingLinkBaseUrl = template.hostConnectBookingLinkBaseUrl.regExp;
+        expect(hostConnectBookingLinkBaseUrl.test('something')).toBeFalsy();
+        expect(hostConnectBookingLinkBaseUrl.test(
+          'https://example.tourplan.net/TourplanNX_Test'
+        )).toBeTruthy();
       });
     });
     describe('DTD version detection', () => {

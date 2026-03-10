@@ -1,7 +1,6 @@
 name: Node.js Package
 
 on:
-  workflow_dispatch:
   push:
 
 jobs:
@@ -20,23 +19,45 @@ jobs:
           ti2_tourplan_endpoint: ${{ secrets.TOURPLAN_ENDPOINT }}
           ti2_tourplan_username: ${{ secrets.TOURPLAN_USERNAME }}
           ti2_tourplan_password: ${{ secrets.TOURPLAN_PASSWORD }}
-  tag:
-    if: github.ref == 'refs/heads/main'
+  publish-npm:
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build_and_test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - uses: tool3/bump@master
+      - uses: actions/setup-node@v1
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          unrelated: true
-          branch: main
-  publish-npm:
-    if: github.ref == 'refs/heads/main'
-    needs: tag
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v1
-      - uses: JS-DevTools/npm-publish@v1
-        with:
-          token: ${{ secrets.NPM_TOKEN }}
+          node-version: 12
+      - name: Validate release tag
+        id: release_meta
+        env:
+          TAG_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! "$TAG_NAME" =~ ^v([0-9]+\.[0-9]+\.[0-9]+(-beta\.[0-9]+)?)$ ]]; then
+            echo "Unsupported release tag format: $TAG_NAME"
+            exit 1
+          fi
+
+          TAG_VERSION="${BASH_REMATCH[1]}"
+          PACKAGE_VERSION="$(node -p "require('./package.json').version")"
+
+          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
+            echo "Tag version ${TAG_VERSION} does not match package.json version ${PACKAGE_VERSION}"
+            exit 1
+          fi
+
+          DIST_TAG="latest"
+          if [[ "$TAG_VERSION" == *-beta.* ]]; then
+            DIST_TAG="beta"
+          fi
+
+          echo "tag_version=${TAG_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "dist_tag=${DIST_TAG}" >> "$GITHUB_OUTPUT"
+      - name: Configure npm auth
+        run: echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish package
+        run: npm publish --tag "${{ steps.release_meta.outputs.dist_tag }}"
