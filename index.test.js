@@ -104,7 +104,7 @@ describe('search tests', () => {
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
     hostConnectAgentID: 'test_hostConnectAgentID',
     hostConnectAgentPassword: 'test_hostConnectAgentPassword',
-    hostConnectBookingLinkBaseUrl: 'https://example.tourplan.net/TourplanNX_Test/#/fastbook',
+    hostConnectBookingLinkBaseUrl: 'https://example.tourplan.net/TourplanNX_Test',
     seeAvailabilityRateInSupplierCurrency: 'Y',
   };
   const dateFormat = 'DD/MM/YYYY';
@@ -156,7 +156,7 @@ describe('search tests', () => {
         const hostConnectBookingLinkBaseUrl = template.hostConnectBookingLinkBaseUrl.regExp;
         expect(hostConnectBookingLinkBaseUrl.test('something')).toBeFalsy();
         expect(hostConnectBookingLinkBaseUrl.test(
-          'https://example.tourplan.net/TourplanNX_Test/#/fastbook'
+          'https://example.tourplan.net/TourplanNX_Test'
         )).toBeTruthy();
       });
     });

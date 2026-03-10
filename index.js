@@ -68,7 +68,7 @@ class BuyerPlugin {
       hostConnectBookingLinkBaseUrl: {
         type: 'text',
         regExp: urlRegExp,
-        description: 'The HostConnect booking page url used by the add-in to build booking reference links',
+        description: 'The HostConnect base url used by the add-in to build FastBook booking reference links',
       },
       productConnectEndpoint: {
         type: 'text',
