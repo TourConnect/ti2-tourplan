@@ -119,12 +119,17 @@ describe('search tests', () => {
         expect(retVal).toBeTruthy();
       });
       it('invalid token', async () => {
-        axios.mockImplementation(getFixture);
-        const retVal = await app.validateToken({
-          axios,
-          token: { ...token, username: 'somerandom', hostConnectAgentPassword: 'somerandom' },
-        });
-        expect(retVal).toBeFalsy();
+        const errSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+        try {
+          axios.mockImplementation(getFixture);
+          const retVal = await app.validateToken({
+            axios,
+            token: { ...token, username: 'somerandom', hostConnectAgentPassword: 'somerandom' },
+          });
+          expect(retVal).toBeFalsy();
+        } finally {
+          errSpy.mockRestore();
+        }
       });
     });
     describe('template tests', () => {
@@ -553,6 +558,98 @@ describe('search tests', () => {
       expect(retVal.bookings[0].serviceLines[0].supplierId).toBe('SANLON');
       expect(retVal.bookings[0].serviceLines[0]).toHaveProperty('supplierName');
       expect(retVal.bookings[0].serviceLines[0].supplierName).toBe('Sanderson');
+    });
+
+    it('searchItineraries by bookingReferenceIds (GetBooking by Ref)', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingReferenceIds: ['ALFI393706'],
+        },
+      });
+      expect(retVal.bookings.length).toBe(1);
+      expect(retVal.bookings[0].ref).toBe('ALFI393706');
+      expect(retVal.bookings[0].bookingId).toBe('316559');
+    });
+
+    it('searchItineraries bookingReferenceIds accepts a single string', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingReferenceIds: 'ALFI393706',
+        },
+      });
+      expect(retVal.bookings.length).toBe(1);
+      expect(retVal.bookings[0].ref).toBe('ALFI393706');
+    });
+
+    it('searchItineraries dedupes duplicate bookingReferenceIds (one GetBooking per ref)', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingReferenceIds: ['ALFI393706', 'ALFI393706', ' ALFI393706 '],
+        },
+      });
+      expect(retVal.bookings.length).toBe(1);
+      const getBookingCalls = mockCallTourplan.mock.calls.filter(
+        ([{ model }]) => model && model.GetBookingRequest,
+      );
+      expect(getBookingCalls.length).toBe(1);
+    });
+
+    it('searchItineraries with travelDateStart and travelDateEnd on list search', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingId: '316559',
+          travelDateStart: '2024-01-01',
+          travelDateEnd: '2024-12-31',
+        },
+      });
+      expect(retVal.bookings.length).toBeGreaterThan(0);
+      expect(retVal.bookings[0].bookingId).toBe('316559');
+    });
+
+    it('searchItineraries by name (NameContains)', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          name: 'Sean',
+        },
+      });
+      expect(retVal.bookings.length).toBeGreaterThan(0);
+      expect(retVal.bookings[0].name).toContain('Sean');
+    });
+
+    it('searchItineraries with purchaseDateStart and purchaseDateEnd', async () => {
+      axios.mockImplementation(getFixture);
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingId: '316559',
+          purchaseDateStart: '2024-01-01',
+          purchaseDateEnd: '2024-06-30',
+        },
+      });
+      expect(retVal.bookings.length).toBeGreaterThan(0);
+      expect(retVal.bookings[0].bookingId).toBe('316559');
     });
 
     // Test case to check cancel policies at option level (top level).

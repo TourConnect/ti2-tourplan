@@ -433,7 +433,10 @@ class BuyerPlugin {
       const replyObj = await this.callTourplan({
         model, endpoint, axios, xmlOptions: defaultXmlOptions,
       });
-      assert(R.path(['AuthenticationReply'], replyObj) === '');
+      assert(
+        R.path(['AuthenticationReply'], replyObj) === '',
+        'Tourplan authentication failed',
+      );
 
       return true;
     } catch (err) {
