@@ -35,7 +35,8 @@ const wildcardMatch = (wildcard, str) => {
 };
 
 const escapeInvalidXmlChars = str => {
-  if (!str) return '';
+  if (str == null || str === '') return '';
+  const asString = String(str);
   const convertAccentedChars = s => {
     // according to TC-143, we will go through one mapping first
     // for certain accented chars
@@ -60,7 +61,7 @@ const escapeInvalidXmlChars = str => {
   // NOTE: There is no need to sanitize the string for 5 characters (&, <, >, " and ')
   // because js2xmlparser does that for us. Plus if we use sanitize before calling js2xmlparser
   // js2xmlparser will escape & to '&amp;' making it invalid XML
-  return convertAccentedChars(str)
+  return convertAccentedChars(asString)
     .replace(/’/g, "'")
     .replace(/‘/g, "'")
     .replace(/“/g, '"')

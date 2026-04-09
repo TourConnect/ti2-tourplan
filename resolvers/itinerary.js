@@ -3,19 +3,36 @@ const { makeExecutableSchema } = require('@graphql-tools/schema');
 const R = require('ramda');
 const { graphql } = require('graphql');
 
+const xmlTextOrNull = v => {
+  if (v == null || v === '') return null;
+  return String(v);
+};
+
+/** Builds PuDoInfo for GraphQL (fields date / time / remarks). */
+const puDoInfoOrNull = ({ date: dateRaw, time: timeRaw, remarks: remarksRaw }) => {
+  const date = xmlTextOrNull(dateRaw);
+  const time = xmlTextOrNull(timeRaw);
+  const remarks = xmlTextOrNull(remarksRaw);
+  if (date == null && time == null && remarks == null) return null;
+  return { date, time, remarks };
+};
 
 const resolvers = {
   Query: {
     name: R.path(['Name']),
     bookingId: R.path(['BookingId']),
     bookingStatus: R.path(['BookingStatus']),
+    bookingStatusId: R.path(['TourplanBookingStatus']),
     ref: R.path(['Ref']),
     agentRef: R.path(['AgentRef']),
+    agentId: R.path(['agentId']),
     totalPrice: R.path(['TotalPrice']),
     currency: R.path(['Currency']),
     travelDate: R.path(['TravelDate']),
     enteredDate: R.path(['EnteredDate']),
-    canEdit: root => root.ReadOnly === 'N' && root.CanAddServices === 'Y',
+    canEdit: root => root != null && root.ReadOnly === 'N' && root.CanAddServices === 'Y',
+    isBooking: root => root != null && root.QB === 'B',
+    bookingAgent: root => xmlTextOrNull(R.path(['Consult'], root)),
     serviceLines: booking => {
       let Services = R.pathOr([], ['Services', 'Service'], booking);
       if (!Array.isArray(Services)) Services = [Services];
@@ -37,6 +54,7 @@ const resolvers = {
   },
   ServiceLine: {
     serviceLineId: R.path(['ServiceLineId']),
+    serviceLineUpdateCount: R.path(['ServiceLineUpdateCount']),
     supplierId: sl => {
       const opt = R.path(['Opt'], sl);
       if (!opt) return null;
@@ -51,6 +69,16 @@ const resolvers = {
     linePrice: R.path(['LinePrice']),
     quantity: R.path(['SCUqty']),
     status: R.path(['Status']),
+    puInfo: sl => puDoInfoOrNull({
+      date: R.path(['Pickup_Date'], sl),
+      time: R.path(['puTime'], sl),
+      remarks: R.path(['puRemark'], sl),
+    }),
+    doInfo: sl => puDoInfoOrNull({
+      date: R.path(['Dropoff_Date'], sl),
+      time: R.path(['doTime'], sl),
+      remarks: R.path(['doRemark'], sl),
+    }),
   },
   PaxConfig: {
     roomType: px => {
@@ -88,6 +116,13 @@ const resolvers = {
   },
 };
 
+/** SDL + operation document come from ti2
+ *
+ * @param {Object} typeDefs - The type definitions for the schema
+ * @param {Object} query - The query to execute
+ * @param {Object} rootValue - The root value for the query
+ * @returns {Promise<Object>} The result of the query
+ */
 const translateItineraryBooking = async ({ typeDefs, query, rootValue }) => {
   const schema = makeExecutableSchema({
     typeDefs,
@@ -98,7 +133,9 @@ const translateItineraryBooking = async ({ typeDefs, query, rootValue }) => {
     rootValue,
     source: query,
   });
-  if (retVal.errors) throw new Error(retVal.errors);
+  if (retVal.errors) {
+    throw new Error(retVal.errors.map(e => e.message).join('; '));
+  }
   return retVal.data;
 };
 
