@@ -37,7 +37,10 @@ const resolvers = {
       let Services = R.pathOr([], ['Services', 'Service'], booking);
       if (!Array.isArray(Services)) Services = [Services];
       return Services.map(s => {
-        let actualRoomConfigs = s.RoomConfigs.RoomConfig;
+        // Use R.pathOr so non-accommodation service lines (transfers, activities, etc.)
+        // that carry no RoomConfigs node don't throw a TypeError.
+        let actualRoomConfigs = R.pathOr([], ['RoomConfigs', 'RoomConfig'], s);
+        // xml2js returns a single object (not an array) when there is only one element.
         if (!Array.isArray(actualRoomConfigs)) actualRoomConfigs = [actualRoomConfigs];
         const paxList = actualRoomConfigs.reduce((acc, roomConfig) => {
           const paxDetails = R.pathOr([], ['PaxList', 'PaxDetails'], roomConfig);
@@ -116,18 +119,47 @@ const resolvers = {
   },
 };
 
-/** SDL + operation document come from ti2
+/**
+ * Schema cache keyed by the typeDefs value supplied by ti2.
  *
- * @param {Object} typeDefs - The type definitions for the schema
- * @param {Object} query - The query to execute
- * @param {Object} rootValue - The root value for the query
- * @returns {Promise<Object>} The result of the query
+ * typeDefs arrives from ti2 as a plain SDL string (a primitive), so a WeakMap
+ * cannot be used (WeakMap only accepts object keys). A plain Map is used instead.
+ * Because typeDefs is a module-level constant that never changes at runtime, the
+ * Map will hold at most one entry per process lifetime — no memory-leak risk.
+ *
+ * Without this cache, makeExecutableSchema (SDL parsing + resolver wiring) ran
+ * once per booking fetched — e.g. 50 bookings × concurrency-10 = 50 compilations
+ * per search. With the cache it runs at most once per process lifetime.
+ */
+const schemaCache = new Map();
+
+/**
+ * Return a compiled GraphQL schema for the given typeDefs, building and caching
+ * it on the first call and returning the cached instance on every subsequent call.
+ *
+ * @param {string|DocumentNode} typeDefs - SDL string or parsed document from ti2.
+ * @returns {GraphQLSchema}
+ */
+const getSchema = typeDefs => {
+  if (schemaCache.has(typeDefs)) return schemaCache.get(typeDefs);
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
+  schemaCache.set(typeDefs, schema);
+  return schema;
+};
+
+/**
+ * Translate a raw TourPlan booking object into the ti2 itinerary-booking shape
+ * by executing the ti2-supplied GraphQL query against the booking as root value.
+ *
+ * SDL + operation document come from ti2.
+ *
+ * @param {string|DocumentNode} typeDefs - The type definitions for the schema.
+ * @param {string} query - The GraphQL operation to execute.
+ * @param {Object} rootValue - The raw TourPlan booking object.
+ * @returns {Promise<Object>} The translated booking data.
  */
 const translateItineraryBooking = async ({ typeDefs, query, rootValue }) => {
-  const schema = makeExecutableSchema({
-    typeDefs,
-    resolvers,
-  });
+  const schema = getSchema(typeDefs);
   const retVal = await graphql({
     schema,
     rootValue,
