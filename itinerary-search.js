@@ -126,61 +126,76 @@ const searchItineraries = async ({
     xmlOptions: hostConnectXmlOptions,
   });
 
-  // if bookingReferenceIds are provided, we use them to search for bookings
-  // and ignore the other search filters
-  const normalizedBookingReferenceIds = (
-    Array.isArray(bookingReferenceIds) ? bookingReferenceIds : [bookingReferenceIds]
-  )
-    .filter(v => v != null)
-    .map(v => String(v).trim())
-    .filter(Boolean);
-  if (normalizedBookingReferenceIds.length) {
-    const bookings = await Promise.map(
-      R.uniq(normalizedBookingReferenceIds),
-      bookingIdValue => fetchFullBookingByBookingId(
-        'Ref',
-        bookingIdValue,
-        callTourplan,
-        getPayload,
-        hostConnectAgentID,
-        itineraryBookingTypeDefs,
-        itineraryBookingQuery,
-      ),
-      { concurrency: 10 },
-    );
-    const filtered = bookings.filter(b => b);
-    return { bookings: filtered };
-  }
+  let searchCriterias = [];
+  let applyBaseSearchFilters = false;
 
-  // if traveldates are provided those are used else default to +/- 1 year
-  // along with purchase dates, booking id & name are used to search for bookings
+  // Build base search filters.
+  // If booking reference(s) or bookingid are provided these those are used.
+  // But if no booking reference(s) or bookingid are provided then we use the travel
+  // dates window as a base search filters. To keep the search bounded (and not crash Tourplan)
+  // If purchase dates are provided then its part of base search filters.
   const travelDateWindow = getDefaultTravelDateWindow(travelDateStart, travelDateEnd);
   const baseSearchFilters = {
-    // Keep search bounded: use explicit travel window, otherwise default to +/- 1 year.
     TravelDateFrom: travelDateWindow.travelDateFrom,
     TravelDateTo: travelDateWindow.travelDateTo,
     ...(purchaseDateStart && { EnteredDateFrom: purchaseDateStart }),
     ...(purchaseDateEnd && { EnteredDateTo: purchaseDateEnd }),
   };
-  const listBookingPayload = getPayload('ListBookingsRequest', baseSearchFilters);
-  let searchCriterias = [];
-  if (bookingId) {
+
+  // Step1: Build search criterias based on the provided search criteria.
+  const normalizedBookingReferenceIds = (
+    Array.isArray(bookingReferenceIds) ? bookingReferenceIds : [bookingReferenceIds]
+  ).filter(v => v != null).map(v => escapeInvalidXmlChars(String(v).trim())).filter(Boolean);
+
+  if (normalizedBookingReferenceIds.length) {
+    // if bookingReferenceIds are provided other search criteria are ignored
+    searchCriterias = R.uniq(normalizedBookingReferenceIds).map(ref => ({ Ref: ref }));
+  } else if (bookingId) {
+    // if bookingId is provided other search criteria are ignored
+    // and we search for bookings by bookingId, ref & agentRef
     searchCriterias = ['BookingId', 'Ref', 'AgentRef'].map(key => ({ [key]: escapeInvalidXmlChars(bookingId) }));
+  } else {
+    applyBaseSearchFilters = true;
+    if (name) {
+      searchCriterias.push({ NameContains: escapeInvalidXmlChars(name) });
+    }
   }
-  if (name) {
-    searchCriterias.push({ NameContains: escapeInvalidXmlChars(name) });
-  }
-  // Remove duplicate criteria so repeated refs don't trigger duplicate upstream calls.
+  // Step2: Remove duplicate criteria so repeated refs don't trigger duplicate upstream calls.
   searchCriterias = R.uniqBy(JSON.stringify, searchCriterias);
 
+  // Step3: Search for bookings based on the search criterias.
   const allSearches = searchCriterias.length
     ? searchCriterias.map(async keyObj => {
       let reply;
       try {
         reply = await callTourplan(getPayload('ListBookingsRequest', {
-          ...baseSearchFilters,
+          ...(applyBaseSearchFilters && { ...baseSearchFilters }),
           ...keyObj,
         }));
+        /*
+          <Reply>
+            <ListBookingsReply>
+              <BookingHeaders>
+                <BookingHeader>
+                  <BookingId>320984</BookingId>
+                  <Ref>ALFI399113</Ref>
+                  <Name>Barbara Solomon x2 2554776</Name>
+                  <NameAlias/>
+                  <QB>B</QB>
+                  <Consult>TEST AGENT OWNER</Consult>
+                  <AgentRef>2554776</AgentRef>
+                  <TravelDate>2025-04-06</TravelDate>
+                  <EnteredDate>2025-01-30</EnteredDate>
+                  <BookingStatus>Quotation iCom CNX</BookingStatus>
+                  <BookingType>F</BookingType>
+                  <IsInternetBooking>Y</IsInternetBooking>
+                  <Currency>GBP</Currency>
+                  <TotalPrice>1016738</TotalPrice>
+                </BookingHeader>
+              </BookingHeaders>
+            </ListBookingsReply>
+          </Reply>
+        */
       } catch (err) {
         const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
         if (errMsg.includes('Request failed with status code')) {
@@ -189,28 +204,9 @@ const searchItineraries = async ({
         // if it's not server error, we just considered as no booking is found
         reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
       }
-
-      // {"ListBookingsReply":
-      //  {"BookingHeaders":
-      //    {"BookingHeader":[
-      //        {"AgentRef":"2399181","BookingId":"314164",
-      //          "BookingStatus":"Quotation","BookingType":"F",
-      //          "Consult":null,"Currency":"GBP","EnteredDate":"2024-05-23",
-      //          "IsInternetBooking":"Y",
-      //          "Name":"Mr. Robert Slavonia x2 2399181","QB":"Q","Ref":"ALFI393309",
-      //          "TotalPrice":"583143",
-      //          "TravelDate":"2024-07-09"},{"AgentRef":"666666/1","BookingId":"315357",
-      //          "BookingStatus":"Quotation","BookingType":"F","Consult":null,
-      //          "Currency":"GBP",
-      //          "EnteredDate":"2024-06-04","IsInternetBooking":"Y",
-      //          "Name":"Robert Guerrerio x3 2413898",
-      //          "QB":"Q","Ref":"ALFI393503","TotalPrice":"2309452","TravelDate":"2024-08-31"
-      //        }
-      //     ]}
-      // }}
       return reply;
     })
-    : [callTourplan(listBookingPayload)];
+    : [callTourplan(getPayload('ListBookingsRequest', baseSearchFilters))];
   const replyObjs = await Promise.all(allSearches);
   const bookingHeadersRaw = R.flatten(
     replyObjs.map(o => R.pathOr(
@@ -239,6 +235,7 @@ const searchItineraries = async ({
     ),
     { concurrency: 10 },
   );
+  console.debug('BOOKINGS FOUND: ', bookings.length);
   return {
     bookings: bookings.filter(b => b),
   };
