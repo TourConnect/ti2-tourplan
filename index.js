@@ -32,6 +32,33 @@ const getHeaders = ({ length }) => ({
   'Content-Length': length,
 });
 
+/**
+ * Serialize a model object to a TourPlan-compatible XML string.
+ *
+ * TourPlan requires two transformations that js2xmlparser does not apply:
+ *  1. Forward slashes in text content must be escaped as &#47; (TourPlan rejects
+ *     bare slashes even though they are valid XML). The regex uses a negative
+ *     lookbehind/lookahead to avoid touching slashes inside tag delimiters.
+ *  2. The DTD declaration must be injected in the form:
+ *       <!DOCTYPE Request SYSTEM "name.dtd">
+ *     which js2xmlparser emits as just the DTD name; we patch the string afterwards.
+ *
+ * Extracting this into a helper eliminates the duplication between callTourplan,
+ * detectDtdVersion, and queryAllotment.
+ *
+ * @param {Object} model      - The request model object (key = RequestType).
+ * @param {Object} xmlOptions - js2xmlparser options including dtd.name.
+ * @returns {string} Ready-to-send XML string.
+ */
+const buildXmlPayload = (model, xmlOptions) => {
+  let data = Normalizer.stripEnclosingQuotes(
+    js2xmlparser.parse('Request', model, xmlOptions),
+  );
+  data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
+  data = data.replace(xmlOptions.dtd.name, `Request SYSTEM "${xmlOptions.dtd.name}"`);
+  return data;
+};
+
 class BuyerPlugin {
   constructor(params = {}) { // we get the env variables from here
     Object.entries(params).forEach(([attr, value]) => {
@@ -165,7 +192,9 @@ class BuyerPlugin {
           });
           return cachedVersion;
         } catch (cacheErr) {
-          // Cache error, fall back to memory cache
+          // Cache error — fall back to in-process memory cache so that a cache
+          // outage doesn't break every API call. Log so the issue is visible.
+          console.warn('[tourplan] DTD version cache error, falling back to memory cache:', cacheErr.message);
         }
       }
 
@@ -200,6 +229,11 @@ class BuyerPlugin {
         },
       };
 
+      // NOTE: We intentionally use dummy credentials here. detectDtdVersion only
+      // cares whether the server replies with a DTD-version error — the auth result
+      // is irrelevant. Passing real credentials would require threading them through
+      // getCorrectDtdVersion → detectDtdVersion, which is a larger refactor.
+      // Be aware this generates an auth-failure log entry on the TourPlan side.
       const model = {
         AuthenticationRequest: {
           Login: 'test',
@@ -207,18 +241,14 @@ class BuyerPlugin {
         },
       };
 
-      let data = Normalizer.stripEnclosingQuotes(
-        js2xmlparser.parse('Request', model, testXmlOptions),
-      );
-      data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
-      data = data.replace(testXmlOptions.dtd.name, `Request SYSTEM "${testXmlOptions.dtd.name}"`);
+      const testData = buildXmlPayload(model, testXmlOptions);
 
       try {
         const reply = await axios({
           method: 'post',
           url: endpoint,
-          data,
-          headers: getHeaders({ length: data.length }),
+          data: testData,
+          headers: getHeaders({ length: testData.length }),
         });
 
         // The API returns 200 even for DTD errors, so check the response content
@@ -467,23 +497,24 @@ class BuyerPlugin {
     assert(endpoint);
     assert(username, 'Must provide token.username for allotment API');
     assert(password, 'Must provide token.password for allotment API');
-    assert(startDate);
-    assert(endDate);
-    assert(keyPath, 'Must provide a supplier/product spec');
+    assert(startDate, 'Must provide a start date for allotment API');
+    assert(endDate, 'Must provide an end date for allotment API');
+    assert(keyPath, 'Must provide a supplier/product key path for allotment API');
     const keyPathArr = keyPath.split('|');
     assert(keyPathArr.length > 1, 'Must provide a supplier id and a product id');
     const supplierId = R.path([-2], keyPathArr);
     const productId = R.path([-1], keyPathArr);
-    assert(supplierId);
-    assert(productId);
+    assert(supplierId, 'Could not extract supplierId from keyPath');
+    assert(productId, 'Could not extract productId from keyPath');
+    // TODO: moment is the only consumer of this dependency in the entire codebase.
+    // It can be replaced with native Date helpers once a format-parsing utility is
+    // in place for the arbitrary dateFormat parameter.
     const model = {
       GetInventoryRequest: {
         SupplierCode: supplierId,
         Date_From: moment(startDate, dateFormat).format('YYYY-MM-DD'),
         Date_To: moment(endDate, dateFormat).format('YYYY-MM-DD'),
         OptionCode: productId,
-        // AllocationName: '2021 REBOOT',
-        // Unit_Type: 'RM',
         Login: username,
         Password: password,
       },
@@ -499,18 +530,13 @@ class BuyerPlugin {
       },
     };
 
-    let data = Normalizer.stripEnclosingQuotes(
-      js2xmlparser.parse('Request', model, xmlOptionsWithCorrectDtd),
-    );
-    // Fix forward slashes like in callTourplan
-    data = data.replace(/(?<!<)\/(?![^<]*>)/g, '&#47;');
-    data = data.replace(xmlOptionsWithCorrectDtd.dtd.name, `Request SYSTEM "${xmlOptionsWithCorrectDtd.dtd.name}"`);
-    if (verbose) console.log('request', cleanLog(data));
+    const requestData = buildXmlPayload(model, xmlOptionsWithCorrectDtd);
+    if (verbose) console.log('request', cleanLog(requestData));
     const reply = R.path(['data'], await axios({
       method: 'post',
       url: endpoint,
-      data,
-      headers: getHeaders({ length: data.length }),
+      data: requestData,
+      headers: getHeaders({ length: requestData.length }),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
     const returnObj = await xmlParser.parseStringPromise(reply);
