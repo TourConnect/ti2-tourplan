@@ -55,7 +55,7 @@ const escapeInvalidXmlChars = str => {
       ['æ', 'ae'],
       ['ß', 'ss'],
     ];
-    const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.replace(k, v), s);
+    const preprocessed = accentedChars.reduce((acc, [k, v]) => acc.split(k).join(v), s);
     return preprocessed.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
   };
   // NOTE: There is no need to sanitize the string for 5 characters (&, <, >, " and ')
