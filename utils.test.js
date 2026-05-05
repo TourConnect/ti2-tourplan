@@ -22,6 +22,10 @@ describe('escapeInvalidXmlChars', () => {
     expect(escapeInvalidXmlChars('Say ‘hi’ and “bye” – ok')).toBe('Say \'hi\' and "bye" - ok');
   });
 
+  it('replaces non-breaking spaces with regular spaces', () => {
+    expect(escapeInvalidXmlChars('Borwieck\u00A0Mrs R')).toBe('Borwieck Mrs R');
+  });
+
   it('strips disallowed control characters', () => {
     expect(escapeInvalidXmlChars('A\u0000B\u0008C')).toBe('ABC');
   });
