@@ -62,6 +62,7 @@ const escapeInvalidXmlChars = str => {
   // because js2xmlparser does that for us. Plus if we use sanitize before calling js2xmlparser
   // js2xmlparser will escape & to '&amp;' making it invalid XML
   return convertAccentedChars(asString)
+    .replace(/\u00A0/g, ' ')
     .replace(/’/g, "'")
     .replace(/‘/g, "'")
     .replace(/“/g, '"')
