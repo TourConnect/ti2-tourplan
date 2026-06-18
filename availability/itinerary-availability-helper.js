@@ -140,6 +140,54 @@ const getDaysInYear = dateString => {
   const year = moment(dateString).year();
   return moment([year]).isLeapYear() ? 366 : 365;
 };
+
+/*
+  Option Availability Integer List (OptAvail)
+  This is a list of integers that represent the availability of the option for
+  each day in the requested date range.
+  The integers are to be interpreted as follows:
+  Greater than 0 means that inventory is available, with the integer specifying
+  the number of units available.
+  For options with a service type of Y , the inventory is in units of rooms.
+  For other service types, the inventory is in units of pax.
+  -1 Not available.
+  -2 Available on free sell.
+  -3 Available on request.
+  Note: A return value of 0 or something less than -3 is impossible.
+*/
+const getAvailabilityOnly = async ({
+  optionId,
+  hostConnectEndpoint,
+  hostConnectAgentID,
+  hostConnectAgentPassword,
+  axios,
+  startDate,
+  requestedEndDate,
+  callTourplan,
+}) => {
+  const isValidRequestedEndDate = moment(requestedEndDate, 'YYYY-MM-DD', true).isValid();
+  const dateTo = isValidRequestedEndDate
+    ? requestedEndDate
+    : moment(startDate).add(1, 'year').subtract(1, 'day').format('YYYY-MM-DD');
+  const model = {
+    OptionInfoRequest: {
+      Opt: optionId,
+      Info: 'AD',
+      AgentID: hostConnectAgentID,
+      Password: hostConnectAgentPassword,
+      DateFrom: startDate,
+      DateTo: dateTo,
+      ACache: 'N',
+    },
+  };
+  const replyObj = await callTourplan({
+    model,
+    endpoint: hostConnectEndpoint,
+    axios,
+    xmlOptions: hostConnectXmlOptions,
+  });
+  return R.pathOr([], ['OptionInfoReply', 'Option', 'OptAvail'], replyObj);
+};
 /*
     Get general option information from Tourplan API.
 
@@ -1327,6 +1375,7 @@ const findNextValidDate = (startDate, dateRanges) => {
 
 module.exports = {
   getAgentCurrencyCode,
+  getAvailabilityOnly,
   getAvailabilityConfig,
   getNoRatesAvailableError,
   getStayResults,

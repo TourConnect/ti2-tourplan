@@ -24,6 +24,7 @@ jest.mock('./itinerary-availability-helper', () => ({
     maxPaxPerCharge: null,
   })),
   getNoRatesAvailableError: jest.fn(async () => 'No rates available'),
+  getAvailabilityOnly: jest.fn(async () => '-1 -1 -1'),
   getStayResults: jest.fn(async () => ([{
     RateId: 'R1',
     Currency: 'USD',
@@ -145,5 +146,45 @@ describe('searchAvailabilityForItinerary validation flags', () => {
     expect(result.bookable).toBe(true);
     expect(result.type).toBe('inventory');
     expect(result.endDate).toBe('2025-04-02');
+  });
+
+  it('uses availabilityOnly flow and keeps response shape consistent', async () => {
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce('-1 -2 -1');
+
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: { ...basePayload, availabilityOnly: true, endDate: '2025-04-05' },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(itineraryAvailabilityHelper.getAvailabilityOnly).toHaveBeenCalledTimes(1);
+    expect(itineraryAvailabilityHelper.getAgentCurrencyCode).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      bookable: true,
+      type: 'availability',
+      endDate: '2025-04-05',
+      message: 'Availability checked successfully',
+      availability: [-1, -2, -1],
+      rates: [],
+    });
+  });
+
+  it('marks availabilityOnly response as not bookable when all days are unavailable', async () => {
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce('-1 -1 -1');
+
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: { ...basePayload, availabilityOnly: true, endDate: '2025-04-05' },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(result.bookable).toBe(false);
+    expect(result.message).toBe('No availability found for the requested range');
+    expect(result.availability).toEqual([-1, -1, -1]);
+    expect(result.rates).toEqual([]);
   });
 });
