@@ -18,6 +18,7 @@ const {
 } = require('./itinerary-availability-helper');
 
 const {
+  getAvailabilityOnly,
   getAvailabilityConfig,
   getNoRatesAvailableError,
   getStayResults,
@@ -86,6 +87,28 @@ const returnEmptyRatesOrError = (allowSendingServicesWithoutARate, agentCurrency
   };
 };
 
+const getOptAvailValues = optAvail => {
+  if (Array.isArray(optAvail)) {
+    return optAvail
+      .map(value => Number(value))
+      .filter(value => !Number.isNaN(value));
+  }
+
+  if (typeof optAvail === 'string') {
+    return optAvail
+      .trim()
+      .split(/\s+/)
+      .map(value => Number(value))
+      .filter(value => !Number.isNaN(value));
+  }
+
+  return [];
+};
+
+const isOptAvailBookable = optAvailValues => (
+  optAvailValues.some(value => value > 0 || value === -2 || value === -3)
+);
+
 const searchAvailabilityForItinerary = async ({
   axios,
   token: {
@@ -108,6 +131,7 @@ const searchAvailabilityForItinerary = async ({
   payload: {
     optionId,
     startDate,
+    endDate: requestedEndDate,
     /*
     paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
     */
@@ -120,10 +144,38 @@ const searchAvailabilityForItinerary = async ({
     */
     chargeUnitQuantity,
     roomTypeRequired = true,
+    availabilityOnly = false,
   },
   callTourplan,
   cache,
 }) => {
+  const isAvailabilityOnly = availabilityOnly === true;
+
+  if (isAvailabilityOnly) {
+    const availabilityOnlyResponse = await getAvailabilityOnly({
+      optionId,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
+      axios,
+      startDate,
+      requestedEndDate,
+      callTourplan,
+    });
+    const optAvailValues = getOptAvailValues(availabilityOnlyResponse);
+    const SCheckPass = isOptAvailBookable(optAvailValues);
+    return {
+      bookable: SCheckPass,
+      type: 'availability',
+      ...(requestedEndDate && SCheckPass ? { endDate: requestedEndDate } : {}),
+      message: SCheckPass
+        ? 'Availability checked successfully'
+        : 'No availability found for the requested range',
+      availability: optAvailValues,
+      rates: [],
+    };
+  }
+
   // Get agent currency code & cache it
   const agentCurrencyCode = await getAgentCurrencyCode({
     hostConnectEndpoint,
@@ -385,7 +437,11 @@ const searchAvailabilityForItinerary = async ({
   if (dateRangesError) {
     if (dateRangesError.message.includes('minimum stay')) {
       // If minimum stay error, return availability with a warning message
-      const { matchingRateSet } = getMatchingRateSet(dateRangeToUse.rateSets, dateRangeToUse.startDate, chargeUnitQuantity);
+      const { matchingRateSet } = getMatchingRateSet(
+        dateRangeToUse.rateSets,
+        dateRangeToUse.startDate,
+        chargeUnitQuantity,
+      );
       minStayRequired = matchingRateSet ? matchingRateSet.minSCU : 0;
       sWarningMsg = MIN_STAY_WARNING_MESSAGE.replace('{minSCU}', minStayRequired);
     } else if (dateRangesError.message.includes('rates are closed')) {
