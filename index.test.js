@@ -274,6 +274,163 @@ describe('search tests', () => {
           },
         });
       });
+
+      it('requires a booking id or reference', async () => {
+        await expect(app.cancelBooking({
+          axios,
+          token,
+          payload: {},
+        })).rejects.toThrow('Must provide booking id or reference for cancellation');
+        expect(mockCallTourplan).not.toHaveBeenCalled();
+      });
+    });
+    describe('confirmBooking', () => {
+      it('converts a quote to a booking by id', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          QuoteToBookReply: {
+            BookingId: '14226',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: {
+                Ref: 'A2IN111975',
+                ServiceLineId: '61738',
+                Date: '2026-07-03',
+                SequenceNumber: '10',
+                Status: 'OK',
+              },
+            },
+          },
+        }));
+        const retVal = await app.confirmBooking({
+          axios,
+          token,
+          payload: {
+            bookingId: '14226',
+          },
+        });
+        expect(mockCallTourplan).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          model: {
+            QuoteToBookRequest: expect.objectContaining({
+              BookingId: '14226',
+            }),
+          },
+        }));
+        expect(retVal).toEqual({
+          confirmBookingReply: {
+            BookingId: '14226',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: {
+                Ref: 'A2IN111975',
+                ServiceLineId: '61738',
+                Date: '2026-07-03',
+                SequenceNumber: '10',
+                Status: 'OK',
+              },
+            },
+          },
+          booking: {
+            ref: 'A2IN111975',
+            id: '14226',
+            status: 'OK',
+            serviceLines: [{
+              ref: 'A2IN111975',
+              serviceLineId: '61738',
+              date: '2026-07-03',
+              sequenceNumber: '10',
+              status: 'OK',
+            }],
+          },
+        });
+      });
+
+      it('converts a quote to a booking by ref', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          QuoteToBookReply: {
+            BookingId: '14226',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Date: '2026-07-03',
+                SequenceNumber: '10',
+                Status: 'OK',
+              }],
+            },
+          },
+        }));
+        const retVal = await app.confirmBooking({
+          axios,
+          token,
+          payload: {
+            ref: 'A2IN111975',
+          },
+        });
+        expect(mockCallTourplan).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          model: {
+            QuoteToBookRequest: expect.objectContaining({
+              Ref: 'A2IN111975',
+            }),
+          },
+        }));
+        expect(retVal.booking.id).toBe('14226');
+        expect(retVal.booking.ref).toBe('A2IN111975');
+        expect(retVal.booking.status).toBe('OK');
+      });
+
+      it('returns MIXED status when service line statuses differ', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          QuoteToBookReply: {
+            BookingId: '14226',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Status: 'OK',
+              }, {
+                ServiceLineId: '61739',
+                Status: 'RQ',
+              }],
+            },
+          },
+        }));
+        const retVal = await app.confirmBooking({
+          axios,
+          token,
+          payload: {
+            bookingId: '14226',
+          },
+        });
+        expect(retVal.booking.status).toBe('MIXED');
+        expect(retVal.booking.serviceLines).toHaveLength(2);
+      });
+
+      it('requires a booking id or reference', async () => {
+        await expect(app.confirmBooking({
+          axios,
+          token,
+          payload: {},
+        })).rejects.toThrow('Must provide booking id or reference for confirm booking');
+        expect(mockCallTourplan).not.toHaveBeenCalled();
+      });
+
+      it('falls back to Confirmed when no service statuses are returned', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          QuoteToBookReply: {
+            BookingId: '14226',
+            Ref: 'A2IN111975',
+          },
+        }));
+        const retVal = await app.confirmBooking({
+          axios,
+          token,
+          payload: {
+            bookingId: '14226',
+          },
+        });
+        expect(retVal.booking.status).toBe('Confirmed');
+        expect(retVal.booking.serviceLines).toEqual([]);
+      });
     });
     describe('template tests', () => {
       let template;

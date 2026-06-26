@@ -105,3 +105,68 @@ The plugin returns both:
   - `status`: aggregate over all `ServiceStatus.Status` values:
     - same status on all lines => that status (e.g. `XX`)
     - mixed line statuses => `MIXED`
+
+## Confirm Booking (HostConnect)
+
+This plugin converts a quote to a confirmed booking using HostConnect `QuoteToBookRequest`. Inventory is allocated for each service line when the quote is confirmed; the returned `ServiceStatus` values indicate whether allocation succeeded per line.
+
+### HostConnect XML Request
+
+```xml
+<Request>
+  <QuoteToBookRequest>
+    <AgentID>YOUR_AGENT_ID</AgentID>
+    <Password>YOUR_AGENT_PASSWORD</Password>
+    <BookingId>14226</BookingId>
+  </QuoteToBookRequest>
+</Request>
+```
+
+Equivalent curl:
+
+```bash
+curl --location 'https://<HOSTCONNECT_ENDPOINT>/api/hostConnectApi' \
+--header 'Content-Type: application/xml; charset=utf-8' \
+--header 'requestId: <uuid>' \
+--header 'Accept: application/xml' \
+--data '<Request>
+  <QuoteToBookRequest>
+    <AgentID>YOUR_AGENT_ID</AgentID>
+    <Password>YOUR_AGENT_PASSWORD</Password>
+    <BookingId>14226</BookingId>
+  </QuoteToBookRequest>
+</Request>'
+```
+
+### HostConnect XML Response (example)
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_05_010.dtd">
+<Reply>
+  <QuoteToBookReply>
+    <BookingId>14226</BookingId>
+    <Ref>A2IN111975</Ref>
+    <ServiceStatuses>
+      <ServiceStatus>
+        <Ref>A2IN111975</Ref>
+        <ServiceLineId>61738</ServiceLineId>
+        <Date>2026-07-03</Date>
+        <SequenceNumber>10</SequenceNumber>
+        <Status>OK</Status>
+      </ServiceStatus>
+    </ServiceStatuses>
+  </QuoteToBookReply>
+</Reply>
+```
+
+### Plugin Return Shape
+
+The plugin returns both:
+
+- `confirmBookingReply`: raw parsed HostConnect `QuoteToBookReply` object
+- `booking`: normalized object
+  - `ref`: from `Ref`
+  - `id`: from `BookingId` (or the identifier sent in the request)
+  - `status`: aggregate over all `ServiceStatus.Status` values (same rules as cancel), with fallbacks to `BookingStatus`, `Status`, `payload.status`, then `'Confirmed'`
+  - `serviceLines`: array of `{ ref, serviceLineId, date, sequenceNumber, status }`
