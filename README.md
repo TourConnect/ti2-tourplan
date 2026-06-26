@@ -39,3 +39,69 @@ TL;DR Here's what the license entails:
 7. Any modifications of this code base MUST be distributed with the same license, GPLv3.
 8. This software is provided without warranty.
 9. The software author or license can not be held liable for any damages inflicted by the software.
+
+## Cancel Booking (HostConnect)
+
+This plugin cancels bookings using `CancelServicesRequest` (not `CancelBookingRequest`).
+
+### HostConnect XML Request
+
+```xml
+<Request>
+  <CancelServicesRequest>
+    <AgentID>YOUR_AGENT_ID</AgentID>
+    <Password>YOUR_AGENT_PASSWORD</Password>
+    <BookingId>14226</BookingId>
+    <ReturnBooking>Y</ReturnBooking>
+  </CancelServicesRequest>
+</Request>
+```
+
+Equivalent curl:
+
+```bash
+curl --location 'https://<HOSTCONNECT_ENDPOINT>/api/hostConnectApi' \
+--header 'Content-Type: application/xml; charset=utf-8' \
+--header 'requestId: <uuid>' \
+--header 'Accept: application/xml' \
+--data '<Request>
+  <CancelServicesRequest>
+    <AgentID>YOUR_AGENT_ID</AgentID>
+    <Password>YOUR_AGENT_PASSWORD</Password>
+    <BookingId>14226</BookingId>
+    <ReturnBooking>Y</ReturnBooking>
+  </CancelServicesRequest>
+</Request>'
+```
+
+### HostConnect XML Response (example)
+
+```xml
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE Reply SYSTEM "hostConnect_5_05_010.dtd">
+<Reply>
+  <CancelServicesReply>
+    <BookingId>14226</BookingId>
+    <Ref>A2IN111975</Ref>
+    <ServiceStatuses>
+      <ServiceStatus>
+        <ServiceLineId>61738</ServiceLineId>
+        <Date>2026-07-03</Date>
+        <SequenceNumber>10</SequenceNumber>
+        <Status>XX</Status>
+      </ServiceStatus>
+    </ServiceStatuses>
+  </CancelServicesReply>
+</Reply>
+```
+
+### Plugin Return Shape
+
+The plugin returns both:
+
+- `cancelServicesReply`: raw parsed `CancelServicesReply` object
+- `cancellation`: normalized object
+  - `id`: from `BookingId`
+  - `status`: aggregate over all `ServiceStatus.Status` values:
+    - same status on all lines => that status (e.g. `XX`)
+    - mixed line statuses => `MIXED`

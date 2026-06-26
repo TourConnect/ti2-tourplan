@@ -132,6 +132,149 @@ describe('search tests', () => {
         }
       });
     });
+    describe('cancelBooking', () => {
+      it('cancels a booking by id', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          CancelServicesReply: {
+            BookingId: '316559',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: {
+                ServiceLineId: '61738',
+                Date: '2026-07-03',
+                SequenceNumber: '10',
+                Status: 'XX',
+              },
+            },
+          },
+        }));
+        const retVal = await app.cancelBooking({
+          axios,
+          token,
+          payload: {
+            id: '316559',
+            status: 'Cancelled',
+            clicked: 1719571452,
+          },
+        });
+        expect(mockCallTourplan).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          model: {
+            CancelServicesRequest: expect.objectContaining({
+              BookingId: '316559',
+              ReturnBooking: 'Y',
+            }),
+          },
+        }));
+        expect(retVal).toEqual({
+          cancelServicesReply: {
+            BookingId: '316559',
+            Ref: 'A2IN111975',
+            ServiceStatuses: {
+              ServiceStatus: {
+                ServiceLineId: '61738',
+                Date: '2026-07-03',
+                SequenceNumber: '10',
+                Status: 'XX',
+              },
+            },
+          },
+          cancellation: {
+            id: '316559',
+            status: 'XX',
+          },
+        });
+      });
+
+      it('cancels a booking by ref', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          CancelServicesReply: {
+            BookingId: '316559',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Status: 'XX',
+              }],
+            },
+          },
+        }));
+        const retVal = await app.cancelBooking({
+          axios,
+          token,
+          payload: {
+            ref: 'ALFI393706',
+            status: 'Cancelled',
+            clicked: 1719571452,
+          },
+        });
+        expect(mockCallTourplan).toHaveBeenNthCalledWith(1, expect.objectContaining({
+          model: {
+            CancelServicesRequest: expect.objectContaining({
+              Ref: 'ALFI393706',
+              ReturnBooking: 'Y',
+            }),
+          },
+        }));
+        expect(retVal).toEqual({
+          cancelServicesReply: {
+            BookingId: '316559',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Status: 'XX',
+              }],
+            },
+          },
+          cancellation: {
+            id: '316559',
+            status: 'XX',
+          },
+        });
+      });
+
+      it('returns MIXED status when service statuses differ', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          CancelServicesReply: {
+            BookingId: '316559',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Status: 'XX',
+              }, {
+                ServiceLineId: '61739',
+                Status: 'RQ',
+              }],
+            },
+          },
+        }));
+        const retVal = await app.cancelBooking({
+          axios,
+          token,
+          payload: {
+            bookingId: '316559',
+            status: 'Cancelled',
+            clicked: 1719571452,
+          },
+        });
+        expect(retVal).toEqual({
+          cancelServicesReply: {
+            BookingId: '316559',
+            ServiceStatuses: {
+              ServiceStatus: [{
+                ServiceLineId: '61738',
+                Status: 'XX',
+              }, {
+                ServiceLineId: '61739',
+                Status: 'RQ',
+              }],
+            },
+          },
+          cancellation: {
+            id: '316559',
+            status: 'MIXED',
+          },
+        });
+      });
+    });
     describe('template tests', () => {
       let template;
       it('get the template', async () => {
