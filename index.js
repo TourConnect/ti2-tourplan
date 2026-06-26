@@ -10,6 +10,7 @@ const Normalizer = require('./normalizer');
 
 const { searchAvailabilityForItinerary } = require('./availability/itinerary-availability');
 const { addServiceToItinerary } = require('./itinerary-add-service');
+const { cancelBooking } = require('./itinerary-cancel-booking');
 const { searchProductsForItinerary } = require('./itinerary-products-search');
 const { searchItineraries } = require('./itinerary-search');
 const { hostConnectXmlOptions } = require('./utils');
@@ -672,6 +673,19 @@ class BuyerPlugin {
     payload,
   }) {
     return addServiceToItinerary({
+      axios,
+      token,
+      payload,
+      callTourplan: this.callTourplan.bind(this),
+    });
+  }
+
+  async cancelBooking({
+    axios,
+    token,
+    payload,
+  }) {
+    return cancelBooking({
       axios,
       token,
       payload,
