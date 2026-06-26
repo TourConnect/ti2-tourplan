@@ -11,6 +11,7 @@ const Normalizer = require('./normalizer');
 const { searchAvailabilityForItinerary } = require('./availability/itinerary-availability');
 const { addServiceToItinerary } = require('./itinerary-add-service');
 const { cancelBooking } = require('./itinerary-cancel-booking');
+const { confirmBooking } = require('./itinerary-confirm-booking');
 const { searchProductsForItinerary } = require('./itinerary-products-search');
 const { searchItineraries } = require('./itinerary-search');
 const { hostConnectXmlOptions } = require('./utils');
@@ -680,12 +681,31 @@ class BuyerPlugin {
     });
   }
 
+  /**
+   * Cancel a booking.
+   */
   async cancelBooking({
     axios,
     token,
     payload,
   }) {
     return cancelBooking({
+      axios,
+      token,
+      payload,
+      callTourplan: this.callTourplan.bind(this),
+    });
+  }
+
+  /**
+   * Convert a quote to a confirmed booking.
+   */
+  async confirmBooking({
+    axios,
+    token,
+    payload,
+  }) {
+    return confirmBooking({
       axios,
       token,
       payload,
