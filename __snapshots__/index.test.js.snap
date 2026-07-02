@@ -4153,6 +4153,29 @@ Object {
           "comment": "FIT- V- Class (1-5 Pax)",
           "extras": Array [],
           "lastUpdateTimestamp": 1700750093,
+          "optRates": Object {
+            "CancelPolicies": Object {
+              "CancelPenalty": Object {
+                "CancelRuleType": "Percent",
+                "CancelRuleUnits": 100,
+              },
+            },
+            "Currency": "GBP",
+            "OptRate": Object {
+              "CommissionPercent": 10,
+              "Date": "2026-06-01",
+              "PersonRates": Object {
+                "AdultRate": 10000,
+              },
+              "RateName": "STD",
+              "RateText": "Standard",
+            },
+            "PaxBreaks": Object {
+              "PaxBreak": 1,
+            },
+            "SaleFrom": "2026-01-01",
+            "SaleTo": "2026-12-31",
+          },
           "optionId": "LONTRDAVIDSHDWBVD",
           "optionName": "Half-Day Warner Bros Studios (6-Hours)-FIT- V- Class (1-5 Pax)",
           "restrictions": Object {
