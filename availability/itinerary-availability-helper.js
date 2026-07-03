@@ -172,7 +172,7 @@ const getAvailabilityOnly = async ({
   const model = {
     OptionInfoRequest: {
       Opt: optionId,
-      Info: 'AD',
+      Info: 'GAR',
       AgentID: hostConnectAgentID,
       Password: hostConnectAgentPassword,
       DateFrom: startDate,
@@ -186,7 +186,11 @@ const getAvailabilityOnly = async ({
     axios,
     xmlOptions: hostConnectXmlOptions,
   });
-  return R.pathOr([], ['OptionInfoReply', 'Option', 'OptAvail'], replyObj);
+  const option = R.path(['OptionInfoReply', 'Option'], replyObj);
+  return {
+    optAvail: R.pathOr([], ['OptAvail'], option),
+    optRates: R.path(['OptRates'], option),
+  };
 };
 /*
     Get general option information from Tourplan API.

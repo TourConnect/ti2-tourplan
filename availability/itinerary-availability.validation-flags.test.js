@@ -24,7 +24,7 @@ jest.mock('./itinerary-availability-helper', () => ({
     maxPaxPerCharge: null,
   })),
   getNoRatesAvailableError: jest.fn(async () => 'No rates available'),
-  getAvailabilityOnly: jest.fn(async () => '-1 -1 -1'),
+  getAvailabilityOnly: jest.fn(async () => ({ optAvail: '-1 -1 -1', optRates: null })),
   getStayResults: jest.fn(async () => ([{
     RateId: 'R1',
     Currency: 'USD',
@@ -149,7 +149,18 @@ describe('searchAvailabilityForItinerary validation flags', () => {
   });
 
   it('uses availabilityOnly flow and keeps response shape consistent', async () => {
-    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce('-1 -2 -1');
+    const mockOptRates = {
+      Currency: 'JPY',
+      OptRate: {
+        Date: '2026-06-01',
+        RateName: '26年',
+        PersonRates: { AdultRate: 2700000, ChildRate: 1700000 },
+      },
+    };
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
+      optAvail: '-1 -2 -1',
+      optRates: mockOptRates,
+    });
 
     const result = await searchAvailabilityForItinerary({
       axios: jest.fn(),
@@ -160,6 +171,7 @@ describe('searchAvailabilityForItinerary validation flags', () => {
     });
 
     expect(itineraryAvailabilityHelper.getAvailabilityOnly).toHaveBeenCalledTimes(1);
+    expect(itineraryAvailabilityHelper.getStayResults).not.toHaveBeenCalled();
     expect(itineraryAvailabilityHelper.getAgentCurrencyCode).not.toHaveBeenCalled();
     expect(result).toEqual({
       bookable: true,
@@ -167,12 +179,15 @@ describe('searchAvailabilityForItinerary validation flags', () => {
       endDate: '2025-04-05',
       message: 'Availability checked successfully',
       availability: [-1, -2, -1],
-      rates: [],
+      rates: [mockOptRates],
     });
   });
 
   it('marks availabilityOnly response as not bookable when all days are unavailable', async () => {
-    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce('-1 -1 -1');
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
+      optAvail: '-1 -1 -1',
+      optRates: null,
+    });
 
     const result = await searchAvailabilityForItinerary({
       axios: jest.fn(),
@@ -186,5 +201,6 @@ describe('searchAvailabilityForItinerary validation flags', () => {
     expect(result.message).toBe('No availability found for the requested range');
     expect(result.availability).toEqual([-1, -1, -1]);
     expect(result.rates).toEqual([]);
+    expect(itineraryAvailabilityHelper.getStayResults).not.toHaveBeenCalled();
   });
 });
