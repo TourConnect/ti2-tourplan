@@ -152,7 +152,7 @@ const searchAvailabilityForItinerary = async ({
   const isAvailabilityOnly = availabilityOnly === true;
 
   if (isAvailabilityOnly) {
-    const availabilityOnlyResponse = await getAvailabilityOnly({
+    const { optAvail, optRates } = await getAvailabilityOnly({
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
@@ -162,8 +162,9 @@ const searchAvailabilityForItinerary = async ({
       requestedEndDate,
       callTourplan,
     });
-    const optAvailValues = getOptAvailValues(availabilityOnlyResponse);
+    const optAvailValues = getOptAvailValues(optAvail);
     const SCheckPass = isOptAvailBookable(optAvailValues);
+    const rates = (SCheckPass && optRates) ? [optRates] : [];
     return {
       bookable: SCheckPass,
       type: 'availability',
@@ -172,7 +173,7 @@ const searchAvailabilityForItinerary = async ({
         ? 'Availability checked successfully'
         : 'No availability found for the requested range',
       availability: optAvailValues,
-      rates: [],
+      rates,
     };
   }
 
