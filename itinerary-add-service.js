@@ -65,6 +65,10 @@ const addServiceToItinerary = async ({
       return acc;
     }, {});
 
+  const directHeaderPayloadHasName = directHeaderPayload &&
+    Object.prototype.hasOwnProperty.call(directHeaderPayload, 'Name');
+  const bookingNameSource = directHeaderPayloadHasName ? directHeaderPayload.Name : quoteName;
+
   const rateIdFromAvailCheckObj = R.path(['rateId'], availCheckObj);
   if (availCheckObj &&
     (rateIdFromAvailCheckObj === CUSTOM_RATE_ID_NAME
@@ -145,9 +149,9 @@ const addServiceToItinerary = async ({
         ExistingBookingInfo: { BookingId: quoteId },
       } : {
         NewBookingInfo: {
-          Name: getBookingName(quoteName),
           QB: QB || 'Q',
           ...(directHeaderPayload || {}),
+          Name: getBookingName(bookingNameSource),
         },
       }),
       ...(puTime ? { puTime } : {}),
