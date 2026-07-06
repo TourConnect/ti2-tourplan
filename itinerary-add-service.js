@@ -8,7 +8,11 @@ const {
 } = require('./utils');
 
 const DEFAULT_TOURPLAN_SERVICE_STATUS = 'IR';
+const MAX_BOOKING_NAME_LENGTH = 59;
 const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
+
+const getBookingName = quoteName => escapeInvalidXmlChars(quoteName)
+  .substring(0, MAX_BOOKING_NAME_LENGTH);
 
 const addServiceToItinerary = async ({
   axios,
@@ -60,6 +64,10 @@ const addServiceToItinerary = async ({
       }
       return acc;
     }, {});
+
+  const directHeaderPayloadHasName = directHeaderPayload &&
+    Object.prototype.hasOwnProperty.call(directHeaderPayload, 'Name');
+  const bookingNameSource = directHeaderPayloadHasName ? directHeaderPayload.Name : quoteName;
 
   const rateIdFromAvailCheckObj = R.path(['rateId'], availCheckObj);
   if (availCheckObj &&
@@ -141,9 +149,9 @@ const addServiceToItinerary = async ({
         ExistingBookingInfo: { BookingId: quoteId },
       } : {
         NewBookingInfo: {
-          Name: escapeInvalidXmlChars(quoteName),
           QB: QB || 'Q',
           ...(directHeaderPayload || {}),
+          Name: getBookingName(bookingNameSource),
         },
       }),
       ...(puTime ? { puTime } : {}),

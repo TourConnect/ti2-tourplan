@@ -132,6 +132,84 @@ describe('search tests', () => {
         }
       });
     });
+    describe('addServiceToItinerary', () => {
+      it('limits new booking names after escaping XML characters', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            Services: {
+              Service: {
+                LinePrice: '10.00',
+              },
+            },
+            ServiceLineId: '10',
+          },
+        }));
+
+        const quoteName = 'Ä'.repeat(30);
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName,
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'TESTREF',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+          },
+        });
+
+        expect(mockCallTourplan).toHaveBeenCalledTimes(1);
+        const newBookingName = mockCallTourplan.mock.calls[0][0]
+          .model.AddServiceRequest.NewBookingInfo.Name;
+
+        expect(newBookingName.length).toBe(59);
+        expect(newBookingName).toBe(`${'Ae'.repeat(29)}A`);
+      });
+
+      it('limits new booking names supplied by directHeaderPayload after escaping XML characters', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            Services: {
+              Service: {
+                LinePrice: '10.00',
+              },
+            },
+            ServiceLineId: '10',
+          },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Short quote name',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'TESTREF',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+            directHeaderPayload: {
+              Name: 'Ä'.repeat(30),
+              HeaderField: 'kept',
+            },
+          },
+        });
+
+        expect(mockCallTourplan).toHaveBeenCalledTimes(1);
+        const newBookingInfo = mockCallTourplan.mock.calls[0][0]
+          .model.AddServiceRequest.NewBookingInfo;
+
+        expect(newBookingInfo.Name.length).toBe(59);
+        expect(newBookingInfo.Name).toBe(`${'Ae'.repeat(29)}A`);
+        expect(newBookingInfo.HeaderField).toBe('kept');
+      });
+    });
+
     describe('cancelBooking', () => {
       it('cancels a booking by id', async () => {
         mockCallTourplan.mockImplementationOnce(async () => ({
