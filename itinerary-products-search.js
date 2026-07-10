@@ -22,6 +22,8 @@ const searchProductsForItinerary = async ({
     // lastUpdatedFrom is used to get options that were updated after a certain date in Tourplan
     // example: lastUpdatedFrom: '2024-04-22 05:17:57.427Z'
     lastUpdatedFrom,
+    // skip Accommodation (AC) service code in full catalog search
+    skipAccommodation,
   },
   callTourplan,
 }) => {
@@ -58,7 +60,7 @@ const searchProductsForItinerary = async ({
     /*
       Full catalog path:
       1. getServiceCodes -> [AC, BD]
-      2. for each serviceCode getoptions
+      2. for each serviceCode getoptions (optionally skip AC when skipAccommodation is set)
       3. convert them to ti2 products structure
       4. merge all products from all serviceCodes
     */
@@ -77,7 +79,12 @@ const searchProductsForItinerary = async ({
     });
     let serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply);
     if (!Array.isArray(serviceCodes)) serviceCodes = [serviceCodes];
-    serviceCodes = serviceCodes.map(s => s.Code);
+    if (skipAccommodation) {
+      console.debug('[tourplan] Accommodation (AC) service code will be skipped in full catalog product search');
+    }
+    serviceCodes = serviceCodes
+      .map(s => s.Code)
+      .filter(code => !(skipAccommodation && code === 'AC'));
     await Promise.each(serviceCodes, async serviceCode => {
       const getOptionsModel = {
         OptionInfoRequest: {
