@@ -799,6 +799,68 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
   });
 
+  it('searchProductsForItinerary skips AC in full catalog when skipAccommodation is set', async () => {
+    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+    const bdOption = {
+      Opt: 'TESTBDOPTION00001',
+      OptGeneral: {
+        SupplierId: '1001',
+        SupplierName: 'Test Supplier',
+        Description: 'Test BD Product',
+        SType: 'N',
+        AdultsAllowed: 'Y',
+        Adult_From: 16,
+        Adult_To: 999,
+        ButtonName: 'Sightseeing',
+      },
+    };
+
+    mockCallTourplan
+      .mockImplementationOnce(async () => ({
+        GetServicesReply: {
+          TPLServices: {
+            TPLService: [
+              { Code: 'AC', Name: 'Accommodation' },
+              { Code: 'BD', Name: 'Bundle' },
+            ],
+          },
+        },
+      }))
+      .mockImplementationOnce(async ({ model }) => {
+        const opt = model.OptionInfoRequest.Opt;
+        if (opt === '???AC????????????') {
+          throw new Error('AC OptionInfo should have been skipped');
+        }
+        if (opt === '???BD????????????') {
+          return { OptionInfoReply: { Option: bdOption } };
+        }
+        throw new Error(`Unexpected OptionInfo Opt: ${opt}`);
+      });
+
+    const retVal = await app.searchProductsForItinerary({
+      axios,
+      token,
+      typeDefsAndQueries,
+      payload: {
+        searchInput: '',
+        skipAccommodation: true,
+      },
+    });
+
+    const optionInfoCalls = mockCallTourplan.mock.calls
+      .map(([call]) => call.model.OptionInfoRequest)
+      .filter(Boolean);
+    expect(optionInfoCalls).toHaveLength(1);
+    expect(optionInfoCalls[0].Opt).toBe('???BD????????????');
+    expect(debugSpy).toHaveBeenCalledWith(
+      '[tourplan] Accommodation (AC) service code will be skipped in full catalog product search',
+    );
+    expect(retVal.products).toHaveLength(1);
+    expect(retVal.products[0].options[0].optionId).toBe('TESTBDOPTION00001');
+
+    debugSpy.mockRestore();
+  });
+
   describe('availability tests', () => {
     it('searchAvailabilityForItinerary - not bookable', async () => {
       axios.mockImplementation(getFixture);
