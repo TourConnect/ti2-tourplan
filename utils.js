@@ -71,6 +71,26 @@ const escapeInvalidXmlChars = str => {
     .replace(BAD_XML_CHARS, '');
 };
 
+const getValidDateOfBirth = dob => {
+  if (typeof dob !== 'string') return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
+  if (!match) return undefined;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (year === 0) return undefined;
+
+  // setUTCFullYear avoids Date.UTC's 0-99 year remapping.
+  const date = new Date(0);
+  date.setUTCFullYear(year, month - 1, day);
+  if (date.getUTCFullYear() !== year ||
+    date.getUTCMonth() !== month - 1 ||
+    date.getUTCDate() !== day) return undefined;
+
+  return dob;
+};
+
 const getRoomConfigs = (paxConfigs, noPaxList) => {
   // There should be only 1 RoomConfigs for AddServiceRequest
   const RoomConfigs = {};
@@ -139,12 +159,13 @@ const getRoomConfigs = (paxConfigs, noPaxList) => {
           }[p.passengerType] || 'A',
         };
         if (p.salutation) EachPaxDetails.Title = escapeInvalidXmlChars(p.salutation);
-        if (p.dob) EachPaxDetails.DateOfBirth = p.dob;
+        const validDateOfBirth = getValidDateOfBirth(p.dob);
+        if (validDateOfBirth) EachPaxDetails.DateOfBirth = validDateOfBirth;
         // NOTE: TourPlan API doesn't accept age as empty string, i.e. empty XML tag <Age/>
         // and trhows and error like - "1000 SCN System.InvalidOperationException: There is an
         // error in XML document (29, 8). (Input string was not in a correct format.)"
         // The solution is to NOT send the Age tag if it's empty
-        if (!R.isNil(p.age) && !Number.isNaN(p.age) && p.age) {
+        if (!validDateOfBirth && !R.isNil(p.age) && !Number.isNaN(p.age) && p.age) {
           if (!(p.passengerType === passengerTypeMap.Adult && p.age === 0)) {
             EachPaxDetails.Age = p.age;
           }

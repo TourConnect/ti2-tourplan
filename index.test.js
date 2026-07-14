@@ -5,10 +5,11 @@ const path = require('path');
 const xml2js = require('xml2js');
 const R = require('ramda');
 const hash = require('object-hash');
+const js2xmlparser = require('js2xmlparser');
 const { XMLParser } = require('fast-xml-parser');
 const { typeDefs: itineraryProductTypeDefs, query: itineraryProductQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-product');
 const { typeDefs: itineraryBookingTypeDefs, query: itineraryBookingQuery } = require('./node_modules/ti2/controllers/graphql-schemas/itinerary-booking');
-const { CUSTOM_RATE_ID_NAME } = require('./utils');
+const { CUSTOM_RATE_ID_NAME, hostConnectXmlOptions } = require('./utils');
 const {
   getRatesObjectArray,
   getImmediateLastDateRange,
@@ -167,6 +168,69 @@ describe('search tests', () => {
 
         expect(newBookingName.length).toBe(59);
         expect(newBookingName).toBe(`${'Ae'.repeat(29)}A`);
+      });
+
+      it('serializes valid DOB instead of age and falls back to age for invalid DOB', async () => {
+        mockCallTourplan
+          .mockImplementationOnce(async () => ({
+            AddServiceReply: { BookingId: 'valid-dob' },
+          }))
+          .mockImplementationOnce(async () => ({
+            AddServiceReply: { BookingId: 'invalid-dob' },
+          }));
+        const payloadFor = passenger => ({
+          quoteName: 'DOB serialization test',
+          optionId: 'ABC123',
+          startDate: '2026-07-03',
+          reference: 'TESTREF',
+          paxConfigs: [{
+            roomType: 'Double',
+            adults: 1,
+            passengers: [passenger],
+          }],
+          notes: '',
+        });
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: payloadFor({
+            firstName: 'Ada',
+            lastName: 'Lovelace',
+            passengerType: 'Adult',
+            dob: '1990-02-28',
+            age: 36,
+          }),
+        });
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: payloadFor({
+            firstName: 'Grace',
+            lastName: 'Hopper',
+            passengerType: 'Adult',
+            dob: '1990-02-29',
+            age: 36,
+          }),
+        });
+
+        const validModel = mockCallTourplan.mock.calls[0][0].model;
+        const invalidModel = mockCallTourplan.mock.calls[1][0].model;
+        const validPax = validModel.AddServiceRequest.RoomConfigs.RoomConfig[0]
+          .PaxList.PaxDetails[0];
+        const invalidPax = invalidModel.AddServiceRequest.RoomConfigs.RoomConfig[0]
+          .PaxList.PaxDetails[0];
+        const validXml = js2xmlparser.parse('Request', validModel, hostConnectXmlOptions);
+        const invalidXml = js2xmlparser.parse('Request', invalidModel, hostConnectXmlOptions);
+
+        expect(validPax).toMatchObject({ DateOfBirth: '1990-02-28' });
+        expect(validPax).not.toHaveProperty('Age');
+        expect(validXml).toContain('<DateOfBirth>1990-02-28</DateOfBirth>');
+        expect(validXml).not.toContain('<Age>');
+        expect(invalidPax).toMatchObject({ Age: 36 });
+        expect(invalidPax).not.toHaveProperty('DateOfBirth');
+        expect(invalidXml).toContain('<Age>36</Age>');
+        expect(invalidXml).not.toContain('<DateOfBirth>');
       });
 
       it('limits new booking names supplied by directHeaderPayload after escaping XML characters', async () => {
