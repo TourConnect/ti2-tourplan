@@ -22,8 +22,9 @@ const searchProductsForItinerary = async ({
     // lastUpdatedFrom is used to get options that were updated after a certain date in Tourplan
     // example: lastUpdatedFrom: '2024-04-22 05:17:57.427Z'
     lastUpdatedFrom,
-    // skip Accommodation (AC) service code in full catalog search
-    skipAccommodation,
+    // service codes to omit from full catalog search
+    // (e.g. ['AC'], 'AC', or 'AC,SM'); when empty/absent, get all
+    omitServiceCodes,
   },
   callTourplan,
 }) => {
@@ -60,7 +61,7 @@ const searchProductsForItinerary = async ({
     /*
       Full catalog path:
       1. getServiceCodes -> [AC, BD]
-      2. for each serviceCode getoptions (optionally skip AC when skipAccommodation is set)
+      2. for each serviceCode getoptions (omitting all service codes in omitServiceCodes)
       3. convert them to ti2 products structure
       4. merge all products from all serviceCodes
     */
@@ -79,12 +80,26 @@ const searchProductsForItinerary = async ({
     });
     let serviceCodes = R.pathOr([], ['GetServicesReply', 'TPLServices', 'TPLService'], getServicesReply);
     if (!Array.isArray(serviceCodes)) serviceCodes = [serviceCodes];
-    if (skipAccommodation) {
-      console.debug('[tourplan] Accommodation (AC) service code will be skipped in full catalog product search');
+    let rawOmitCodes = [];
+    if (Array.isArray(omitServiceCodes)) {
+      rawOmitCodes = omitServiceCodes;
+    } else if (omitServiceCodes) {
+      rawOmitCodes = [omitServiceCodes];
+    }
+    const omitSet = new Set(
+      rawOmitCodes
+        .flatMap(code => String(code == null ? '' : code).split(','))
+        .map(code => code.trim().toUpperCase())
+        .filter(Boolean),
+    );
+    if (omitSet.size > 0) {
+      console.debug(
+        `[tourplan] Omitting service code(s) from full catalog product search: ${[...omitSet].join(', ')}`,
+      );
     }
     serviceCodes = serviceCodes
       .map(s => s.Code)
-      .filter(code => !(skipAccommodation && code === 'AC'));
+      .filter(code => !omitSet.has(String(code).trim().toUpperCase()));
     await Promise.each(serviceCodes, async serviceCode => {
       const getOptionsModel = {
         OptionInfoRequest: {

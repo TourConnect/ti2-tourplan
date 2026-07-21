@@ -863,66 +863,287 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
   });
 
-  it('searchProductsForItinerary skips AC in full catalog when skipAccommodation is set', async () => {
-    const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
-    const bdOption = {
-      Opt: 'TESTBDOPTION00001',
-      OptGeneral: {
-        SupplierId: '1001',
-        SupplierName: 'Test Supplier',
-        Description: 'Test BD Product',
-        SType: 'N',
-        AdultsAllowed: 'Y',
-        Adult_From: 16,
-        Adult_To: 999,
-        ButtonName: 'Sightseeing',
+  describe('searchProductsForItinerary omitServiceCodes', () => {
+    const optionGeneral = {
+      SupplierId: '1001',
+      SupplierName: 'Test Supplier',
+      Description: 'Test Product',
+      SType: 'N',
+      AdultsAllowed: 'Y',
+      Adult_From: 16,
+      Adult_To: 999,
+      ButtonName: 'Sightseeing',
+    };
+    const acOption = { Opt: 'TESTACOPTION00001', OptGeneral: optionGeneral };
+    const bdOption = { Opt: 'TESTBDOPTION00001', OptGeneral: optionGeneral };
+    const trOption = { Opt: 'TESTTROPTION00001', OptGeneral: optionGeneral };
+    const getServicesReply = {
+      GetServicesReply: {
+        TPLServices: {
+          TPLService: [
+            { Code: 'AC', Name: 'Accommodation' },
+            { Code: 'BD', Name: 'Bundle' },
+            { Code: 'TR', Name: 'Transfer' },
+          ],
+        },
       },
     };
+    const optionsByOpt = {
+      '???AC????????????': acOption,
+      '???BD????????????': bdOption,
+      '???TR????????????': trOption,
+    };
+    const defaultCallTourplan = mockCallTourplan.getMockImplementation();
+    const getOptionInfoCalls = () => mockCallTourplan.mock.calls
+      .map(([call]) => call.model.OptionInfoRequest)
+      .filter(Boolean)
+      .map(req => req.Opt);
 
-    mockCallTourplan
-      .mockImplementationOnce(async () => ({
-        GetServicesReply: {
-          TPLServices: {
-            TPLService: [
-              { Code: 'AC', Name: 'Accommodation' },
-              { Code: 'BD', Name: 'Bundle' },
-            ],
-          },
-        },
-      }))
-      .mockImplementationOnce(async ({ model }) => {
-        const opt = model.OptionInfoRequest.Opt;
-        if (opt === '???AC????????????') {
-          throw new Error('AC OptionInfo should have been skipped');
+    afterEach(() => {
+      mockCallTourplan.mockImplementation(defaultCallTourplan);
+    });
+
+    const mockFullCatalog = ({ throwOnOpt } = {}) => {
+      mockCallTourplan.mockImplementation(async ({ model }) => {
+        if (model.GetServicesRequest) return getServicesReply;
+        const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
+        if (throwOnOpt && throwOnOpt.includes(opt)) {
+          throw new Error(`${opt} OptionInfo should have been skipped`);
         }
-        if (opt === '???BD????????????') {
-          return { OptionInfoReply: { Option: bdOption } };
+        if (optionsByOpt[opt]) {
+          return { OptionInfoReply: { Option: optionsByOpt[opt] } };
         }
         throw new Error(`Unexpected OptionInfo Opt: ${opt}`);
       });
+    };
 
-    const retVal = await app.searchProductsForItinerary({
-      axios,
-      token,
-      typeDefsAndQueries,
-      payload: {
-        searchInput: '',
-        skipAccommodation: true,
-      },
+    it('fetches all service codes when omitServiceCodes is not provided', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog();
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: { searchInput: '' },
+      });
+
+      expect(getOptionInfoCalls()).toEqual([
+        '???AC????????????',
+        '???BD????????????',
+        '???TR????????????',
+      ]);
+      expect(debugSpy).not.toHaveBeenCalled();
+      expect(retVal.products).toHaveLength(1);
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTACOPTION00001',
+        'TESTBDOPTION00001',
+        'TESTTROPTION00001',
+      ]);
+      debugSpy.mockRestore();
     });
 
-    const optionInfoCalls = mockCallTourplan.mock.calls
-      .map(([call]) => call.model.OptionInfoRequest)
-      .filter(Boolean);
-    expect(optionInfoCalls).toHaveLength(1);
-    expect(optionInfoCalls[0].Opt).toBe('???BD????????????');
-    expect(debugSpy).toHaveBeenCalledWith(
-      '[tourplan] Accommodation (AC) service code will be skipped in full catalog product search',
-    );
-    expect(retVal.products).toHaveLength(1);
-    expect(retVal.products[0].options[0].optionId).toBe('TESTBDOPTION00001');
+    it('fetches all service codes when omitServiceCodes is empty', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog();
 
-    debugSpy.mockRestore();
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: [],
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual([
+        '???AC????????????',
+        '???BD????????????',
+        '???TR????????????',
+      ]);
+      expect(debugSpy).not.toHaveBeenCalled();
+      expect(retVal.products[0].options).toHaveLength(3);
+      debugSpy.mockRestore();
+    });
+
+    it('omits a single listed service code', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: ['AC'],
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual([
+        '???BD????????????',
+        '???TR????????????',
+      ]);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+        'TESTTROPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('omits multiple listed service codes', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????', '???TR????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: ['AC', 'TR'],
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual(['???BD????????????']);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC, TR',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('coerces a single string omitServiceCodes value to an array', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: 'AC',
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual([
+        '???BD????????????',
+        '???TR????????????',
+      ]);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+        'TESTTROPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('normalizes case and whitespace in omitServiceCodes', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: [' ac '],
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual([
+        '???BD????????????',
+        '???TR????????????',
+      ]);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+        'TESTTROPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('splits a comma-separated omitServiceCodes string', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????', '???TR????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: 'AC, TR',
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual(['???BD????????????']);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC, TR',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('splits comma-separated entries inside an omitServiceCodes array', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      mockFullCatalog({ throwOnOpt: ['???AC????????????', '???TR????????????'] });
+
+      const retVal = await app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: ['AC,SM', ' tr '],
+        },
+      });
+
+      expect(getOptionInfoCalls()).toEqual(['???BD????????????']);
+      expect(debugSpy).toHaveBeenCalledWith(
+        '[tourplan] Omitting service code(s) from full catalog product search: AC, SM, TR',
+      );
+      expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+        'TESTBDOPTION00001',
+      ]);
+      debugSpy.mockRestore();
+    });
+
+    it('throws No products found when every service code is omitted', async () => {
+      mockFullCatalog({
+        throwOnOpt: [
+          '???AC????????????',
+          '???BD????????????',
+          '???TR????????????',
+        ],
+      });
+
+      await expect(app.searchProductsForItinerary({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          searchInput: '',
+          omitServiceCodes: ['AC', 'BD', 'TR'],
+        },
+      })).rejects.toThrow('No products found');
+
+      expect(getOptionInfoCalls()).toEqual([]);
+    });
   });
 
   describe('availability tests', () => {
