@@ -4151,6 +4151,8 @@ Object {
       "options": Array [
         Object {
           "comment": "FIT- V- Class (1-5 Pax)",
+          "country": "United Kingdom",
+          "currency": "GBP",
           "extras": Array [],
           "lastUpdateTimestamp": 1700750093,
           "optRates": Object {

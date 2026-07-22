@@ -3,6 +3,26 @@ const { makeExecutableSchema } = require('@graphql-tools/schema');
 const R = require('ramda');
 const { graphql } = require('graphql');
 
+const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
+
+// Prefer AgentInfo Currency (same source as validateToken); fall back to OptRates.
+const getOptionCurrency = (option, agentCurrencyCode) => firstPresent(
+  agentCurrencyCode,
+  R.path(['OptRates', 'Currency'], option),
+);
+
+const getOptionCity = option => firstPresent(
+  R.path(['__destination', 'city'], option),
+  R.path(['OptGeneral', 'LocalityDescription'], option),
+  R.path(['OptGeneral', 'Address3'], option),
+);
+
+const typeDefinesField = (typeDefs, typeName, fieldName) => {
+  const typeMatch = String(typeDefs || '').match(new RegExp(`type\\s+${typeName}\\s*{([\\s\\S]*?)}`));
+  if (!typeMatch) return false;
+  return new RegExp(`\\b${fieldName}\\s*:`).test(typeMatch[1]);
+};
+
 const resolvers = {
   Query: {
     // LLM sends the product id as string
@@ -25,12 +45,21 @@ const resolvers = {
       const lastUpdateISO = R.path(['OptGeneral', 'LastUpdate'], option);
       return lastUpdateISO ? new Date(lastUpdateISO).getTime() / 1000 : null;
     },
-    // Guides, Accommodation, Transfers, Entrance Fees, Meals, Rail, Sightseeing,
-    // Rental Cars, Apartments, Blank Web Services, Farm Stays, Packages
+    // Prefer GetServices name written during enrichment (from optionId chars 3-4);
+    // ButtonName remains the HostConnect fallback when GetServices has no match.
     serviceType: option => {
       const st = R.pathOr('', ['OptGeneral', 'ButtonName'], option);
       return typeof st === 'string' ? st : '';
     },
+    // City: GetLocations Name (from optionId) → LocalityDescription → Address3.
+    city: getOptionCity,
+    // Country: GetSystemSettings destination → CountryName (via enrichment).
+    country: option => R.path(['__destination', 'country'], option),
+    // AgentInfo currency → OptRates.Currency.
+    currency: (option, args, context) => getOptionCurrency(
+      option,
+      context && context.agentCurrencyCode,
+    ),
     units: option => {
       /*
       SType: One character that specifies the service type of the
@@ -135,10 +164,35 @@ const resolvers = {
   },
 };
 
+const resolversForTypeDefs = typeDefs => {
+  const queryResolvers = { ...resolvers.Query };
+  Object.keys(queryResolvers).forEach(fieldName => {
+    if (!typeDefinesField(typeDefs, 'Query', fieldName)) {
+      delete queryResolvers[fieldName];
+    }
+  });
+  const productOptionResolvers = { ...resolvers.ProductOption };
+  Object.keys(productOptionResolvers).forEach(fieldName => {
+    if (!typeDefinesField(typeDefs, 'ProductOption', fieldName)) {
+      delete productOptionResolvers[fieldName];
+    }
+  });
+  const filteredResolvers = {
+    ...resolvers,
+    Query: queryResolvers,
+    ProductOption: productOptionResolvers,
+  };
+  if (!String(typeDefs || '').match(/type\s+Extra\s*{/)) {
+    delete filteredResolvers.Extra;
+  }
+  return filteredResolvers;
+};
+
 const translateTPOption = async ({
   rootValue: {
     optionsGroupedBySupplierId,
   },
+  agentCurrencyCode,
   typeDefs,
   query,
 }) => {
@@ -155,7 +209,7 @@ const translateTPOption = async ({
   };
   const schema = makeExecutableSchema({
     typeDefs,
-    resolvers,
+    resolvers: resolversForTypeDefs(typeDefs),
   });
   const retVal = await graphql({
     schema,
@@ -163,6 +217,7 @@ const translateTPOption = async ({
       supplierData,
       optionsGroupedBySupplierId,
     },
+    contextValue: { agentCurrencyCode },
     source: query,
   });
   if (retVal.errors) throw new Error(retVal.errors);
@@ -172,4 +227,6 @@ const translateTPOption = async ({
 
 module.exports = {
   translateTPOption,
+  resolversForTypeDefs,
+  getOptionCurrency,
 };

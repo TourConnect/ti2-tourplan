@@ -1,10 +1,10 @@
 {
   "name": "ti2-tourplan",
-  "version": "1.0.129",
+  "version": "1.0.130",
   "description": "Tourplan's TI2 Plugin",
   "main": "index.js",
   "scripts": {
-    "test": "jest"
+    "test": "TZ=UTC jest"
   },
   "repository": {
     "type": "git",
