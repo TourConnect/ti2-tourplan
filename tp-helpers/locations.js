@@ -1,17 +1,9 @@
 const R = require('ramda');
 const { hostConnectXmlOptions } = require('../utils');
+const { asArray, trimString } = require('./values');
 
 /** Refresh GetLocations cache monthly after the first successful fetch. */
 const LOCATIONS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
-
-const asArray = value => {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-};
-
-const trimString = value => (
-  typeof value === 'string' && value.trim() ? value.trim() : undefined
-);
 
 /**
  * Normalize GetLocations rows to { CODE: { code, name, city } }.

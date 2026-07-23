@@ -2,10 +2,7 @@ const R = require('ramda');
 const { resolveLocation } = require('./locations');
 const { resolveServiceType } = require('./services');
 const { resolveCountryFromDestination } = require('./system-settings');
-
-const firstPresent = (...values) => values.find(
-  value => value !== undefined && value !== null && value !== '',
-);
+const { firstPresent } = require('./values');
 
 /** Parse location (3) + service (2) codes from a Tourplan Opt / optionId. */
 const parseOptCodes = opt => {
