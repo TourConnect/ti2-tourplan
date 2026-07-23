@@ -2,8 +2,7 @@
 const { makeExecutableSchema } = require('@graphql-tools/schema');
 const R = require('ramda');
 const { graphql } = require('graphql');
-
-const firstPresent = (...values) => values.find(value => value !== undefined && value !== null && value !== '');
+const { firstPresent } = require('../tp-helpers/values');
 
 // Prefer AgentInfo Currency (same source as validateToken); fall back to OptRates.
 const getOptionCurrency = (option, agentCurrencyCode) => firstPresent(

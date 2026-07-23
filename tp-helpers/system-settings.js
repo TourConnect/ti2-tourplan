@@ -1,17 +1,9 @@
 const R = require('ramda');
 const { hostConnectXmlOptions } = require('../utils');
+const { asArray, trimString } = require('./values');
 
 /** Refresh GetSystemSettings cache monthly after the first successful fetch. */
 const SYSTEM_SETTINGS_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
-
-const asArray = value => {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-};
-
-const trimString = value => (
-  typeof value === 'string' && value.trim() ? value.trim() : undefined
-);
 
 /** Skip placeholder country names (e.g. PDNZ returns CountryName Undefined). */
 const isPlaceholderCountry = countryName => (

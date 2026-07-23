@@ -1,23 +1,17 @@
 const R = require('ramda');
 const { hostConnectXmlOptions } = require('../utils');
+const { asArray, trimString } = require('./values');
 
 /** Refresh GetServices cache monthly after the first successful fetch. */
 const SERVICES_CACHE_TTL_SECONDS = 60 * 60 * 24 * 30;
 
-const asArray = value => {
-  if (!value) return [];
-  return Array.isArray(value) ? value : [value];
-};
-
 /** Normalize GetServices rows to { CODE: Name }. Keep codes even when Name is blank. */
 const toServiceMap = (entries, { codeKey = 'Code', nameKey = 'Name' } = {}) => (
   asArray(entries).reduce((acc, entry) => {
-    const code = R.path([codeKey], entry);
-    const name = R.path([nameKey], entry);
-    if (typeof code === 'string' && code.trim()) {
-      acc[code.trim().toUpperCase()] = (
-        typeof name === 'string' && name.trim() ? name.trim() : ''
-      );
+    const code = trimString(R.path([codeKey], entry));
+    const name = trimString(R.path([nameKey], entry));
+    if (code) {
+      acc[code.toUpperCase()] = name || '';
     }
     return acc;
   }, {})
@@ -27,8 +21,7 @@ const toServiceMap = (entries, { codeKey = 'Code', nameKey = 'Name' } = {}) => (
 const resolveServiceType = (serviceCode, servicesByCode = {}) => {
   if (!serviceCode) return undefined;
   const code = String(serviceCode).toUpperCase();
-  const name = servicesByCode[code];
-  return typeof name === 'string' && name.trim() ? name.trim() : undefined;
+  return trimString(servicesByCode[code]);
 };
 
 /**
