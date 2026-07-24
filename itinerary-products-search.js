@@ -209,9 +209,9 @@ const searchProductsForItinerary = async ({
     },
   );
   // Preserve raw OptRates from Tourplan in product search response when available.
-  // Also ensure currency is always on the option for product cache: stock TI2
-  // itinerary-product typeDefs/query omit currency, so GraphQL alone will not
-  // return it even when AgentInfo currency is available.
+  // Also ensure city and currency are always on the option for product cache:
+  // stock TI2 itinerary-product typeDefs/query omit them, so GraphQL alone will
+  // not return them even when the code-table and AgentInfo values are available.
   const enrichedByOptionId = R.indexBy(R.prop('Opt'), enrichedOptions);
   const optionRatesByOptionId = options.reduce((acc, option) => {
     const currentOptionId = R.path(['Opt'], option);
@@ -229,10 +229,13 @@ const searchProductsForItinerary = async ({
       const currency = currentOption.currency
         || getOptionCurrency(rawOption, agentCurrencyCode)
         || R.path([currentOption.optionId, 'Currency'], optionRatesByOptionId);
+      const city = currentOption.city
+        || R.path(['__destination', 'city'], rawOption);
       const country = currentOption.country
         || R.path(['__destination', 'country'], rawOption);
       return {
-        ...R.omit(['country', 'rateContext'], currentOption),
+        ...R.omit(['city', 'country', 'rateContext'], currentOption),
+        ...(city ? { city } : {}),
         ...(country ? { country } : {}),
         ...(currency ? { currency } : {}),
         ...(R.path([currentOption.optionId], optionRatesByOptionId)
