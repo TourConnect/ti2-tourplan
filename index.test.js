@@ -866,6 +866,7 @@ describe('search tests', () => {
         optionId: 'LONTRDAVIDSHDWBVD',
       },
     });
+    expect(R.path(['products', 0, 'options', 0, 'city'], retVal)).toBe('London');
     expect(retVal).toMatchSnapshot();
   });
 

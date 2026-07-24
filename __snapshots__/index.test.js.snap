@@ -4150,6 +4150,7 @@ Object {
       "description": null,
       "options": Array [
         Object {
+          "city": "London",
           "comment": "FIT- V- Class (1-5 Pax)",
           "country": "United Kingdom",
           "currency": "GBP",
