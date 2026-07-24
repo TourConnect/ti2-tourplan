@@ -611,10 +611,10 @@ class BuyerPlugin {
       typeDefsAndQueries,
       payload,
       callTourplan: this.callTourplan.bind(this),
+      cache: this.cache,
     });
   }
 
-  // eslint-disable-next-line class-methods-use-this
   async getCreateItineraryFields({
     token: {
       hostConnectAgentID,
@@ -623,30 +623,24 @@ class BuyerPlugin {
     },
     axios,
   }) {
-    const model = {
-      GetLocationsRequest: {
-        AgentID: hostConnectAgentID,
-        Password: hostConnectAgentPassword,
-      },
-    };
-    const GetLocationsReply = await this.cache.getOrExec({
-      fnParams: [model],
-      fn: () => this.callTourplan({
-        model,
-        endpoint: hostConnectEndpoint,
-        axios,
-        xmlOptions: hostConnectXmlOptions,
-      }),
-      ttl: 60 * 60 * 12, // 2 hours
+    const { getCachedLocations, locationLabel } = require('./tp-helpers/locations');
+    const locationsByCode = await getCachedLocations({
+      callTourplan: this.callTourplan.bind(this),
+      cache: this.cache,
+      axios,
+      hostConnectEndpoint,
+      hostConnectAgentID,
+      hostConnectAgentPassword,
     });
-    let locationCodes = R.pathOr([], ['GetLocationsReply', 'Locations', 'Location'], GetLocationsReply);
-    if (!Array.isArray(locationCodes)) locationCodes = [locationCodes];
     const customFields = [{
       id: 'LocationCode',
       label: 'Location Code',
       type: 'extended-option',
       isPerService: true,
-      options: locationCodes.map(o => ({ value: o.Code, label: `${o.Name} (${o.Code})` })),
+      options: Object.entries(locationsByCode || {}).map(([code, location]) => ({
+        value: code,
+        label: `${locationLabel(location) || code} (${code})`,
+      })),
     }];
     return {
       fields: [],

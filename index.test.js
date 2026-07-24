@@ -34,8 +34,8 @@ const typeDefsAndQueries = {
 
 jest.mock('axios');
 
-// Extend the existing getFixture function to handle callTourplan mocks
-const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }) => {
+// Default callTourplan mock: resolve HostConnect replies from __fixtures__.
+const defaultCallTourplanImplementation = async ({ model, endpoint }) => {
   // Create a mock request object similar to what axios would receive
   const requestType = Object.keys(model)[0]; // Gets 'OptionInfoRequest'
 
@@ -54,7 +54,9 @@ const mockCallTourplan = jest.fn().mockImplementation(async ({ model, endpoint }
   const parsed = fastParser.parse(fixtureResponse.data);
 
   return R.path(['Reply'], parsed);
-});
+};
+
+const mockCallTourplan = jest.fn().mockImplementation(defaultCallTourplanImplementation);
 
 const getFixture = async requestObject => {
   // console.log('requestObject: ', requestObject);
@@ -97,11 +99,15 @@ afterAll(() => {
 describe('search tests', () => {
   afterEach(() => {
     jest.clearAllMocks();
+    // Permanent mockImplementation() in a test must not leak into later tests.
+    mockCallTourplan.mockImplementation(defaultCallTourplanImplementation);
+    // DTD version memory cache must not leak across tests (affects fixture hashes).
+    app.dtdVersionCache = {};
   });
   const token = {
     endpoint: process.env.ti2_tourplan_endpoint || 'https://test.example.com',
-    username: process.env.ti2_tourplan_username,
-    password: process.env.ti2_tourplan_password,
+    username: process.env.ti2_tourplan_username || 'test_username',
+    password: process.env.ti2_tourplan_password || 'test_password',
     hostConnectEndpoint: 'https://test_hostConnectEndpoint.com',
     hostConnectAgentID: 'test_hostConnectAgentID',
     hostConnectAgentPassword: 'test_hostConnectAgentPassword',
@@ -860,6 +866,7 @@ describe('search tests', () => {
         optionId: 'LONTRDAVIDSHDWBVD',
       },
     });
+    expect(R.path(['products', 0, 'options', 0, 'city'], retVal)).toBe('London');
     expect(retVal).toMatchSnapshot();
   });
 
@@ -1121,6 +1128,76 @@ describe('search tests', () => {
         'TESTBDOPTION00001',
       ]);
       debugSpy.mockRestore();
+    });
+
+    it('keeps blank-name service codes searchable and falls back to the option ButtonName', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockCallTourplan.mockImplementation(async ({ model }) => {
+          if (model.GetServicesRequest) {
+            return {
+              GetServicesReply: {
+                TPLServices: {
+                  TPLService: [
+                    { Code: 'SM', Name: '   ' },
+                  ],
+                },
+              },
+            };
+          }
+          const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
+          if (opt === '???SM????????????') {
+            return {
+              OptionInfoReply: {
+                Option: {
+                  Opt: 'TESTSMOPTION00001',
+                  OptGeneral: {
+                    ...optionGeneral,
+                    ButtonName: 'Sightseeing',
+                  },
+                },
+              },
+            };
+          }
+          throw new Error(`Unexpected OptionInfo Opt: ${opt}`);
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: { searchInput: '' },
+        });
+
+        expect(getOptionInfoCalls()).toEqual(['???SM????????????']);
+        expect(retVal.products).toHaveLength(1);
+        expect(retVal.products[0].options).toHaveLength(1);
+        expect(retVal.products[0].options[0].optionId).toBe('TESTSMOPTION00001');
+        expect(retVal.products[0].options[0].serviceType).toBe('Sightseeing');
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('reuses the cached GetServices result during enrichment in full-catalog search', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockFullCatalog();
+
+        await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: { searchInput: '' },
+        });
+
+        const getServicesCalls = mockCallTourplan.mock.calls
+          .map(([call]) => call.model)
+          .filter(model => model.GetServicesRequest);
+        expect(getServicesCalls).toHaveLength(1);
+      } finally {
+        warnSpy.mockRestore();
+      }
     });
 
     it('throws No products found when every service code is omitted', async () => {
