@@ -144,10 +144,19 @@ const searchProductsForItinerary = async ({
   // Cache GetLocations/GetServices/GetSystemSettings and enrich destination,
   // serviceType, and country before GraphQL translation.
   // Full-catalog path already loaded servicesByCode; reuse it to avoid a second fetch.
-  let locationsByCode = {};
-  let countriesByDestination = {};
-  try {
-    const [locations, services, countries] = await Promise.all([
+  const loadOptionalTable = async (tableName, load) => {
+    try {
+      return await load();
+    } catch (err) {
+      console.warn(
+        `WARNING: Unable to fetch TourPlan ${tableName} table:`,
+        err.message,
+      );
+      return {};
+    }
+  };
+  const [locationsByCode, resolvedServicesByCode, countriesByDestination] = await Promise.all([
+    loadOptionalTable('locations', () => (
       getCachedLocations({
         callTourplan,
         cache,
@@ -155,7 +164,9 @@ const searchProductsForItinerary = async ({
         hostConnectEndpoint,
         hostConnectAgentID,
         hostConnectAgentPassword,
-      }),
+      })
+    )),
+    loadOptionalTable('services', () => (
       servicesByCode !== undefined
         ? Promise.resolve(servicesByCode)
         : getCachedServices({
@@ -165,7 +176,9 @@ const searchProductsForItinerary = async ({
           hostConnectEndpoint,
           hostConnectAgentID,
           hostConnectAgentPassword,
-        }),
+        })
+    )),
+    loadOptionalTable('system settings', () => (
       getCachedDestinationCountries({
         callTourplan,
         cache,
@@ -173,14 +186,10 @@ const searchProductsForItinerary = async ({
         hostConnectEndpoint,
         hostConnectAgentID,
         hostConnectAgentPassword,
-      }),
-    ]);
-    locationsByCode = locations;
-    servicesByCode = services;
-    countriesByDestination = countries;
-  } catch (err) {
-    console.warn('WARNING: Unable to fetch TourPlan location/service/system settings tables:', err.message);
-  }
+      })
+    )),
+  ]);
+  servicesByCode = resolvedServicesByCode;
 
   const enrichedOptions = options.map(option => (
     enrichOptionWithCodeTables(

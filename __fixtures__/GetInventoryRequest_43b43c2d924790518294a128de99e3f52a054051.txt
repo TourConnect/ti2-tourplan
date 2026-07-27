@@ -4,4 +4,3 @@
   <GetInventoryReply>
   </GetInventoryReply>
 </Reply>
-

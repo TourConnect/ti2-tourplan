@@ -59,6 +59,8 @@ const getCachedLocations = async ({
   hostConnectEndpoint,
   hostConnectAgentID,
   hostConnectAgentPassword,
+  cacheScope = 'catalog',
+  ttl = LOCATIONS_CACHE_TTL_SECONDS,
 }) => {
   const model = {
     GetLocationsRequest: {
@@ -80,9 +82,14 @@ const getCachedLocations = async ({
 
   if (cache && cache.getOrExec) {
     return cache.getOrExec({
-      fnParams: ['hostconnect:GetLocations', hostConnectEndpoint, hostConnectAgentID],
+      fnParams: [
+        'hostconnect:GetLocations',
+        cacheScope,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+      ],
       fn: fetchLocations,
-      ttl: LOCATIONS_CACHE_TTL_SECONDS,
+      ttl,
     });
   }
   return fetchLocations();

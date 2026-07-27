@@ -623,6 +623,7 @@ class BuyerPlugin {
     },
     axios,
   }) {
+    // eslint-disable-next-line global-require
     const { getCachedLocations, locationLabel } = require('./tp-helpers/locations');
     const locationsByCode = await getCachedLocations({
       callTourplan: this.callTourplan.bind(this),
@@ -631,6 +632,8 @@ class BuyerPlugin {
       hostConnectEndpoint,
       hostConnectAgentID,
       hostConnectAgentPassword,
+      cacheScope: 'create-itinerary-fields',
+      ttl: 60 * 60 * 12,
     });
     const customFields = [{
       id: 'LocationCode',

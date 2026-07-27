@@ -1200,6 +1200,70 @@ describe('search tests', () => {
       }
     });
 
+    it('preserves successful enrichment when one code table fails', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockCallTourplan.mockImplementation(async ({ model }) => {
+          if (model.GetAgentInfoRequest) throw new Error('AgentInfo unavailable');
+          if (model.GetLocationsRequest) throw new Error('Locations unavailable');
+          if (model.GetServicesRequest) {
+            return {
+              GetServicesReply: {
+                TPLServices: {
+                  TPLService: [{ Code: 'SM', Name: 'Sightseeing' }],
+                },
+              },
+            };
+          }
+          if (model.GetSystemSettingsRequest) {
+            return {
+              GetSystemSettingsReply: {
+                Countries: {
+                  Country: [{
+                    CountryName: 'United Kingdom',
+                    DestinationNames: { DestinationName: ['London'] },
+                  }],
+                },
+              },
+            };
+          }
+          if (model.OptionInfoRequest) {
+            return {
+              OptionInfoReply: {
+                Option: {
+                  Opt: 'LONSMOPTION00001',
+                  OptGeneral: {
+                    ...optionGeneral,
+                    LocalityDescription: 'London',
+                  },
+                },
+              },
+            };
+          }
+          throw new Error(`Unexpected model: ${Object.keys(model)[0]}`);
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: { optionId: 'LONSMOPTION00001' },
+        });
+
+        expect(retVal.products[0].options[0]).toEqual(expect.objectContaining({
+          serviceType: 'Sightseeing',
+          country: 'United Kingdom',
+        }));
+        expect(retVal.products[0].options[0].city).toBeUndefined();
+        expect(warnSpy).toHaveBeenCalledWith(
+          'WARNING: Unable to fetch TourPlan locations table:',
+          'Locations unavailable',
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
     it('throws No products found when every service code is omitted', async () => {
       mockFullCatalog({
         throwOnOpt: [

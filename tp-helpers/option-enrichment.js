@@ -32,14 +32,14 @@ const enrichOptionWithCodeTables = (
     parsed.locationCode,
     optGeneral.Locality,
   );
-  const serviceCode = parsed.serviceCode;
+  const { serviceCode } = parsed;
   const location = resolveLocation(locationCode, locationsByCode);
   const serviceType = firstPresent(
     resolveServiceType(serviceCode, servicesByCode),
     optGeneral.ButtonName,
   );
 
-  const city = location && location.city;
+  const { city } = location || {};
   const locationName = location && (location.name || location.city);
   const country = resolveCountryFromDestination(
     firstPresent(

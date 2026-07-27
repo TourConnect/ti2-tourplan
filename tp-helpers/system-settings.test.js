@@ -1,3 +1,4 @@
+/* globals describe, it, expect */
 const {
   SYSTEM_SETTINGS_CACHE_TTL_SECONDS,
   isPlaceholderCountry,

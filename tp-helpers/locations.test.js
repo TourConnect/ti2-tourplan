@@ -1,4 +1,6 @@
+/* globals describe, it, expect, jest */
 const {
+  getCachedLocations,
   LOCATIONS_CACHE_TTL_SECONDS,
   locationLabel,
   resolveLocation,
@@ -36,5 +38,41 @@ describe('tp-helpers/locations', () => {
     expect(locationLabel({ name: 'London', city: 'City' })).toBe('London');
     expect(locationLabel({ city: 'Cape Town' })).toBe('Cape Town');
     expect(locationLabel('Paris')).toBe('Paris');
+  });
+
+  it('separates catalog and create-itinerary cache policies', async () => {
+    const callTourplan = jest.fn().mockResolvedValue({
+      GetLocationsReply: { Locations: { Location: [] } },
+    });
+    const cache = { getOrExec: jest.fn(({ fn }) => fn()) };
+    const baseParams = {
+      callTourplan,
+      cache,
+      axios: {},
+      hostConnectEndpoint: 'endpoint',
+      hostConnectAgentID: 'agent',
+      hostConnectAgentPassword: 'password',
+    };
+
+    await getCachedLocations(baseParams);
+    await getCachedLocations({
+      ...baseParams,
+      cacheScope: 'create-itinerary-fields',
+      ttl: 60 * 60 * 12,
+    });
+
+    expect(cache.getOrExec.mock.calls[0][0]).toEqual(expect.objectContaining({
+      fnParams: ['hostconnect:GetLocations', 'catalog', 'endpoint', 'agent'],
+      ttl: LOCATIONS_CACHE_TTL_SECONDS,
+    }));
+    expect(cache.getOrExec.mock.calls[1][0]).toEqual(expect.objectContaining({
+      fnParams: [
+        'hostconnect:GetLocations',
+        'create-itinerary-fields',
+        'endpoint',
+        'agent',
+      ],
+      ttl: 60 * 60 * 12,
+    }));
   });
 });

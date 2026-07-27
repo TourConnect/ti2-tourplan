@@ -1,3 +1,4 @@
+/* globals describe, it, expect */
 const { translateTPOption } = require('./product');
 
 const productTypeDefs = `
@@ -89,7 +90,7 @@ describe('product resolver enriched context', () => {
       type Query { productId: String productName: String options: [ProductOption] }
       type ProductOption { optionId: String optionName: String serviceType: String }
     `;
-    const legacyQuery = `{ productId productName options { optionId optionName serviceType } }`;
+    const legacyQuery = '{ productId productName options { optionId optionName serviceType } }';
 
     const retVal = await translateTPOption({
       typeDefs: legacyTypeDefs,
