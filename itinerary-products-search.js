@@ -7,6 +7,30 @@ const { getCachedLocations } = require('./tp-helpers/locations');
 const { getCachedServices } = require('./tp-helpers/services');
 const { getCachedDestinationCountries } = require('./tp-helpers/system-settings');
 const { enrichOptionWithCodeTables } = require('./tp-helpers/option-enrichment');
+const { asArray } = require('./tp-helpers/values');
+
+const isEnabled = value => {
+  if (value === true || value === 1) return true;
+  const normalized = String(value == null ? '' : value).trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+// Keep Tourplan PascalCase under camelCase pickupPoints (same pattern as optRates).
+// Bokun channel-manager reads container.PickupPoint / point.Point_ID etc.
+const normalizePickupPoints = rawPickupPoints => {
+  if (!rawPickupPoints || typeof rawPickupPoints !== 'object') return undefined;
+  const points = asArray(R.path(['PickupPoint'], rawPickupPoints))
+    .filter(point => point && typeof point === 'object' && !Array.isArray(point));
+  if (!points.length) return undefined;
+  return {
+    ...rawPickupPoints,
+    PickupPoint: points,
+  };
+};
+
+const getOptionInfoTag = ({ includeRates = false, pickupPointsRequired = false } = {}) => (
+  `${includeRates ? 'GR' : 'G'}${pickupPointsRequired ? 'P' : ''}`
+);
 
 const searchProductsForItinerary = async ({
   axios,
@@ -30,6 +54,8 @@ const searchProductsForItinerary = async ({
     // service codes to omit from full catalog search
     // (e.g. ['AC'], 'AC', or 'AC,SM'); when empty/absent, get all
     omitServiceCodes,
+    // Request Tourplan pickup/dropoff points in OptionInfo when product consumers need them.
+    pickupPointsRequired,
   },
   callTourplan,
   cache,
@@ -38,6 +64,7 @@ const searchProductsForItinerary = async ({
   const optionIds = optionId
     ? (Array.isArray(optionId) ? optionId : [optionId]).filter(Boolean)
     : [];
+  const shouldRequestPickupPoints = isEnabled(pickupPointsRequired);
 
   let options = [];
   let servicesByCode;
@@ -62,7 +89,10 @@ const searchProductsForItinerary = async ({
       const getOptionsModel = {
         OptionInfoRequest: {
           Opt: id,
-          Info: 'GR',
+          Info: getOptionInfoTag({
+            includeRates: true,
+            pickupPointsRequired: shouldRequestPickupPoints,
+          }),
           AgentID: hostConnectAgentID,
           Password: hostConnectAgentPassword,
         },
@@ -116,7 +146,7 @@ const searchProductsForItinerary = async ({
       const getOptionsModel = {
         OptionInfoRequest: {
           Opt: `???${serviceCode}????????????`,
-          Info: 'G',
+          Info: getOptionInfoTag({ pickupPointsRequired: shouldRequestPickupPoints }),
           AgentID: hostConnectAgentID,
           Password: hostConnectAgentPassword,
           ...(lastUpdatedFrom ? {
@@ -217,10 +247,11 @@ const searchProductsForItinerary = async ({
       concurrency: 10,
     },
   );
-  // Preserve raw OptRates from Tourplan in product search response when available.
-  // Also ensure city and currency are always on the option for product cache:
-  // stock TI2 itinerary-product typeDefs/query omit them, so GraphQL alone will
-  // not return them even when the code-table and AgentInfo values are available.
+  // Preserve raw OptRates / PickupPoints from Tourplan in product search response
+  // when available (camelCase keys: optRates, pickupPoints; Tourplan field casing
+  // inside). Re-attach after GraphQL because stock TI2 itinerary-product
+  // typeDefs/query omit these fields (same for city/country/currency).
+  // Also ensure city and currency are always on the option for product cache.
   const enrichedByOptionId = R.indexBy(R.prop('Opt'), enrichedOptions);
   const optionRatesByOptionId = options.reduce((acc, option) => {
     const currentOptionId = R.path(['Opt'], option);
@@ -231,7 +262,7 @@ const searchProductsForItinerary = async ({
       [currentOptionId]: currentOptionRates,
     };
   }, {});
-  const productsWithOptRates = products.map(product => ({
+  const productsWithRawOptionMetadata = products.map(product => ({
     ...product,
     options: R.pathOr([], ['options'], product).map(currentOption => {
       const rawOption = R.path([currentOption.optionId], enrichedByOptionId) || {};
@@ -242,11 +273,16 @@ const searchProductsForItinerary = async ({
         || R.path(['__destination', 'city'], rawOption);
       const country = currentOption.country
         || R.path(['__destination', 'country'], rawOption);
+      const pickupPoints = normalizePickupPoints(
+        R.path(['OptGeneral', 'PickupPoints'], rawOption)
+          || R.path(['PickupPoints'], rawOption),
+      );
       return {
         ...R.omit(['city', 'country', 'rateContext'], currentOption),
         ...(city ? { city } : {}),
         ...(country ? { country } : {}),
         ...(currency ? { currency } : {}),
+        ...(pickupPoints ? { pickupPoints } : {}),
         ...(R.path([currentOption.optionId], optionRatesByOptionId)
           ? { optRates: R.path([currentOption.optionId], optionRatesByOptionId) }
           : {}),
@@ -254,7 +290,7 @@ const searchProductsForItinerary = async ({
     }),
   }));
   return {
-    products: productsWithOptRates,
+    products: productsWithRawOptionMetadata,
     productFields: [],
     ...(searchInput || optionId ? {} : configuration),
   };

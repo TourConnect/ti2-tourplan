@@ -870,6 +870,240 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
   });
 
+  describe('searchProductsForItinerary pickupPoints', () => {
+    const singlePickupPoint = {
+      Point_ID: '504',
+      PointDescription: 'Keio Plaza Hotel Tokyo',
+      CanPickup: 'Y',
+      CanDropoff: 'Y',
+      puTime: '0815',
+      doTime: '1800',
+    };
+    const defaultCallTourplan = mockCallTourplan.getMockImplementation();
+    const mockOptionIdProductSearch = ({ pickupPoints } = {}) => {
+      mockCallTourplan.mockImplementation(async ({ model }) => {
+        if (model.AgentInfoRequest) {
+          return { AgentInfoReply: { Currency: 'USD' } };
+        }
+        if (model.GetLocationsRequest) {
+          return { GetLocationsReply: { Locations: { Location: [] } } };
+        }
+        if (model.GetServicesRequest) {
+          return { GetServicesReply: { TPLServices: { TPLService: [] } } };
+        }
+        if (model.GetSystemSettingsRequest) {
+          return { GetSystemSettingsReply: { Countries: { Country: [] } } };
+        }
+        if (model.OptionInfoRequest) {
+          return {
+            OptionInfoReply: {
+              Option: {
+                Opt: 'LONSMPICKUP00001',
+                OptGeneral: {
+                  SupplierId: '1001',
+                  SupplierName: 'Pickup Supplier',
+                  Description: 'Pickup Tour',
+                  SType: 'N',
+                  AdultsAllowed: 'Y',
+                  ButtonName: 'Sightseeing',
+                  ...(pickupPoints !== undefined ? { PickupPoints: pickupPoints } : {}),
+                },
+              },
+            },
+          };
+        }
+        throw new Error(`Unexpected model: ${Object.keys(model)[0]}`);
+      });
+    };
+    const getOptionInfoRequest = () => mockCallTourplan.mock.calls
+      .map(([call]) => call.model.OptionInfoRequest)
+      .find(Boolean);
+
+    afterEach(() => {
+      mockCallTourplan.mockImplementation(defaultCallTourplan);
+    });
+
+    it('uses GR OptionInfo by default for optionId search', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockOptionIdProductSearch();
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GR');
+        expect(retVal.products[0].options[0].pickupPoints).toBeUndefined();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it.each([false, 'false'])(
+      'keeps GR OptionInfo when pickupPointsRequired is %p',
+      async pickupPointsRequired => {
+        const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+        try {
+          mockOptionIdProductSearch();
+
+          const retVal = await app.searchProductsForItinerary({
+            axios,
+            token,
+            typeDefsAndQueries,
+            payload: {
+              optionId: 'LONSMPICKUP00001',
+              pickupPointsRequired,
+            },
+          });
+
+          expect(getOptionInfoRequest().Info).toBe('GR');
+          expect(retVal.products[0].options[0].pickupPoints).toBeUndefined();
+        } finally {
+          warnSpy.mockRestore();
+        }
+      },
+    );
+
+    it('preserves Tourplan pickupPoints on options', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockOptionIdProductSearch({
+          pickupPoints: { PickupPoint: singlePickupPoint },
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+            pickupPointsRequired: true,
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GRP');
+        expect(retVal.products[0].options[0].pickupPoints).toEqual({
+          PickupPoint: [singlePickupPoint],
+        });
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('treats string true pickupPointsRequired as enabled', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockOptionIdProductSearch({
+          pickupPoints: { PickupPoint: singlePickupPoint },
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+            pickupPointsRequired: 'true',
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GRP');
+        expect(retVal.products[0].options[0].pickupPoints).toEqual({
+          PickupPoint: [singlePickupPoint],
+        });
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('keeps already-array PickupPoint values', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const pickupPoints = {
+          PickupPoint: [
+            singlePickupPoint,
+            {
+              Point_ID: '505',
+              PointDescription: 'Tokyo Station',
+              CanPickup: 'N',
+              CanDropoff: 'Y',
+              doTime: '1800',
+            },
+          ],
+        };
+        mockOptionIdProductSearch({ pickupPoints });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+            pickupPointsRequired: 1,
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GRP');
+        expect(retVal.products[0].options[0].pickupPoints).toEqual(pickupPoints);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('omits pickupPoints when Tourplan returns none', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockOptionIdProductSearch({
+          pickupPoints: { PickupPoint: [] },
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+            pickupPointsRequired: true,
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GRP');
+        expect(retVal.products[0].options[0].pickupPoints).toBeUndefined();
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
+    it('omits empty PickupPoints shells', async () => {
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        mockOptionIdProductSearch({
+          pickupPoints: {},
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            optionId: 'LONSMPICKUP00001',
+            pickupPointsRequired: 'yes',
+          },
+        });
+
+        expect(getOptionInfoRequest().Info).toBe('GRP');
+        expect(retVal.products[0].options[0]).not.toHaveProperty('pickupPoints');
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+  });
+
   describe('searchProductsForItinerary omitServiceCodes', () => {
     const optionGeneral = {
       SupplierId: '1001',
@@ -940,6 +1174,11 @@ describe('search tests', () => {
         '???BD????????????',
         '???TR????????????',
       ]);
+      const infos = mockCallTourplan.mock.calls
+        .map(([call]) => call.model.OptionInfoRequest)
+        .filter(Boolean)
+        .map(req => req.Info);
+      expect(infos).toEqual(['G', 'G', 'G']);
       expect(debugSpy).not.toHaveBeenCalled();
       expect(retVal.products).toHaveLength(1);
       expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
@@ -948,6 +1187,83 @@ describe('search tests', () => {
         'TESTTROPTION00001',
       ]);
       debugSpy.mockRestore();
+    });
+
+    it('requests pickup points in full-catalog OptionInfo when required', async () => {
+      const debugSpy = jest.spyOn(console, 'debug').mockImplementation(() => {});
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const tourplanPickupPoints = {
+          PickupPoint: {
+            Point_ID: '504',
+            PointDescription: 'Keio Plaza Hotel Tokyo',
+            CanPickup: 'Y',
+            CanDropoff: 'Y',
+            puTime: '0815',
+            doTime: '1800',
+          },
+        };
+        const normalizedPickupPoints = {
+          PickupPoint: [tourplanPickupPoints.PickupPoint],
+        };
+        mockCallTourplan.mockImplementation(async ({ model }) => {
+          if (model.AgentInfoRequest) {
+            return { AgentInfoReply: { Currency: 'USD' } };
+          }
+          if (model.GetLocationsRequest) {
+            return { GetLocationsReply: { Locations: { Location: [] } } };
+          }
+          if (model.GetSystemSettingsRequest) {
+            return { GetSystemSettingsReply: { Countries: { Country: [] } } };
+          }
+          if (model.GetServicesRequest) return getServicesReply;
+          const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
+          if (optionsByOpt[opt]) {
+            return {
+              OptionInfoReply: {
+                Option: {
+                  ...optionsByOpt[opt],
+                  OptGeneral: {
+                    ...optionsByOpt[opt].OptGeneral,
+                    PickupPoints: tourplanPickupPoints,
+                  },
+                },
+              },
+            };
+          }
+          throw new Error(`Unexpected OptionInfo Opt: ${opt}`);
+        });
+
+        const retVal = await app.searchProductsForItinerary({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            searchInput: '',
+            pickupPointsRequired: true,
+          },
+        });
+
+        const infos = mockCallTourplan.mock.calls
+          .map(([call]) => call.model.OptionInfoRequest)
+          .filter(Boolean)
+          .map(req => req.Info);
+        expect(infos).toEqual(['GP', 'GP', 'GP']);
+        expect(retVal.products[0].options.map(o => o.optionId)).toEqual([
+          'TESTACOPTION00001',
+          'TESTBDOPTION00001',
+          'TESTTROPTION00001',
+        ]);
+        expect(retVal.products[0].options.map(o => o.pickupPoints)).toEqual([
+          normalizedPickupPoints,
+          normalizedPickupPoints,
+          normalizedPickupPoints,
+        ]);
+        expect(warnSpy).not.toHaveBeenCalled();
+      } finally {
+        debugSpy.mockRestore();
+        warnSpy.mockRestore();
+      }
     });
 
     it('fetches all service codes when omitServiceCodes is empty', async () => {
