@@ -71,6 +71,33 @@ const escapeInvalidXmlChars = str => {
     .replace(BAD_XML_CHARS, '');
 };
 
+const isEnabled = value => {
+  if (value === true || value === 1) return true;
+  const normalized = String(value == null ? '' : value).trim().toLowerCase();
+  return normalized === 'true' || normalized === '1' || normalized === 'yes';
+};
+
+/**
+ * Build a HostConnect OptionInfoRequest.Info tag (e.g. G, GR, GAR, GD, + optional P).
+ *
+ * @param {object} [options]
+ * @param {string} [options.checkType] - Explicit base tag (e.g. 'GAR', 'GD', 'GS').
+ *   When provided, this takes precedence and `includeRates` is ignored.
+ * @param {boolean} [options.includeRates=false] - Only used when `checkType` is omitted;
+ *   selects between the product-search base tags 'GR' (rates included) and 'G'.
+ * @param {boolean|string|number} [options.pickupPointsRequired=false] - When enabled
+ *   (see `isEnabled`), appends 'P' to the base tag to request pickup/dropoff points.
+ * @returns {string} The resulting Info tag, e.g. 'G', 'GR', 'GARP'.
+ */
+const getOptionInfoTag = ({
+  checkType,
+  includeRates = false,
+  pickupPointsRequired = false,
+} = {}) => {
+  const base = checkType || (includeRates ? 'GR' : 'G');
+  return `${base}${isEnabled(pickupPointsRequired) ? 'P' : ''}`;
+};
+
 const getValidDateOfBirth = dob => {
   if (typeof dob !== 'string') return undefined;
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dob);
@@ -188,4 +215,6 @@ module.exports = {
   hostConnectXmlOptions,
   productConnectXmlOptions,
   passengerTypeMap,
+  isEnabled,
+  getOptionInfoTag,
 };

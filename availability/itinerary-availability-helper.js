@@ -18,6 +18,8 @@ const {
 const {
   CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
 } = require('./product-connect/itinerary-pc-option-helper');
+const { isEnabled, normalizePickupPoints } = require('../tp-helpers/pickup-points');
+const { getOptionInfoTag } = require('../utils');
 
 const NO_RATE_FOUND_FOR_LAST_YEAR_ERROR_MESSAGE = 'Custom rates cannot be calculated as the previous year\'s rate could not be found. Please change the date and try again.';
 const NO_RATE_FOUND_FOR_IMMEDIATE_LAST_DATE_RANGE_ERROR_MESSAGE = 'Custom rates cannot be calculated no last rates available. Please change the date and try again.';
@@ -131,6 +133,7 @@ const GENERIC_AVALABILITY_CHK_ERROR_MESSAGE = 'Not bookable for the requested da
   + '(e.g. no rates, block out period, on request, minimum stay etc.).';
 const RATES_AVAILABLE_TILL_ERROR_TEMPLATE = ' Rates are only available until {dateTill}. '
   + 'Please change the date and try again.';
+
 /**
  * Calculate days in a year for a given date, accounting for leap years
  * @param {string} dateString - Date string in YYYY-MM-DD format
@@ -163,6 +166,7 @@ const getAvailabilityOnly = async ({
   axios,
   startDate,
   requestedEndDate,
+  pickupPointsRequired,
   callTourplan,
 }) => {
   const isValidRequestedEndDate = moment(requestedEndDate, 'YYYY-MM-DD', true).isValid();
@@ -172,7 +176,7 @@ const getAvailabilityOnly = async ({
   const model = {
     OptionInfoRequest: {
       Opt: optionId,
-      Info: 'GAR',
+      Info: getOptionInfoTag({ checkType: 'GAR', pickupPointsRequired }),
       AgentID: hostConnectAgentID,
       Password: hostConnectAgentPassword,
       DateFrom: startDate,
@@ -187,9 +191,12 @@ const getAvailabilityOnly = async ({
     xmlOptions: hostConnectXmlOptions,
   });
   const option = R.path(['OptionInfoReply', 'Option'], replyObj);
+  const pickupPoints = normalizePickupPoints(R.path(['OptGeneral', 'PickupPoints'], option))
+    || normalizePickupPoints(R.path(['PickupPoints'], option));
   return {
     optAvail: R.pathOr([], ['OptAvail'], option),
     optRates: R.path(['OptRates'], option),
+    ...(isEnabled(pickupPointsRequired) && pickupPoints ? { pickupPoints } : {}),
   };
 };
 /*

@@ -43,6 +43,8 @@ const {
   CROSS_SEASON_CAL_USING_RATE_OF_FIRST_RATE_PERIOD,
 } = require('./product-connect/itinerary-pc-option-helper');
 
+const { isEnabled } = require('../tp-helpers/pickup-points');
+
 const MIN_STAY_WARNING_MESSAGE = 'Please note that the a minimum stay requirement of {minSCU} was required for {customPeriodInfoMsg}';
 const PREVIOUS_RATE_CLOSED_PERIODS_ERROR_MESSAGE = 'Not bookable for the requested date/stay using {customPeriodInfoMsg} {closedDateRanges}';
 const INVALID_DAY_OF_WEEK_ERROR_TEMPLATE = 'The start date day can only be on {allowedDays}. Please try again with the allowed day.';
@@ -66,7 +68,19 @@ const doAllDatesHaveRatesAvailable = (lastDateRangeEndDate, startDate, chargeUni
   return !atLeastOneDateDoesNotHaveRatesAvailable;
 };
 
-const returnEmptyRatesOrError = (allowSendingServicesWithoutARate, agentCurrencyCode, errorMsg) => {
+// getAvailabilityOnly already normalizes via tp-helpers/pickup-points, so pickupPoints
+// here (when present) is always a non-empty PickupPoint array; just check for it.
+const attachPickupPoints = (response, pickupPoints) => (
+  pickupPoints && Array.isArray(pickupPoints.PickupPoint) && pickupPoints.PickupPoint.length
+    ? { ...response, pickupPoints }
+    : response
+);
+
+const returnEmptyRatesOrError = (
+  allowSendingServicesWithoutARate,
+  agentCurrencyCode,
+  errorMsg,
+) => {
   // if sending services without a rate is enabled return empty rates (0.00)
   if (allowSendingServicesWithoutARate && agentCurrencyCode) {
     return {
@@ -145,6 +159,7 @@ const searchAvailabilityForItinerary = async ({
     chargeUnitQuantity,
     roomTypeRequired = true,
     availabilityOnly = false,
+    pickupPointsRequired = false,
   },
   callTourplan,
   cache,
@@ -152,7 +167,7 @@ const searchAvailabilityForItinerary = async ({
   const isAvailabilityOnly = availabilityOnly === true;
 
   if (isAvailabilityOnly) {
-    const { optAvail, optRates } = await getAvailabilityOnly({
+    const { optAvail, optRates, pickupPoints } = await getAvailabilityOnly({
       optionId,
       hostConnectEndpoint,
       hostConnectAgentID,
@@ -160,12 +175,13 @@ const searchAvailabilityForItinerary = async ({
       axios,
       startDate,
       requestedEndDate,
+      pickupPointsRequired,
       callTourplan,
     });
     const optAvailValues = getOptAvailValues(optAvail);
     const SCheckPass = isOptAvailBookable(optAvailValues);
     const rates = (SCheckPass && optRates) ? [optRates] : [];
-    return {
+    const availabilityResponse = {
       bookable: SCheckPass,
       type: 'availability',
       ...(requestedEndDate && SCheckPass ? { endDate: requestedEndDate } : {}),
@@ -175,6 +191,9 @@ const searchAvailabilityForItinerary = async ({
       availability: optAvailValues,
       rates,
     };
+    return isEnabled(pickupPointsRequired)
+      ? attachPickupPoints(availabilityResponse, pickupPoints)
+      : availabilityResponse;
   }
 
   // Get agent currency code & cache it

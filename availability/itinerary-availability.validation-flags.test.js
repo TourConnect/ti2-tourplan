@@ -183,6 +183,128 @@ describe('searchAvailabilityForItinerary validation flags', () => {
     });
   });
 
+  it('passes pickupPointsRequired through the availabilityOnly flow', async () => {
+    await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: {
+        ...basePayload,
+        availabilityOnly: true,
+        endDate: '2025-04-05',
+        pickupPointsRequired: true,
+      },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(itineraryAvailabilityHelper.getAvailabilityOnly).toHaveBeenCalledWith(
+      expect.objectContaining({ pickupPointsRequired: true }),
+    );
+  });
+
+  it('does not pass pickupPointsRequired through the rates availability flow', async () => {
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: { ...basePayload, pickupPointsRequired: true },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(itineraryAvailabilityHelper.getAvailabilityConfig).toHaveBeenCalledWith(
+      expect.not.objectContaining({ pickupPointsRequired: expect.anything() }),
+    );
+    expect(itineraryAvailabilityHelper.getStayResults).toHaveBeenCalledWith(
+      basePayload.optionId,
+      baseToken.hostConnectEndpoint,
+      baseToken.hostConnectAgentID,
+      baseToken.hostConnectAgentPassword,
+      expect.any(Function),
+      basePayload.startDate,
+      basePayload.chargeUnitQuantity,
+      expect.any(Array),
+      undefined,
+      expect.any(Function),
+    );
+    expect(result).not.toHaveProperty('pickupPoints');
+  });
+
+  it('returns pickupPoints on the availabilityOnly response when provided', async () => {
+    const pickupPoints = {
+      PickupPoint: [{ Point_ID: '504', PointDescription: 'Keio Plaza Hotel Tokyo' }],
+    };
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
+      optAvail: '-2 -2 -2',
+      optRates: { Currency: 'USD' },
+      pickupPoints,
+    });
+
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: {
+        ...basePayload,
+        availabilityOnly: true,
+        endDate: '2025-04-05',
+        pickupPointsRequired: 'yes',
+      },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(result.pickupPoints).toEqual(pickupPoints);
+    expect(result.bookable).toBe(true);
+  });
+
+  it('omits pickupPoints on the availabilityOnly response when pickupPointsRequired is disabled', async () => {
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
+      optAvail: '-2 -2 -2',
+      optRates: { Currency: 'USD' },
+      pickupPoints: {
+        PickupPoint: [{ Point_ID: '504', PointDescription: 'Keio Plaza Hotel Tokyo' }],
+      },
+    });
+
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: {
+        ...basePayload,
+        availabilityOnly: true,
+        endDate: '2025-04-05',
+        pickupPointsRequired: false,
+      },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(result).not.toHaveProperty('pickupPoints');
+    expect(result.bookable).toBe(true);
+  });
+
+  it('omits pickupPoints when the helper returns an empty PickupPoint array', async () => {
+    itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
+      optAvail: '-2 -2 -2',
+      optRates: { Currency: 'USD' },
+      pickupPoints: { PickupPoint: [] },
+    });
+
+    const result = await searchAvailabilityForItinerary({
+      axios: jest.fn(),
+      token: baseToken,
+      payload: {
+        ...basePayload,
+        availabilityOnly: true,
+        endDate: '2025-04-05',
+        pickupPointsRequired: true,
+      },
+      callTourplan: jest.fn(),
+      cache: { getOrExec: async ({ fn, fnParams }) => fn(...fnParams) },
+    });
+
+    expect(result).not.toHaveProperty('pickupPoints');
+  });
+
   it('marks availabilityOnly response as not bookable when all days are unavailable', async () => {
     itineraryAvailabilityHelper.getAvailabilityOnly.mockResolvedValueOnce({
       optAvail: '-1 -1 -1',

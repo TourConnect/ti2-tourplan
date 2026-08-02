@@ -7,30 +7,11 @@ const { getCachedLocations } = require('./tp-helpers/locations');
 const { getCachedServices } = require('./tp-helpers/services');
 const { getCachedDestinationCountries } = require('./tp-helpers/system-settings');
 const { enrichOptionWithCodeTables } = require('./tp-helpers/option-enrichment');
-const { asArray } = require('./tp-helpers/values');
-
-const isEnabled = value => {
-  if (value === true || value === 1) return true;
-  const normalized = String(value == null ? '' : value).trim().toLowerCase();
-  return normalized === 'true' || normalized === '1' || normalized === 'yes';
-};
-
-// Keep Tourplan PascalCase under camelCase pickupPoints (same pattern as optRates).
-// Bokun channel-manager reads container.PickupPoint / point.Point_ID etc.
-const normalizePickupPoints = rawPickupPoints => {
-  if (!rawPickupPoints || typeof rawPickupPoints !== 'object') return undefined;
-  const points = asArray(R.path(['PickupPoint'], rawPickupPoints))
-    .filter(point => point && typeof point === 'object' && !Array.isArray(point));
-  if (!points.length) return undefined;
-  return {
-    ...rawPickupPoints,
-    PickupPoint: points,
-  };
-};
-
-const getOptionInfoTag = ({ includeRates = false, pickupPointsRequired = false } = {}) => (
-  `${includeRates ? 'GR' : 'G'}${pickupPointsRequired ? 'P' : ''}`
-);
+const {
+  isEnabled,
+  normalizePickupPoints,
+} = require('./tp-helpers/pickup-points');
+const { getOptionInfoTag } = require('./utils');
 
 const searchProductsForItinerary = async ({
   axios,
@@ -273,10 +254,12 @@ const searchProductsForItinerary = async ({
         || R.path(['__destination', 'city'], rawOption);
       const country = currentOption.country
         || R.path(['__destination', 'country'], rawOption);
-      const pickupPoints = normalizePickupPoints(
-        R.path(['OptGeneral', 'PickupPoints'], rawOption)
-          || R.path(['PickupPoints'], rawOption),
-      );
+      const pickupPoints = shouldRequestPickupPoints
+        ? normalizePickupPoints(
+          R.path(['OptGeneral', 'PickupPoints'], rawOption)
+            || R.path(['PickupPoints'], rawOption),
+        )
+        : undefined;
       return {
         ...R.omit(['city', 'country', 'rateContext'], currentOption),
         ...(city ? { city } : {}),
