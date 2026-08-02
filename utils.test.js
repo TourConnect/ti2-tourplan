@@ -1,4 +1,10 @@
-const { escapeInvalidXmlChars, getRoomConfigs } = require('./utils');
+/* globals describe, it, expect */
+
+const {
+  escapeInvalidXmlChars,
+  getOptionInfoTag,
+  getRoomConfigs,
+} = require('./utils');
 
 describe('getRoomConfigs', () => {
   const getPaxDetails = passenger => getRoomConfigs([{
@@ -133,5 +139,26 @@ describe('escapeInvalidXmlChars', () => {
 
   it('strips lone UTF-16 surrogate code units', () => {
     expect(escapeInvalidXmlChars('X\uD800Y')).toBe('XY');
+  });
+});
+
+describe('getOptionInfoTag', () => {
+  it('uses includeRates for product-search tags when checkType is omitted', () => {
+    expect(getOptionInfoTag()).toBe('G');
+    expect(getOptionInfoTag({ includeRates: true })).toBe('GR');
+    expect(getOptionInfoTag({ includeRates: false, pickupPointsRequired: 'false' })).toBe('G');
+  });
+
+  it('keeps an explicit checkType when pickup points are not required', () => {
+    expect(getOptionInfoTag({ checkType: 'GAR' })).toBe('GAR');
+    expect(getOptionInfoTag({ checkType: 'GD', pickupPointsRequired: false })).toBe('GD');
+    expect(getOptionInfoTag({ includeRates: true, pickupPointsRequired: 'false' })).toBe('GR');
+  });
+
+  it('appends P for truthy pickupPointsRequired values', () => {
+    expect(getOptionInfoTag({ checkType: 'GAR', pickupPointsRequired: true })).toBe('GARP');
+    expect(getOptionInfoTag({ checkType: 'GD', pickupPointsRequired: 'yes' })).toBe('GDP');
+    expect(getOptionInfoTag({ includeRates: true, pickupPointsRequired: 1 })).toBe('GRP');
+    expect(getOptionInfoTag({ pickupPointsRequired: true })).toBe('GP');
   });
 });
