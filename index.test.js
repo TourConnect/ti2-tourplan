@@ -1804,6 +1804,52 @@ describe('search tests', () => {
       expect(retVal.bookings[0].bookingId).toBe('316559');
     });
 
+    it('searchItineraries keeps successful fallback criteria when one bookingId criterion fails', async () => {
+      axios.mockImplementation(getFixture);
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      mockCallTourplan.mockImplementation(async request => {
+        const { model } = request;
+        const listRequest = model && model.ListBookingsRequest;
+        if (listRequest && listRequest.BookingId === '2694192') {
+          throw new Error('Request failed with status code 500: Object not found in BookingData cache 2694192');
+        }
+        if (listRequest && listRequest.Ref === '2694192') {
+          return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+        }
+        if (listRequest && listRequest.AgentRef === '2694192') {
+          return {
+            ListBookingsReply: {
+              BookingHeaders: {
+                BookingHeader: [{ BookingId: '316559' }],
+              },
+            },
+          };
+        }
+        return defaultCallTourplanImplementation(request);
+      });
+
+      try {
+        const retVal = await app.searchItineraries({
+          axios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            bookingId: '2694192',
+          },
+        });
+
+        expect(retVal.bookings.length).toBe(1);
+        expect(retVal.bookings[0].bookingId).toBe('316559');
+        expect(warnSpy).toHaveBeenCalledWith(
+          '[tourplan] ListBookingsRequest failed',
+          { BookingId: '2694192' },
+          'Request failed with status code 500: Object not found in BookingData cache 2694192',
+        );
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
     it('searchItineraries by name (NameContains)', async () => {
       axios.mockImplementation(getFixture);
       const retVal = await app.searchItineraries({
