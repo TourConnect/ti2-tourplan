@@ -231,13 +231,15 @@ const searchItineraries = async ({
 
   // Step4: Fetch for bookings based on the search criterias.
   const allSearches = searchCriterias.length
-    ? searchCriterias.map(async keyObj => {
-      let reply;
-      try {
-        reply = await callTourplan(getPayload('ListBookingsRequest', {
-          ...(baseSearchFilters ? { ...baseSearchFilters } : {}),
-          ...keyObj,
-        }));
+    ? searchCriterias.map(keyObj => ({
+      keyObj,
+      promise: (async () => {
+        let reply;
+        try {
+          reply = await callTourplan(getPayload('ListBookingsRequest', {
+            ...(baseSearchFilters ? { ...baseSearchFilters } : {}),
+            ...keyObj,
+          }));
         /*
           <Reply>
             <ListBookingsReply>
@@ -262,33 +264,55 @@ const searchItineraries = async ({
             </ListBookingsReply>
           </Reply>
         */
-      } catch (err) {
-        const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
-        if (errMsg.includes('Request failed with status code')) {
-          throw Error(errMsg);
+        } catch (err) {
+          const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
+          if (errMsg.includes('Request failed with status code')) {
+            throw Error(errMsg);
+          }
+          // if it's not server error, we just considered as no booking is found
+          reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
-        // if it's not server error, we just considered as no booking is found
-        reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
-      }
-      return reply;
-    })
+        return reply;
+      })(),
+    }))
     : [
       // Date-range-only search (no explicit criteria). Wrap in the same try/catch
       // pattern as the map branch so a non-HTTP error is treated as zero results
       // rather than crashing the entire search.
-      (async () => {
-        try {
-          return await callTourplan(getPayload('ListBookingsRequest', baseSearchFilters));
-        } catch (err) {
-          const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
-          if (errMsg.includes('Request failed with status code')) throw Error(errMsg);
-          return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
-        }
-      })(),
+      {
+        keyObj: baseSearchFilters,
+        promise: (async () => {
+          try {
+            return await callTourplan(getPayload('ListBookingsRequest', baseSearchFilters));
+          } catch (err) {
+            const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
+            if (errMsg.includes('Request failed with status code')) throw Error(errMsg);
+            return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+          }
+        })(),
+      },
     ];
 
   // Step5: Get full booking details for each booking.
-  const replyObjs = await Promise.all(allSearches);
+  const settledSearches = await global.Promise.allSettled(allSearches.map(({ promise }) => promise));
+  const replyObjs = [];
+  const rejectedSearches = [];
+
+  settledSearches.forEach((result, idx) => {
+    if (result.status === 'fulfilled') {
+      replyObjs.push(result.value);
+      return;
+    }
+    const { keyObj } = allSearches[idx];
+    const { reason } = result;
+    const errMsg = reason instanceof Error ? reason.message : String(reason);
+    rejectedSearches.push(reason);
+    console.warn('[tourplan] ListBookingsRequest failed', keyObj, errMsg);
+  });
+
+  if (!replyObjs.length && rejectedSearches.length) {
+    throw rejectedSearches[0];
+  }
   const bookingHeadersRaw = R.flatten(
     replyObjs.map(o => R.pathOr(
       [],
