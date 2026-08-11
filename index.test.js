@@ -867,6 +867,7 @@ describe('search tests', () => {
       },
     });
     expect(R.path(['products', 0, 'options', 0, 'city'], retVal)).toBe('London');
+    expect(R.path(['products', 0, 'options', 0, 'inclusions'], retVal)).toEqual([]);
     expect(retVal).toMatchSnapshot();
   });
 
