@@ -1850,6 +1850,50 @@ describe('search tests', () => {
       }
     });
 
+    it('searchItineraries searches alphanumeric bookingId candidates as AgentRef', async () => {
+      axios.mockImplementation(getFixture);
+      mockCallTourplan.mockImplementation(async request => {
+        const { model } = request;
+        const listRequest = model && model.ListBookingsRequest;
+        if (listRequest && listRequest.BookingId === 'SGMX269690') {
+          return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+        }
+        if (listRequest && listRequest.Ref === 'SGMX269690') {
+          return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+        }
+        if (listRequest && listRequest.AgentRef === 'SGMX269690') {
+          return {
+            ListBookingsReply: {
+              BookingHeaders: {
+                BookingHeader: [{ BookingId: '316559' }],
+              },
+            },
+          };
+        }
+        return defaultCallTourplanImplementation(request);
+      });
+
+      const retVal = await app.searchItineraries({
+        axios,
+        token,
+        typeDefsAndQueries,
+        payload: {
+          bookingId: 'SGMX269690',
+        },
+      });
+
+      expect(retVal.bookings.length).toBe(1);
+      expect(retVal.bookings[0].bookingId).toBe('316559');
+      const listRequests = mockCallTourplan.mock.calls
+        .map(([{ model }]) => model && model.ListBookingsRequest)
+        .filter(Boolean);
+      expect(listRequests).toEqual(expect.arrayContaining([
+        expect.objectContaining({ BookingId: 'SGMX269690' }),
+        expect.objectContaining({ Ref: 'SGMX269690' }),
+        expect.objectContaining({ AgentRef: 'SGMX269690' }),
+      ]));
+    });
+
     it('searchItineraries by name (NameContains)', async () => {
       axios.mockImplementation(getFixture);
       const retVal = await app.searchItineraries({
