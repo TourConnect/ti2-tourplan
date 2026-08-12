@@ -7,6 +7,7 @@ const { getCachedLocations } = require('./tp-helpers/locations');
 const { getCachedServices } = require('./tp-helpers/services');
 const { getCachedDestinationCountries } = require('./tp-helpers/system-settings');
 const { enrichOptionWithCodeTables } = require('./tp-helpers/option-enrichment');
+const { addStructuredOptionMetadata } = require('./option-metadata');
 const {
   isEnabled,
   normalizePickupPoints,
@@ -260,7 +261,7 @@ const searchProductsForItinerary = async ({
             || R.path(['PickupPoints'], rawOption),
         )
         : undefined;
-      return {
+      return addStructuredOptionMetadata({
         ...R.omit(['city', 'country', 'rateContext'], currentOption),
         ...(city ? { city } : {}),
         ...(country ? { country } : {}),
@@ -269,7 +270,7 @@ const searchProductsForItinerary = async ({
         ...(R.path([currentOption.optionId], optionRatesByOptionId)
           ? { optRates: R.path([currentOption.optionId], optionRatesByOptionId) }
           : {}),
-      };
+      });
     }),
   }));
   return {
