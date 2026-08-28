@@ -278,6 +278,49 @@ describe('search tests', () => {
         expect(newBookingInfo.Name).toBe(`${'Ae'.repeat(29)}A`);
         expect(newBookingInfo.HeaderField).toBe('kept');
       });
+
+      it('sanitizes text supplied through direct and custom fields', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            ServiceLineId: '10',
+          },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Extension field test',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'TESTREF',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+            directHeaderPayload: {
+              HeaderField: 'Müller\u0000',
+              NestedHeader: { Label: 'Borwieck\u00A0Mrs R' },
+            },
+            directLinePayload: {
+              LineField: 'Say “hi”',
+            },
+            customFieldValues: [{
+              id: 'CustomText',
+              isPerService: true,
+              value: 'Søren\u0008',
+            }],
+          },
+        });
+
+        const request = mockCallTourplan.mock.calls[0][0].model.AddServiceRequest;
+        expect(request.NewBookingInfo).toEqual(expect.objectContaining({
+          HeaderField: 'Mueller',
+          NestedHeader: { Label: 'Borwieck Mrs R' },
+        }));
+        expect(request.LineField).toBe('Say "hi"');
+        expect(request.CustomText).toBe('Soeren');
+      });
     });
 
     describe('cancelBooking', () => {
