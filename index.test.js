@@ -312,6 +312,33 @@ describe('search tests', () => {
         expect(newBookingInfo.Name).toBe(`${'Ae'.repeat(29)}A`);
         expect(newBookingInfo.HeaderField).toBe('kept');
       });
+
+      it('limits service remarks to the Tourplan field length', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            ServiceLineId: '10',
+          },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Passenger notes test',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'TESTREF',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: `Passenger Notes: ${'A'.repeat(80)} Service Notes: late arrival`,
+          },
+        });
+
+        const request = mockCallTourplan.mock.calls[0][0].model.AddServiceRequest;
+        expect(request.Remarks).toBe(`Passenger Notes: ${'A'.repeat(43)}`);
+        expect(request.Remarks).toHaveLength(60);
+      });
     });
 
     describe('cancelBooking', () => {
