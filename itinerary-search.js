@@ -5,6 +5,8 @@ const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 /** Years to extend the travel window when start or end is missing. */
 const TRAVEL_WINDOW_SPAN_YEARS = 2;
+const LIST_BOOKINGS_CONCURRENCY = 10;
+const MAX_AGENT_REFERENCE_IDS = 20;
 
 /**
  * Extract the date prefix from a string in the format YYYY-MM-DD.
@@ -159,7 +161,10 @@ const searchItineraries = async ({
     itineraryBookingTypeDefs,
     itineraryBookingQuery,
   },
-  payload: {
+  payload,
+  callTourplan,
+}) => {
+  const {
     purchaseDateStart,
     purchaseDateEnd,
     travelDateStart,
@@ -167,9 +172,8 @@ const searchItineraries = async ({
     bookingReferenceIds,
     bookingId,
     name,
-  },
-  callTourplan,
-}) => {
+    agentReferenceIds,
+  } = payload;
   const getPayload = (RequestType, RequestInput) => ({
     model: {
       [RequestType]: {
@@ -188,11 +192,28 @@ const searchItineraries = async ({
   let baseSearchFilters = null;
 
   // Step1: Build search criterias based on the provided search criteria.
+  const hasAgentReferenceIds = Object.prototype.hasOwnProperty.call(payload, 'agentReferenceIds');
+  const rawAgentReferenceIds = (
+    Array.isArray(agentReferenceIds) ? agentReferenceIds : [agentReferenceIds]
+  );
+  if (hasAgentReferenceIds && rawAgentReferenceIds.length > MAX_AGENT_REFERENCE_IDS) {
+    return { bookings: [] };
+  }
+  const normalizedAgentReferenceIds = rawAgentReferenceIds
+    .filter(ref => typeof ref === 'string' || (typeof ref === 'number' && Number.isFinite(ref)))
+    .map(ref => escapeInvalidXmlChars(String(ref).trim()))
+    .filter(Boolean);
+  const uniqueAgentReferenceIds = R.uniq(normalizedAgentReferenceIds);
+  if (hasAgentReferenceIds && !uniqueAgentReferenceIds.length) {
+    return { bookings: [] };
+  }
   const normalizedBookingReferenceIds = (
     Array.isArray(bookingReferenceIds) ? bookingReferenceIds : [bookingReferenceIds]
   ).filter(v => v != null).map(v => escapeInvalidXmlChars(String(v).trim())).filter(Boolean);
 
-  if (normalizedBookingReferenceIds.length) {
+  if (uniqueAgentReferenceIds.length) {
+    searchCriterias = uniqueAgentReferenceIds.map(ref => ({ AgentRef: ref }));
+  } else if (normalizedBookingReferenceIds.length) {
     // if bookingReferenceIds are provided other search criteria are ignored
     searchCriterias = R.uniq(normalizedBookingReferenceIds).map(ref => ({ Ref: ref }));
   } else if (bookingId) {
@@ -230,10 +251,12 @@ const searchItineraries = async ({
   }
 
   // Step4: Fetch for bookings based on the search criterias.
-  const allSearches = searchCriterias.length
-    ? searchCriterias.map(keyObj => ({
-      keyObj,
-      promise: (async () => {
+  const allSearches = (searchCriterias.length ? searchCriterias : [baseSearchFilters])
+    .map(keyObj => ({ keyObj }));
+  const settledSearches = await Promise.map(
+    allSearches,
+    async ({ keyObj }) => {
+      try {
         let reply;
         try {
           reply = await callTourplan(getPayload('ListBookingsRequest', {
@@ -266,35 +289,24 @@ const searchItineraries = async ({
         */
         } catch (err) {
           const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
+          if (hasAgentReferenceIds) {
+            throw err instanceof Error ? err : Error(errMsg);
+          }
           if (errMsg.includes('Request failed with status code')) {
             throw Error(errMsg);
           }
           // if it's not server error, we just considered as no booking is found
           reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
         }
-        return reply;
-      })(),
-    }))
-    : [
-      // Date-range-only search (no explicit criteria). Wrap in the same try/catch
-      // pattern as the map branch so a non-HTTP error is treated as zero results
-      // rather than crashing the entire search.
-      {
-        keyObj: baseSearchFilters,
-        promise: (async () => {
-          try {
-            return await callTourplan(getPayload('ListBookingsRequest', baseSearchFilters));
-          } catch (err) {
-            const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
-            if (errMsg.includes('Request failed with status code')) throw Error(errMsg);
-            return { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
-          }
-        })(),
-      },
-    ];
+        return { status: 'fulfilled', value: reply };
+      } catch (reason) {
+        return { status: 'rejected', reason };
+      }
+    },
+    { concurrency: LIST_BOOKINGS_CONCURRENCY },
+  );
 
   // Step5: Get full booking details for each booking.
-  const settledSearches = await global.Promise.allSettled(allSearches.map(({ promise }) => promise));
   const replyObjs = [];
   const rejectedSearches = [];
 

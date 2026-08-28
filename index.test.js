@@ -1758,6 +1758,28 @@ describe('search tests', () => {
       expect(retVal.bookings[0].bookingId).toBe('316559');
     });
 
+    it('searchItineraries surfaces AgentRef HostConnect application failures', async () => {
+      const actualApp = new Plugin();
+      const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+      const applicationErrorAxios = jest.fn(async () => ({
+        data: '<Reply><ErrorReply><Error>Invalid Agent credentials</Error></ErrorReply></Reply>',
+      }));
+
+      try {
+        await expect(actualApp.searchItineraries({
+          axios: applicationErrorAxios,
+          token,
+          typeDefsAndQueries,
+          payload: {
+            agentReferenceIds: ['AGENT-REF-1', 'AGENT-REF-2'],
+          },
+        })).rejects.toThrow('ListBookingsRequest failed: Invalid Agent credentials');
+        expect(applicationErrorAxios).toHaveBeenCalledTimes(2);
+      } finally {
+        warnSpy.mockRestore();
+      }
+    });
+
     it('searchItineraries bookingReferenceIds accepts a single string', async () => {
       axios.mockImplementation(getFixture);
       const retVal = await app.searchItineraries({
