@@ -2,6 +2,7 @@
 
 const {
   escapeInvalidXmlChars,
+  sanitizeXmlTextValues,
   getOptionInfoTag,
   getRoomConfigs,
 } = require('./utils');
@@ -139,6 +140,18 @@ describe('escapeInvalidXmlChars', () => {
 
   it('strips lone UTF-16 surrogate code units', () => {
     expect(escapeInvalidXmlChars('X\uD800Y')).toBe('XY');
+  });
+});
+
+describe('sanitizeXmlTextValues', () => {
+  it('sanitizes nested strings without changing non-string values', () => {
+    expect(sanitizeXmlTextValues({
+      consultant: 'Müller\u0000',
+      fields: ['Borwieck\u00A0Mrs R', 7, null, { label: 'Say “hi”' }],
+    })).toEqual({
+      consultant: 'Mueller',
+      fields: ['Borwieck Mrs R', 7, null, { label: 'Say "hi"' }],
+    });
   });
 });
 

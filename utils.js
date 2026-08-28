@@ -71,6 +71,18 @@ const escapeInvalidXmlChars = str => {
     .replace(BAD_XML_CHARS, '');
 };
 
+const sanitizeXmlTextValues = value => {
+  if (typeof value === 'string') return escapeInvalidXmlChars(value);
+  if (Array.isArray(value)) return value.map(sanitizeXmlTextValues);
+  if (value && typeof value === 'object') {
+    return Object.entries(value).reduce((sanitized, [key, nestedValue]) => ({
+      ...sanitized,
+      [key]: sanitizeXmlTextValues(nestedValue),
+    }), {});
+  }
+  return value;
+};
+
 const isEnabled = value => {
   if (value === true || value === 1) return true;
   const normalized = String(value == null ? '' : value).trim().toLowerCase();
@@ -208,6 +220,7 @@ const getRoomConfigs = (paxConfigs, noPaxList) => {
 
 module.exports = {
   escapeInvalidXmlChars,
+  sanitizeXmlTextValues,
   getRoomConfigs,
   wildcardMatch,
   CUSTOM_RATE_ID_NAME,

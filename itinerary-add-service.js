@@ -2,6 +2,7 @@ const R = require('ramda');
 const {
   getRoomConfigs,
   escapeInvalidXmlChars,
+  sanitizeXmlTextValues,
   CUSTOM_RATE_ID_NAME,
   CUSTOM_NO_RATE_NAME,
   hostConnectXmlOptions,
@@ -55,19 +56,25 @@ const addServiceToItinerary = async ({
 }) => {
   let pricing = null;
   const tourplanServiceStatus = customRateServiceStatus || DEFAULT_TOURPLAN_SERVICE_STATUS;
+  const sanitizedDirectHeaderPayload = sanitizeXmlTextValues(directHeaderPayload || {});
+  const sanitizedDirectLinePayload = sanitizeXmlTextValues(directLinePayload || {});
   const cfvPerService = customFieldValues.filter(f => f.isPerService && f.value)
     .reduce((acc, f) => {
       if (f.type === 'extended-option') {
-        acc[f.id] = f.value.value || f.value;
+        acc[f.id] = sanitizeXmlTextValues(f.value.value || f.value);
       } else {
-        acc[f.id] = f.value;
+        acc[f.id] = sanitizeXmlTextValues(f.value);
       }
       return acc;
     }, {});
 
-  const directHeaderPayloadHasName = directHeaderPayload &&
-    Object.prototype.hasOwnProperty.call(directHeaderPayload, 'Name');
-  const bookingNameSource = directHeaderPayloadHasName ? directHeaderPayload.Name : quoteName;
+  const directHeaderPayloadHasName = Object.prototype.hasOwnProperty.call(
+    sanitizedDirectHeaderPayload,
+    'Name',
+  );
+  const bookingNameSource = directHeaderPayloadHasName
+    ? sanitizedDirectHeaderPayload.Name
+    : quoteName;
 
   const rateIdFromAvailCheckObj = R.path(['rateId'], availCheckObj);
   if (availCheckObj &&
@@ -150,7 +157,7 @@ const addServiceToItinerary = async ({
       } : {
         NewBookingInfo: {
           QB: QB || 'Q',
-          ...(directHeaderPayload || {}),
+          ...sanitizedDirectHeaderPayload,
           Name: getBookingName(bookingNameSource),
         },
       }),
@@ -179,7 +186,7 @@ const addServiceToItinerary = async ({
       })(),
       AgentRef: escapeInvalidXmlChars(reference),
       RoomConfigs: getRoomConfigs(paxConfigs),
-      ...(directLinePayload || {}),
+      ...sanitizedDirectLinePayload,
       ...(cfvPerService || {}),
     },
   };
