@@ -196,6 +196,7 @@ const addServiceToItinerary = async ({
       id: R.path(['AddServiceReply', 'BookingId'], replyObj) || quoteId,
       reference: R.path(['AddServiceReply', 'Ref'], replyObj),
       linePrice: R.path(['AddServiceReply', 'Services', 'Service', 'LinePrice'], replyObj),
+      agentPrice: R.path(['AddServiceReply', 'Services', 'Service', 'AgentPrice'], replyObj),
       lineId: R.path(['AddServiceReply', 'ServiceLineId'], replyObj),
     },
   };

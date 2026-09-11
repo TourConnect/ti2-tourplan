@@ -70,6 +70,7 @@ const resolvers = {
     paxList: R.path(['paxList']),
     paxConfigs: R.path(['paxConfigs']),
     linePrice: R.path(['LinePrice']),
+    agentPrice: R.path(['AgentPrice']),
     quantity: R.path(['SCUqty']),
     status: R.path(['Status']),
     puInfo: sl => puDoInfoOrNull({
@@ -133,6 +134,42 @@ const resolvers = {
  */
 const schemaCache = new Map();
 
+const typeDefinesField = (typeDefs, typeName, fieldName) => {
+  const typeMatch = String(typeDefs || '').match(new RegExp(`type\\s+${typeName}\\s*{([\\s\\S]*?)}`));
+  if (!typeMatch) return false;
+  return new RegExp(`\\b${fieldName}\\s*:`).test(typeMatch[1]);
+};
+
+/**
+ * ti2's itinerary-booking SDL may not yet declare ServiceLine.agentPrice.
+ * Extend the incoming schema so search/read can return the Tourplan net price
+ * without waiting on a ti2 release. No-op when the field is already present.
+ *
+ * @param {string|DocumentNode} typeDefs
+ * @returns {string|DocumentNode}
+ */
+const ensureAgentPriceOnServiceLineTypeDefs = typeDefs => {
+  if (typeof typeDefs !== 'string') return typeDefs;
+  if (typeDefinesField(typeDefs, 'ServiceLine', 'agentPrice')) return typeDefs;
+  return typeDefs.replace(
+    /(type\s+ServiceLine\s*{)/,
+    '$1\n    agentPrice: String',
+  );
+};
+
+/**
+ * Request agentPrice next to linePrice when the caller query omits it.
+ *
+ * @param {string} query
+ * @returns {string}
+ */
+const ensureAgentPriceInQuery = query => {
+  if (typeof query !== 'string') return query;
+  if (/\bagentPrice\b/.test(query)) return query;
+  if (!/\blinePrice\b/.test(query)) return query;
+  return query.replace(/\blinePrice\b/, 'linePrice\n    agentPrice');
+};
+
 /**
  * Return a compiled GraphQL schema for the given typeDefs, building and caching
  * it on the first call and returning the cached instance on every subsequent call.
@@ -142,7 +179,10 @@ const schemaCache = new Map();
  */
 const getSchema = typeDefs => {
   if (schemaCache.has(typeDefs)) return schemaCache.get(typeDefs);
-  const schema = makeExecutableSchema({ typeDefs, resolvers });
+  const schema = makeExecutableSchema({
+    typeDefs: ensureAgentPriceOnServiceLineTypeDefs(typeDefs),
+    resolvers,
+  });
   schemaCache.set(typeDefs, schema);
   return schema;
 };
@@ -163,7 +203,7 @@ const translateItineraryBooking = async ({ typeDefs, query, rootValue }) => {
   const retVal = await graphql({
     schema,
     rootValue,
-    source: query,
+    source: ensureAgentPriceInQuery(query),
   });
   if (retVal.errors) {
     throw new Error(retVal.errors.map(e => e.message).join('; '));
