@@ -281,6 +281,7 @@ Object {
       "ref": "ALFI393706",
       "serviceLines": Array [
         Object {
+          "agentPrice": "159000",
           "doInfo": Object {
             "date": "2025-08-17",
             "remarks": "Hotel main lobby",

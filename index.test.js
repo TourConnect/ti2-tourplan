@@ -140,6 +140,40 @@ describe('search tests', () => {
       });
     });
     describe('addServiceToItinerary', () => {
+      it('returns the gross line price and net agent price from Tourplan', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            Services: {
+              Service: {
+                LinePrice: '10000',
+                AgentPrice: '8500',
+              },
+            },
+            ServiceLineId: '10',
+          },
+        }));
+
+        const result = await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Pricing response test',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'TESTREF',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+          },
+        });
+
+        expect(result.booking).toMatchObject({
+          linePrice: '10000',
+          agentPrice: '8500',
+        });
+      });
+
       it('limits new booking names after escaping XML characters', async () => {
         mockCallTourplan.mockImplementationOnce(async () => ({
           AddServiceReply: {
@@ -1733,6 +1767,10 @@ describe('search tests', () => {
       expect(retVal.bookings[0].serviceLines[0].paxList[0].firstName).toBe('Sean');
       expect(retVal.bookings[0].serviceLines[0].paxList[0]).toHaveProperty('lastName');
       expect(retVal.bookings[0].serviceLines[0].paxList[0].lastName).toBe('Conta');
+      expect(retVal.bookings[0].serviceLines[0]).toHaveProperty('linePrice');
+      expect(retVal.bookings[0].serviceLines[0].linePrice).toBe('187795');
+      expect(retVal.bookings[0].serviceLines[0]).toHaveProperty('agentPrice');
+      expect(retVal.bookings[0].serviceLines[0].agentPrice).toBe('159000');
       expect(retVal.bookings[0].serviceLines[0]).toHaveProperty('quantity');
       expect(retVal.bookings[0].serviceLines[0].quantity).toBe(4);
       expect(retVal.bookings[0].serviceLines[0]).toHaveProperty('status');

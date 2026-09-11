@@ -56,6 +56,7 @@
                 </RoomConfigs>
                 <CostedInBooking>Y</CostedInBooking>
                 <LinePrice>187795</LinePrice>
+                <AgentPrice>159000</AgentPrice>
                 <SCU>night</SCU>
                 <SCUqty>4</SCUqty>
                 <Remarks>Passenger Notes: NA.
