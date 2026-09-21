@@ -178,7 +178,7 @@ const addServiceToItinerary = async ({
         return num;
       })(),
       AgentRef: escapeInvalidXmlChars(reference),
-      RoomConfigs: getRoomConfigs(paxConfigs),
+      RoomConfigs: getRoomConfigs(paxConfigs, false, Boolean(quoteId)),
       ...(directLinePayload || {}),
       ...(cfvPerService || {}),
     },

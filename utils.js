@@ -118,7 +118,7 @@ const getValidDateOfBirth = dob => {
   return dob;
 };
 
-const getRoomConfigs = (paxConfigs, noPaxList) => {
+const getRoomConfigs = (paxConfigs, noPaxList, includePersonIds = true) => {
   // There should be only 1 RoomConfigs for AddServiceRequest
   const RoomConfigs = {};
   // add one RoomConfig for each room required (i.e. one for each PaxConfig)
@@ -171,7 +171,7 @@ const getRoomConfigs = (paxConfigs, noPaxList) => {
           Age, TP will consider them to be different pax, which actually is duplicate, given
           sometimes AI could be extracting inconsistent data
         */
-        if (p.personId) {
+        if (includePersonIds && p.personId) {
           return {
             PersonId: p.personId,
           };

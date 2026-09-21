@@ -312,6 +312,90 @@ describe('search tests', () => {
         expect(newBookingInfo.Name).toBe(`${'Ae'.repeat(29)}A`);
         expect(newBookingInfo.HeaderField).toBe('kept');
       });
+
+      it('omits supplied PersonIds when creating a new booking', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            Services: { Service: { LinePrice: '10.00' } },
+            ServiceLineId: '10',
+          },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'New booking',
+            optionId: 'ABC123',
+            startDate: '2026-09-22',
+            reference: 'TESTREF',
+            paxConfigs: [{
+              roomType: 'Single',
+              passengers: [{
+                firstName: 'Ada',
+                lastName: 'Lovelace',
+                passengerType: 'Adult',
+                personId: 'stale-person-id',
+              }],
+            }],
+            notes: '',
+          },
+        });
+
+        const request = mockCallTourplan.mock.calls[0][0].model.AddServiceRequest;
+        const sentPassenger = request.RoomConfigs.RoomConfig[0].PaxList.PaxDetails[0];
+
+        expect(request.NewBookingInfo).toBeTruthy();
+        expect(request.ExistingBookingInfo).toBeUndefined();
+        expect(sentPassenger).toEqual(expect.objectContaining({
+          Forename: 'Ada',
+          Surname: 'Lovelace',
+          PaxType: 'A',
+        }));
+        expect(sentPassenger.PersonId).toBeUndefined();
+      });
+
+      it('keeps supplied PersonIds for an existing booking', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: {
+            BookingId: '12345',
+            Ref: 'TESTREF',
+            Services: { Service: { LinePrice: '10.00' } },
+            ServiceLineId: '10',
+          },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Existing booking',
+            quoteId: '12345',
+            optionId: 'ABC123',
+            startDate: '2026-09-22',
+            reference: 'TESTREF',
+            paxConfigs: [{
+              roomType: 'Single',
+              passengers: [{
+                firstName: 'Ada',
+                lastName: 'Lovelace',
+                passengerType: 'Adult',
+                personId: 'current-person-id',
+              }],
+            }],
+            notes: '',
+          },
+        });
+
+        const request = mockCallTourplan.mock.calls[0][0].model.AddServiceRequest;
+        const sentPassenger = request.RoomConfigs.RoomConfig[0].PaxList.PaxDetails[0];
+
+        expect(request.ExistingBookingInfo).toEqual({ BookingId: '12345' });
+        expect(request.NewBookingInfo).toBeUndefined();
+        expect(sentPassenger).toEqual({ PersonId: 'current-person-id' });
+      });
     });
 
     describe('cancelBooking', () => {
