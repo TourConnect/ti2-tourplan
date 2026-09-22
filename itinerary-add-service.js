@@ -9,6 +9,7 @@ const {
 
 const DEFAULT_TOURPLAN_SERVICE_STATUS = 'IR';
 const MAX_BOOKING_NAME_LENGTH = 59;
+const MAX_SERVICE_REMARKS_LENGTH = 60;
 const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote for the requested date/stay. (e.g. no rates, block out period, on request, minimum stay etc.)';
 
 const getBookingName = quoteName => escapeInvalidXmlChars(quoteName)
@@ -166,7 +167,7 @@ const addServiceToItinerary = async ({
           })),
         },
       } : {}),
-      Remarks: escapeInvalidXmlChars(notes).slice(0, 220),
+      Remarks: escapeInvalidXmlChars(notes).slice(0, MAX_SERVICE_REMARKS_LENGTH),
       Opt: optionId,
       DateFrom: startDate,
       RateId: rateId || 'Default',
