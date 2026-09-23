@@ -109,6 +109,52 @@ describe('searchItineraries agentReferenceIds', () => {
     expect(result).toEqual({ bookings: [] });
   });
 
+  it('tries the raw AgentRef before the provider-safe value after a miss', async () => {
+    const rawAgentReference = 'X'.repeat(61);
+    const callTourplan = jest.fn(async ({ model }) => {
+      if (model.ListBookingsRequest) {
+        return {
+          ListBookingsReply: {
+            BookingHeaders: {
+              BookingHeader: model.ListBookingsRequest.AgentRef === 'X'.repeat(60)
+                ? [{ BookingId: '778' }]
+                : [],
+            },
+          },
+        };
+      }
+      return { GetBookingReply: { BookingId: '778' } };
+    });
+
+    const result = await runSearch({ agentReferenceIds: [rawAgentReference] }, callTourplan);
+
+    expect(listRequestsFrom(callTourplan).map(request => request.AgentRef)).toEqual([
+      rawAgentReference,
+      'X'.repeat(60),
+    ]);
+    expect(result.bookings.map(booking => booking.BookingId)).toEqual(['778']);
+  });
+
+  it('does not try the provider-safe AgentRef after the raw value matches', async () => {
+    const rawAgentReference = 'Müller – external booking';
+    const callTourplan = jest.fn(async ({ model }) => {
+      if (model.ListBookingsRequest) {
+        return {
+          ListBookingsReply: {
+            BookingHeaders: { BookingHeader: [{ BookingId: '779' }] },
+          },
+        };
+      }
+      return { GetBookingReply: { BookingId: '779' } };
+    });
+
+    const result = await runSearch({ agentReferenceIds: [rawAgentReference] }, callTourplan);
+
+    expect(listRequestsFrom(callTourplan).map(request => request.AgentRef))
+      .toEqual([rawAgentReference]);
+    expect(result.bookings.map(booking => booking.BookingId)).toEqual(['779']);
+  });
+
   it('normalizes array values and deduplicates AgentRef searches and booking results', async () => {
     const callTourplan = jest.fn(async ({ model }) => {
       const listRequest = model.ListBookingsRequest;
@@ -160,12 +206,29 @@ describe('searchItineraries agentReferenceIds', () => {
     expect(getBookingIds).toEqual(['601', '602']);
   });
 
+  it('deduplicates provider-safe AgentRef variants across inputs', async () => {
+    const rawAgentReference = 'A'.repeat(61);
+    const callTourplan = jest.fn(async () => ({
+      ListBookingsReply: { BookingHeaders: { BookingHeader: [] } },
+    }));
+
+    const result = await runSearch({
+      agentReferenceIds: [rawAgentReference, 'A'.repeat(60)],
+    }, callTourplan);
+
+    expect(listRequestsFrom(callTourplan).map(request => request.AgentRef)).toEqual([
+      rawAgentReference,
+      'A'.repeat(60),
+    ]);
+    expect(result).toEqual({ bookings: [] });
+  });
+
   it('keeps successful AgentRef results when another fan-out request fails', async () => {
     const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
     const callTourplan = jest.fn(async ({ model }) => {
       const listRequest = model.ListBookingsRequest;
       if (listRequest && listRequest.AgentRef === 'FAIL') {
-        throw new Error('Request failed with status code 500: failed AgentRef');
+        throw new Error('Request failed with status code 500 for FAIL');
       }
       if (listRequest && listRequest.AgentRef === 'GOOD') {
         return {
@@ -182,10 +245,11 @@ describe('searchItineraries agentReferenceIds', () => {
 
       expect(result.bookings.map(booking => booking.BookingId)).toEqual(['801']);
       expect(warnSpy).toHaveBeenCalledWith(
-        '[tourplan] ListBookingsRequest failed',
-        { AgentRef: 'FAIL' },
-        'Request failed with status code 500: failed AgentRef',
+        '[tourplan] AgentRef ListBookingsRequest failed status=%s error=%s',
+        'unknown',
+        'Request failed with status code 500 for [redacted]',
       );
+      expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('FAIL');
     } finally {
       warnSpy.mockRestore();
     }
@@ -254,10 +318,11 @@ describe('searchItineraries agentReferenceIds', () => {
         .toEqual([...agentReferenceIds].sort());
       expect(result.bookings.map(booking => booking.BookingId)).toEqual(['901']);
       expect(warnSpy).toHaveBeenCalledWith(
-        '[tourplan] ListBookingsRequest failed',
-        { AgentRef: 'REF-7' },
+        '[tourplan] AgentRef ListBookingsRequest failed status=%s error=%s',
+        'unknown',
         'Request failed with status code 500: failed AgentRef',
       );
+      expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('REF-7');
     } finally {
       pendingListRequests.splice(0).forEach(({ settle }) => settle());
       warnSpy.mockRestore();
@@ -305,6 +370,7 @@ describe('searchItineraries agentReferenceIds', () => {
   it.each([
     ['an empty list', []],
     ['blank and absent entries', [' ', null, undefined]],
+    ['values removed by XML sanitization', ['\u0001']],
     ['malformed entries', [{}, true, false, NaN, Infinity]],
     ['an explicit undefined scalar', undefined],
   ])('returns empty without a HostConnect request for %s', async (description, agentReferenceIds) => {
@@ -316,6 +382,15 @@ describe('searchItineraries agentReferenceIds', () => {
       bookingReferenceIds: ['SHOULD-NOT-FALL-BACK'],
       name: 'Should not fall back',
     }, callTourplan);
+
+    expect(result).toEqual({ bookings: [] });
+    expect(callTourplan).not.toHaveBeenCalled();
+  });
+
+  it('returns empty without a HostConnect request for a blank bookingId', async () => {
+    const callTourplan = jest.fn();
+
+    const result = await runSearch({ bookingId: '   ' }, callTourplan);
 
     expect(result).toEqual({ bookings: [] });
     expect(callTourplan).not.toHaveBeenCalled();
@@ -343,6 +418,30 @@ describe('searchItineraries agentReferenceIds', () => {
 
     expect(result).toEqual({ bookings: [] });
     expect(callTourplan).toHaveBeenCalledTimes(expectedRequests);
+  });
+
+  it('uses raw and provider-safe AgentRef variants for a bookingId fallback', async () => {
+    const rawBookingId = 'Z'.repeat(61);
+    const callTourplan = jest.fn(async ({ model }) => {
+      if (model.ListBookingsRequest) {
+        const { AgentRef } = model.ListBookingsRequest;
+        return {
+          ListBookingsReply: {
+            BookingHeaders: {
+              BookingHeader: AgentRef === 'Z'.repeat(60) ? [{ BookingId: '880' }] : [],
+            },
+          },
+        };
+      }
+      return { GetBookingReply: { BookingId: '880' } };
+    });
+
+    const result = await runSearch({ bookingId: rawBookingId }, callTourplan);
+
+    expect(listRequestsFrom(callTourplan)
+      .filter(request => Object.prototype.hasOwnProperty.call(request, 'AgentRef'))
+      .map(request => request.AgentRef)).toEqual([rawBookingId, 'Z'.repeat(60)]);
+    expect(result.bookings.map(booking => booking.BookingId)).toEqual(['880']);
   });
 });
 

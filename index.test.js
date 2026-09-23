@@ -339,6 +339,100 @@ describe('search tests', () => {
         expect(request.Remarks).toBe(`Passenger Notes: ${'A'.repeat(43)}`);
         expect(request.Remarks).toHaveLength(60);
       });
+
+      it.each([
+        ['an exact boundary reference', { reference: 'A'.repeat(60) }, 'A'.repeat(60)],
+        ['an overlong reference', { reference: 'B'.repeat(61) }, 'B'.repeat(60)],
+        ['a long itinerary description', {
+          reference: 'A detailed anniversary itinerary with transfers, hotels, touring, and extra arrangements',
+        }, 'A detailed anniversary itinerary with transfers, hotels, tou'],
+        ['the fallback reference', { reference: ' FALLBACK-REFERENCE ' }, 'FALLBACK-REFERENCE'],
+        ['the preferred agentRef', {
+          agentRef: ' AGENT-PICKED ',
+          reference: 'REFERENCE-IGNORED',
+        }, 'AGENT-PICKED'],
+        ['a value that expands during sanitization', { agentRef: 'Ä'.repeat(40) }, 'Ae'.repeat(30)],
+        ['invalid XML characters', { agentRef: '  REF\u0000WITH\u0001CONTROL  ' }, 'REFWITHCONTROL'],
+      ])('normalizes AgentRef from %s without changing the payload', async (
+        description,
+        sourceFields,
+        expected,
+      ) => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: { BookingId: '12345', Ref: 'TESTREF', ServiceLineId: '10' },
+        }));
+        const payload = {
+          quoteName: `Agent reference test: ${description}`,
+          optionId: 'ABC123',
+          startDate: '2026-07-03',
+          paxConfigs: [{ roomType: 'Double', adults: 2 }],
+          notes: '',
+          ...sourceFields,
+        };
+        const originalPayload = { ...payload };
+
+        await app.addServiceToItinerary({ axios, token, payload });
+
+        const agentReference = mockCallTourplan.mock.calls[0][0].model.AddServiceRequest.AgentRef;
+        expect(agentReference).toBe(expected);
+        expect(Array.from(agentReference).length).toBeLessThanOrEqual(60);
+        expect(payload).toEqual(originalPayload);
+
+        const requestXml = js2xmlparser.parse(
+          'Request',
+          mockCallTourplan.mock.calls[0][0].model,
+          hostConnectXmlOptions,
+        );
+        expect(requestXml.indexOf('<SCUqty>')).toBeLessThan(requestXml.indexOf('<AgentRef>'));
+        expect(requestXml.indexOf('<AgentRef>')).toBeLessThan(requestXml.indexOf('<RoomConfigs>'));
+      });
+
+      it('omits AgentRef when the selected source sanitizes to empty', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: { BookingId: '12345', Ref: 'TESTREF', ServiceLineId: '10' },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Empty agent reference',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            agentRef: ' \u0001 ',
+            reference: 'REFERENCE-IGNORED',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+          },
+        });
+
+        expect(mockCallTourplan.mock.calls[0][0].model.AddServiceRequest.AgentRef).toBeUndefined();
+      });
+
+      it('normalizes a direct-line AgentRef override without changing XML element order', async () => {
+        mockCallTourplan.mockImplementationOnce(async () => ({
+          AddServiceReply: { BookingId: '12345', Ref: 'TESTREF', ServiceLineId: '10' },
+        }));
+
+        await app.addServiceToItinerary({
+          axios,
+          token,
+          payload: {
+            quoteName: 'Direct override agent reference',
+            optionId: 'ABC123',
+            startDate: '2026-07-03',
+            reference: 'REFERENCE-IGNORED',
+            paxConfigs: [{ roomType: 'Double', adults: 2 }],
+            notes: '',
+            directLinePayload: { AgentRef: 'D'.repeat(61) },
+          },
+        });
+
+        const model = mockCallTourplan.mock.calls[0][0].model;
+        expect(model.AddServiceRequest.AgentRef).toBe('D'.repeat(60));
+        const requestXml = js2xmlparser.parse('Request', model, hostConnectXmlOptions);
+        expect(requestXml.indexOf('<AgentRef>')).toBeLessThan(requestXml.indexOf('<RoomConfigs>'));
+      });
     });
 
     describe('cancelBooking', () => {

@@ -2,6 +2,7 @@ const R = require('ramda');
 const {
   getRoomConfigs,
   escapeInvalidXmlChars,
+  normalizeAgentReference,
   CUSTOM_RATE_ID_NAME,
   CUSTOM_NO_RATE_NAME,
   hostConnectXmlOptions,
@@ -14,6 +15,13 @@ const SERVICE_CANNOT_BE_ADDED_ERROR_MESSAGE = 'Service cannot be added to quote 
 
 const getBookingName = quoteName => escapeInvalidXmlChars(quoteName)
   .substring(0, MAX_BOOKING_NAME_LENGTH);
+
+const buildAgentReference = ({ agentRef, reference }) => {
+  const source = typeof agentRef === 'string' && agentRef.trim() !== ''
+    ? agentRef
+    : reference;
+  return normalizeAgentReference(source);
+};
 
 const addServiceToItinerary = async ({
   axios,
@@ -30,6 +38,7 @@ const addServiceToItinerary = async ({
     quoteId,
     optionId,
     startDate,
+    agentRef,
     reference,
     /*
     paxConfigs: [{ roomType: 'DB', adults: 2 }, { roomType: 'TW', children: 2 }]
@@ -65,6 +74,20 @@ const addServiceToItinerary = async ({
       }
       return acc;
     }, {});
+
+  const directLinePayloadHasAgentReference = directLinePayload &&
+    Object.prototype.hasOwnProperty.call(directLinePayload, 'AgentRef');
+  const customFieldsHaveAgentReference = Object.prototype.hasOwnProperty.call(
+    cfvPerService,
+    'AgentRef',
+  );
+  const payloadAgentReference = buildAgentReference({ agentRef, reference });
+  let agentReferenceSource = payloadAgentReference;
+  if (directLinePayloadHasAgentReference) agentReferenceSource = directLinePayload.AgentRef;
+  if (customFieldsHaveAgentReference) agentReferenceSource = cfvPerService.AgentRef;
+  const agentReference = normalizeAgentReference(agentReferenceSource);
+  const directLinePayloadWithoutAgentReference = R.omit(['AgentRef'], directLinePayload || {});
+  const customFieldsWithoutAgentReference = R.omit(['AgentRef'], cfvPerService);
 
   const directHeaderPayloadHasName = directHeaderPayload &&
     Object.prototype.hasOwnProperty.call(directHeaderPayload, 'Name');
@@ -178,10 +201,10 @@ const addServiceToItinerary = async ({
         if (Number.isNaN(num) || num < 1) return 1;
         return num;
       })(),
-      AgentRef: escapeInvalidXmlChars(reference),
+      ...(agentReference ? { AgentRef: agentReference } : {}),
       RoomConfigs: getRoomConfigs(paxConfigs),
-      ...(directLinePayload || {}),
-      ...(cfvPerService || {}),
+      ...directLinePayloadWithoutAgentReference,
+      ...customFieldsWithoutAgentReference,
     },
   };
   const replyObj = await callTourplan({
