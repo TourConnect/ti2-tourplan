@@ -11,6 +11,7 @@ const passengerTypeMap = {
 
 // Constants not exported
 const BAD_XML_CHARS = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007f-\u0084\u0086-\u009f\uD800-\uDFFF\uFDD0-\uFDFF\uFFFF\uC008\uFEFF\u00DF]/g; // eslint-disable-line no-control-regex
+const MAX_AGENT_REFERENCE_LENGTH = 60;
 
 const hostConnectXmlOptions = {
   prettyPrinting: { enabled: false },
@@ -69,6 +70,16 @@ const escapeInvalidXmlChars = str => {
     .replace(/”/g, '"')
     .replace(/–/g, '-')
     .replace(BAD_XML_CHARS, '');
+};
+
+const normalizeAgentReference = value => {
+  if (value == null || value === '') return '';
+  const normalized = String(value).trim();
+  if (!normalized) return '';
+  return Array.from(escapeInvalidXmlChars(normalized))
+    .slice(0, MAX_AGENT_REFERENCE_LENGTH)
+    .join('')
+    .trim();
 };
 
 const isEnabled = value => {
@@ -208,6 +219,7 @@ const getRoomConfigs = (paxConfigs, noPaxList) => {
 
 module.exports = {
   escapeInvalidXmlChars,
+  normalizeAgentReference,
   getRoomConfigs,
   wildcardMatch,
   CUSTOM_RATE_ID_NAME,

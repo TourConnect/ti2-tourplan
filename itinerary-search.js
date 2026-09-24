@@ -1,12 +1,26 @@
 const R = require('ramda');
 const Promise = require('bluebird');
-const { escapeInvalidXmlChars, hostConnectXmlOptions } = require('./utils');
+const {
+  escapeInvalidXmlChars,
+  normalizeAgentReference,
+  hostConnectXmlOptions,
+} = require('./utils');
 const { translateItineraryBooking } = require('./resolvers/itinerary');
 
 /** Years to extend the travel window when start or end is missing. */
 const TRAVEL_WINDOW_SPAN_YEARS = 2;
 const LIST_BOOKINGS_CONCURRENCY = 10;
 const MAX_AGENT_REFERENCE_IDS = 20;
+
+const buildAgentReferenceSearchVariants = value => {
+  const rawReference = value == null ? '' : String(value).trim();
+  if (!rawReference) return [];
+  const normalizedReference = normalizeAgentReference(rawReference);
+  if (!normalizedReference) return [];
+  return normalizedReference && normalizedReference !== rawReference
+    ? [rawReference, normalizedReference]
+    : [rawReference];
+};
 
 /**
  * Extract the date prefix from a string in the format YYYY-MM-DD.
@@ -187,7 +201,7 @@ const searchItineraries = async ({
     xmlOptions: hostConnectXmlOptions,
   });
 
-  let searchCriterias = [];
+  let searchCriteriaGroups = [];
   let applyBaseSearchFilters = false;
   let baseSearchFilters = null;
 
@@ -199,37 +213,40 @@ const searchItineraries = async ({
   if (hasAgentReferenceIds && rawAgentReferenceIds.length > MAX_AGENT_REFERENCE_IDS) {
     return { bookings: [] };
   }
-  const normalizedAgentReferenceIds = rawAgentReferenceIds
+  const agentReferenceSearchVariants = R.uniqBy(variants => variants[0], rawAgentReferenceIds
     .filter(ref => typeof ref === 'string' || (typeof ref === 'number' && Number.isFinite(ref)))
-    .map(ref => escapeInvalidXmlChars(String(ref).trim()))
-    .filter(Boolean);
-  const uniqueAgentReferenceIds = R.uniq(normalizedAgentReferenceIds);
-  if (hasAgentReferenceIds && !uniqueAgentReferenceIds.length) {
+    .map(buildAgentReferenceSearchVariants)
+    .filter(variants => variants.length > 0));
+  if (hasAgentReferenceIds && !agentReferenceSearchVariants.length) {
     return { bookings: [] };
   }
   const normalizedBookingReferenceIds = (
     Array.isArray(bookingReferenceIds) ? bookingReferenceIds : [bookingReferenceIds]
   ).filter(v => v != null).map(v => escapeInvalidXmlChars(String(v).trim())).filter(Boolean);
 
-  if (uniqueAgentReferenceIds.length) {
-    searchCriterias = uniqueAgentReferenceIds.map(ref => ({ AgentRef: ref }));
+  if (agentReferenceSearchVariants.length) {
+    searchCriteriaGroups = agentReferenceSearchVariants
+      .map(variants => variants.map(ref => ({ AgentRef: ref })));
   } else if (normalizedBookingReferenceIds.length) {
     // if bookingReferenceIds are provided other search criteria are ignored
-    searchCriterias = R.uniq(normalizedBookingReferenceIds).map(ref => ({ Ref: ref }));
+    searchCriteriaGroups = R.uniq(normalizedBookingReferenceIds).map(ref => [{ Ref: ref }]);
   } else if (bookingId) {
     // if bookingId is provided other search criteria are ignored
     // and we search for bookings by bookingId, ref & agentRef
-    searchCriterias = ['BookingId', 'Ref', 'AgentRef'].map(key => ({ [key]: escapeInvalidXmlChars(bookingId) }));
+    const bookingIdText = String(bookingId).trim();
+    const normalizedBookingId = escapeInvalidXmlChars(bookingIdText);
+    if (!normalizedBookingId) return { bookings: [] };
+    searchCriteriaGroups = [
+      [{ BookingId: normalizedBookingId }],
+      [{ Ref: normalizedBookingId }],
+      buildAgentReferenceSearchVariants(bookingIdText).map(ref => ({ AgentRef: ref })),
+    ];
   } else {
     applyBaseSearchFilters = true;
     if (name) {
-      searchCriterias.push({ NameContains: escapeInvalidXmlChars(name) });
+      searchCriteriaGroups.push([{ NameContains: escapeInvalidXmlChars(name) }]);
     }
   }
-  // Step2: Remove duplicate criteria so repeated refs don't trigger duplicate upstream calls.
-  // R.uniqWith(R.equals) uses deep structural equality, which is safer than
-  // R.uniqBy(JSON.stringify) whose output depends on property insertion order.
-  searchCriterias = R.uniqWith(R.equals, searchCriterias);
 
   // Step3: Build base search filters.
   if (applyBaseSearchFilters) {
@@ -251,57 +268,96 @@ const searchItineraries = async ({
   }
 
   // Step4: Fetch for bookings based on the search criterias.
-  const allSearches = (searchCriterias.length ? searchCriterias : [baseSearchFilters])
-    .map(keyObj => ({ keyObj }));
+  const allSearches = searchCriteriaGroups.length
+    ? searchCriteriaGroups
+    : [[baseSearchFilters]];
+  const listSearchPromises = new Map();
   const settledSearches = await Promise.map(
     allSearches,
-    async ({ keyObj }) => {
-      try {
-        let reply;
+    async keyObjs => {
+      const searchState = await Promise.reduce(keyObjs, async (state, keyObj) => {
+        if (state.match) return state;
         try {
-          reply = await callTourplan(getPayload('ListBookingsRequest', {
-            ...(baseSearchFilters ? { ...baseSearchFilters } : {}),
-            ...keyObj,
-          }));
-        /*
-          <Reply>
-            <ListBookingsReply>
-              <BookingHeaders>
-                <BookingHeader>
-                  <BookingId>320984</BookingId>
-                  <Ref>ALFI399113</Ref>
-                  <Name>Barbara Solomon x2 2554776</Name>
-                  <NameAlias/>
-                  <QB>B</QB>
-                  <Consult>TEST AGENT OWNER</Consult>
-                  <AgentRef>2554776</AgentRef>
-                  <TravelDate>2025-04-06</TravelDate>
-                  <EnteredDate>2025-01-30</EnteredDate>
-                  <BookingStatus>Quotation iCom CNX</BookingStatus>
-                  <BookingType>F</BookingType>
-                  <IsInternetBooking>Y</IsInternetBooking>
-                  <Currency>GBP</Currency>
-                  <TotalPrice>1016738</TotalPrice>
-                </BookingHeader>
-              </BookingHeaders>
-            </ListBookingsReply>
-          </Reply>
-        */
-        } catch (err) {
-          const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
-          if (hasAgentReferenceIds) {
-            throw err instanceof Error ? err : Error(errMsg);
+          let reply;
+          try {
+            const requestInput = {
+              ...(baseSearchFilters ? { ...baseSearchFilters } : {}),
+              ...keyObj,
+            };
+            const requestKey = JSON.stringify(requestInput);
+            if (!listSearchPromises.has(requestKey)) {
+              listSearchPromises.set(
+                requestKey,
+                callTourplan(getPayload('ListBookingsRequest', requestInput)),
+              );
+            }
+            reply = await listSearchPromises.get(requestKey);
+          /*
+            <Reply>
+              <ListBookingsReply>
+                <BookingHeaders>
+                  <BookingHeader>
+                    <BookingId>320984</BookingId>
+                    <Ref>ALFI399113</Ref>
+                    <Name>Barbara Solomon x2 2554776</Name>
+                    <NameAlias/>
+                    <QB>B</QB>
+                    <Consult>TEST AGENT OWNER</Consult>
+                    <AgentRef>2554776</AgentRef>
+                    <TravelDate>2025-04-06</TravelDate>
+                    <EnteredDate>2025-01-30</EnteredDate>
+                    <BookingStatus>Quotation iCom CNX</BookingStatus>
+                    <BookingType>F</BookingType>
+                    <IsInternetBooking>Y</IsInternetBooking>
+                    <Currency>GBP</Currency>
+                    <TotalPrice>1016738</TotalPrice>
+                  </BookingHeader>
+                </BookingHeaders>
+              </ListBookingsReply>
+            </Reply>
+          */
+          } catch (err) {
+            const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
+            if (hasAgentReferenceIds) {
+              throw err instanceof Error ? err : Error(errMsg);
+            }
+            if (errMsg.includes('Request failed with status code')) throw Error(errMsg);
+            // if it's not server error, we just considered as no booking is found
+            reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
           }
-          if (errMsg.includes('Request failed with status code')) {
-            throw Error(errMsg);
+          const result = { status: 'fulfilled', value: reply };
+          const bookingHeaders = R.pathOr(
+            [],
+            ['ListBookingsReply', 'BookingHeaders', 'BookingHeader'],
+            reply,
+          );
+          if ((Array.isArray(bookingHeaders) && bookingHeaders.length) ||
+            (!Array.isArray(bookingHeaders) && bookingHeaders)) {
+            return { ...state, match: result };
           }
-          // if it's not server error, we just considered as no booking is found
-          reply = { ListBookingsReply: { BookingHeaders: { BookingHeader: [] } } };
+          return { ...state, emptyResult: result };
+        } catch (reason) {
+          const result = { status: 'rejected', reason };
+          if (Object.prototype.hasOwnProperty.call(keyObj, 'AgentRef')) {
+            const status = R.path(['response', 'status'], reason)
+              || R.path(['status'], reason)
+              || R.path(['code'], reason)
+              || 'unknown';
+            const agentReference = String(keyObj.AgentRef || '');
+            const errorMessage = reason instanceof Error ? reason.message : String(reason);
+            const redactedErrorMessage = agentReference
+              ? errorMessage.split(agentReference).join('[redacted]')
+              : errorMessage;
+            console.warn(
+              '[tourplan] AgentRef ListBookingsRequest failed status=%s error=%s',
+              status,
+              redactedErrorMessage,
+            );
+          }
+          return state.firstRejection ? state : { ...state, firstRejection: result };
         }
-        return { status: 'fulfilled', value: reply };
-      } catch (reason) {
-        return { status: 'rejected', reason };
-      }
+      }, { match: null, emptyResult: null, firstRejection: null });
+      return searchState.match || searchState.emptyResult || searchState.firstRejection;
     },
     { concurrency: LIST_BOOKINGS_CONCURRENCY },
   );
@@ -315,11 +371,13 @@ const searchItineraries = async ({
       replyObjs.push(result.value);
       return;
     }
-    const { keyObj } = allSearches[idx];
+    const keyObj = allSearches[idx][0];
     const { reason } = result;
     const errMsg = reason instanceof Error ? reason.message : String(reason);
     rejectedSearches.push(reason);
-    console.warn('[tourplan] ListBookingsRequest failed', keyObj, errMsg);
+    if (!Object.prototype.hasOwnProperty.call(keyObj, 'AgentRef')) {
+      console.warn('[tourplan] ListBookingsRequest failed', keyObj, errMsg);
+    }
   });
 
   if (!replyObjs.length && rejectedSearches.length) {

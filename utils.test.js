@@ -2,6 +2,7 @@
 
 const {
   escapeInvalidXmlChars,
+  normalizeAgentReference,
   getOptionInfoTag,
   getRoomConfigs,
 } = require('./utils');
@@ -139,6 +140,21 @@ describe('escapeInvalidXmlChars', () => {
 
   it('strips lone UTF-16 surrogate code units', () => {
     expect(escapeInvalidXmlChars('X\uD800Y')).toBe('XY');
+  });
+});
+
+describe('normalizeAgentReference', () => {
+  it('trims and caps the sanitized value at 60 characters', () => {
+    expect(normalizeAgentReference(`  ${'A'.repeat(61)}  `)).toBe('A'.repeat(60));
+    expect(normalizeAgentReference('Ä'.repeat(40))).toBe('Ae'.repeat(30));
+  });
+
+  it('removes invalid XML characters before applying the cap', () => {
+    expect(normalizeAgentReference(`${'A'.repeat(59)}\u0000BC`)).toBe(`${'A'.repeat(59)}B`);
+  });
+
+  it('returns an empty value when sanitization removes the selected source', () => {
+    expect(normalizeAgentReference(' \u0001 ')).toBe('');
   });
 });
 
