@@ -1,11 +1,16 @@
 const R = require('ramda');
 const Promise = require('bluebird');
-const { translateTPOption, getOptionCurrency } = require('./resolvers/product');
+const {
+  attachOptionCatalogFields,
+  translateTPOption,
+  getOptionCurrency,
+} = require('./resolvers/product');
 const { getAgentCurrencyCode } = require('./availability/itinerary-availability-helper');
 const { hostConnectXmlOptions } = require('./utils');
 const { getCachedLocations } = require('./tp-helpers/locations');
 const { getCachedServices } = require('./tp-helpers/services');
 const { getCachedDestinationCountries } = require('./tp-helpers/system-settings');
+const { getCachedSuppliers } = require('./tp-helpers/suppliers');
 const { enrichOptionWithCodeTables } = require('./tp-helpers/option-enrichment');
 const { addStructuredOptionMetadata } = require('./option-metadata');
 const {
@@ -167,7 +172,12 @@ const searchProductsForItinerary = async ({
       return {};
     }
   };
-  const [locationsByCode, resolvedServicesByCode, countriesByDestination] = await Promise.all([
+  const [
+    locationsByCode,
+    resolvedServicesByCode,
+    countriesByDestination,
+    suppliersById,
+  ] = await Promise.all([
     loadOptionalTable('locations', () => (
       getCachedLocations({
         callTourplan,
@@ -200,6 +210,16 @@ const searchProductsForItinerary = async ({
         hostConnectAgentPassword,
       })
     )),
+    loadOptionalTable('suppliers', () => (
+      getCachedSuppliers({
+        callTourplan,
+        cache,
+        axios,
+        hostConnectEndpoint,
+        hostConnectAgentID,
+        hostConnectAgentPassword,
+      })
+    )),
   ]);
   servicesByCode = resolvedServicesByCode;
 
@@ -217,14 +237,21 @@ const searchProductsForItinerary = async ({
   ), enrichedOptions);
   const products = await Promise.map(
     arrayOfOptionsGroupedBySupplierId,
-    optionsGroupedBySupplierId => translateTPOption({
-      rootValue: {
-        optionsGroupedBySupplierId,
-      },
-      agentCurrencyCode,
-      typeDefs: itineraryProductTypeDefs,
-      query: itineraryProductQuery,
-    }),
+    optionsGroupedBySupplierId => {
+      const supplierId = R.path([0, 'OptGeneral', 'SupplierId'], optionsGroupedBySupplierId);
+      const supplierKey = supplierId === undefined || supplierId === null
+        ? ''
+        : String(supplierId).trim();
+      return translateTPOption({
+        rootValue: {
+          optionsGroupedBySupplierId,
+          supplierRecord: suppliersById[supplierKey] || {},
+        },
+        agentCurrencyCode,
+        typeDefs: itineraryProductTypeDefs,
+        query: itineraryProductQuery,
+      });
+    },
     {
       concurrency: 10,
     },
@@ -232,7 +259,8 @@ const searchProductsForItinerary = async ({
   // Preserve raw OptRates / PickupPoints from Tourplan in product search response
   // when available (camelCase keys: optRates, pickupPoints; Tourplan field casing
   // inside). Re-attach after GraphQL because stock TI2 itinerary-product
-  // typeDefs/query omit these fields (same for city/country/currency).
+  // typeDefs/query omit these fields (same for city/country/currency,
+  // optionClass, chargeUnit, Other, and maxPaxWithInfants).
   // Also ensure city and currency are always on the option for product cache.
   const enrichedByOptionId = R.indexBy(R.prop('Opt'), enrichedOptions);
   const optionRatesByOptionId = options.reduce((acc, option) => {
@@ -261,7 +289,7 @@ const searchProductsForItinerary = async ({
             || R.path(['PickupPoints'], rawOption),
         )
         : undefined;
-      return addStructuredOptionMetadata({
+      return addStructuredOptionMetadata(attachOptionCatalogFields({
         ...R.omit(['city', 'country', 'rateContext'], currentOption),
         ...(city ? { city } : {}),
         ...(country ? { country } : {}),
@@ -270,7 +298,7 @@ const searchProductsForItinerary = async ({
         ...(R.path([currentOption.optionId], optionRatesByOptionId)
           ? { optRates: R.path([currentOption.optionId], optionRatesByOptionId) }
           : {}),
-      });
+      }, rawOption));
     }),
   }));
   return {

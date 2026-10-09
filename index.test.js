@@ -36,6 +36,11 @@ jest.mock('axios');
 
 // Default callTourplan mock: resolve HostConnect replies from __fixtures__.
 const defaultCallTourplanImplementation = async ({ model, endpoint }) => {
+  // Supplier notes are optional. Product search must not depend on a fixture
+  // for the unfiltered SupplierInfo request.
+  if (model.SupplierInfoRequest) {
+    return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
+  }
   // Create a mock request object similar to what axios would receive
   const requestType = Object.keys(model)[0]; // Gets 'OptionInfoRequest'
 
@@ -1026,6 +1031,91 @@ describe('search tests', () => {
     expect(retVal).toMatchSnapshot();
   });
 
+  it('keeps class, charge unit, Other, infant cap, and supplier note on the stock schema', async () => {
+    mockCallTourplan.mockImplementation(async ({ model }) => {
+      if (model.AgentInfoRequest) {
+        return { AgentInfoReply: { Currency: 'GBP' } };
+      }
+      if (model.GetLocationsRequest) {
+        return { GetLocationsReply: { Locations: { Location: [] } } };
+      }
+      if (model.GetServicesRequest) {
+        return { GetServicesReply: { TPLServices: { TPLService: [] } } };
+      }
+      if (model.GetSystemSettingsRequest) {
+        return { GetSystemSettingsReply: { Countries: { Country: [] } } };
+      }
+      if (model.SupplierInfoRequest) {
+        return {
+          SupplierInfoReply: {
+            Suppliers: {
+              Supplier: {
+                SupplierId: '7318',
+                Name: 'Example Hotel',
+                SupplierNotes: {
+                  SupplierNote: { NoteText: '  Family owned hotel  ' },
+                },
+              },
+            },
+          },
+        };
+      }
+      if (model.OptionInfoRequest) {
+        return {
+          OptionInfoReply: {
+            Option: {
+              Opt: 'LONHOEXAMPLESTD',
+              OptGeneral: {
+                SupplierId: '7318',
+                SupplierName: 'Example Hotel',
+                Description: 'Standard Room',
+                Class: '3*',
+                ClassDescription: '3 Star',
+                SCU: 'Night',
+                SType: 'Y',
+                ButtonName: 'Accommodation',
+                Single_Avail: 'Y',
+                Single_Max: '0',
+                Single_Ad_Max: '2',
+                Single_Max_With_Infants: '1',
+                Other_Avail: 'Y',
+                Other_Max: '4',
+                Other_Ad_Max: '3',
+                Other_Max_With_Infants: '5',
+              },
+            },
+          },
+        };
+      }
+      return {};
+    });
+
+    const retVal = await app.searchProductsForItinerary({
+      axios,
+      token,
+      typeDefsAndQueries,
+      payload: { optionId: 'LONHOEXAMPLESTD' },
+    });
+    const option = retVal.products[0].options[0];
+    expect(retVal.products[0].description).toBe('Family owned hotel');
+    expect(option.optionClass).toBe('3 Star');
+    expect(option.chargeUnit).toBe('night');
+    expect(option.restrictions.Single.maxPax).toBe(0);
+    expect(option.restrictions.Single.maxPaxWithInfants).toBe(1);
+    expect(option.restrictions.Other).toEqual({
+      allowed: true,
+      maxPax: 4,
+      maxAdults: 3,
+      maxPaxWithInfants: 5,
+    });
+    expect(option.units.map(unit => unit.unitId)).toEqual([
+      'Single', 'Twin', 'Double', 'Triple', 'Quad', 'Other',
+    ]);
+    const single = option.units.find(unit => unit.unitId === 'Single');
+    expect(single.restrictions.maxPax).toBe(0);
+    expect(single.restrictions.maxPaxWithInfants).toBe(1);
+  });
+
   describe('searchProductsForItinerary pickupPoints', () => {
     const singlePickupPoint = {
       Point_ID: '504',
@@ -1049,6 +1139,9 @@ describe('search tests', () => {
         }
         if (model.GetSystemSettingsRequest) {
           return { GetSystemSettingsReply: { Countries: { Country: [] } } };
+        }
+        if (model.SupplierInfoRequest) {
+          return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
         }
         if (model.OptionInfoRequest) {
           return {
@@ -1303,6 +1396,9 @@ describe('search tests', () => {
     const mockFullCatalog = ({ throwOnOpt } = {}) => {
       mockCallTourplan.mockImplementation(async ({ model }) => {
         if (model.GetServicesRequest) return getServicesReply;
+        if (model.SupplierInfoRequest) {
+          return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
+        }
         const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
         if (throwOnOpt && throwOnOpt.includes(opt)) {
           throw new Error(`${opt} OptionInfo should have been skipped`);
@@ -1371,6 +1467,9 @@ describe('search tests', () => {
           }
           if (model.GetSystemSettingsRequest) {
             return { GetSystemSettingsReply: { Countries: { Country: [] } } };
+          }
+          if (model.SupplierInfoRequest) {
+            return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
           }
           if (model.GetServicesRequest) return getServicesReply;
           const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
@@ -1617,6 +1716,9 @@ describe('search tests', () => {
               },
             };
           }
+          if (model.SupplierInfoRequest) {
+            return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
+          }
           const opt = model.OptionInfoRequest && model.OptionInfoRequest.Opt;
           if (opt === '???SM????????????') {
             return {
@@ -1698,6 +1800,9 @@ describe('search tests', () => {
                 },
               },
             };
+          }
+          if (model.SupplierInfoRequest) {
+            return { SupplierInfoReply: { Suppliers: { Supplier: [] } } };
           }
           if (model.OptionInfoRequest) {
             return {
