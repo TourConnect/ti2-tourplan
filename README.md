@@ -4,11 +4,34 @@
 
 ### Requirements
 
-Some environment variables are required for this plugin to run it's tests
+Live integration tests use `ti2_tourplan_endpoint`, `ti2_tourplan_username`,
+and `ti2_tourplan_password`; the test suite supplies fixture defaults when
+they are absent. Plugin credentials use the `endpoint`, `username`, and
+`password` token fields. The optional `DTD_DAYS` plugin setting controls how
+many days DTD version detection results are cached per endpoint (default: 7).
 
-- apiKey
-- endpoint
-- DTD_DAYS (optional) - Number of days to cache DTD version detection results (default: 7). This helps reduce API calls by caching the correct DTD version for each endpoint.
+## Itinerary product catalog fields
+
+Product search passes Ti2's itinerary product type definitions and query to
+`translateTPOption`. The query now returns the existing `city`, `country`, and
+`currency` values alongside these HostConnect fields:
+
+| Ti2 field | HostConnect source |
+| --- | --- |
+| `city` | Enriched destination, then `OptGeneral.LocalityDescription` or `Address3` |
+| `country` | Enriched destination country |
+| `currency` | Agent currency, then `OptRates.Currency` |
+| `description` | SupplierInfo notes or description, excluding the supplier name |
+| `optionClass` | `OptGeneral.ClassDescription`, then `OptGeneral.Class` |
+| `chargeUnit` | `OptGeneral.SCU`, lowercased |
+| Room `maxPaxWithInfants` | `OptGeneral.<room>_Max_With_Infants` |
+| `Other` room restriction | `OptGeneral.Other_*` fields, when present |
+
+For accommodation and package options, an `Other` unit is included only when
+the source has an `Other_*` value. If those fields are absent, the `Other`
+restriction is omitted. Optional source values omitted by the plugin appear as
+`null` in Ti2's shared query. Adult, Child, and Infant restrictions still
+select only `allowed`, `minAge`, and `maxAge`.
 
 ## Contributing
 
