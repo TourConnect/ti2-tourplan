@@ -53,6 +53,41 @@ describe('searchItineraries agentReferenceIds', () => {
     .map(([request]) => request.model.ListBookingsRequest)
     .filter(Boolean);
 
+  it('uses entered-date filters without silently restricting travel dates', async () => {
+    const callTourplan = jest.fn(async () => ({
+      ListBookingsReply: { BookingHeaders: { BookingHeader: [] } },
+    }));
+    await runSearch({ purchaseDateStart: '2026-02-01', purchaseDateEnd: '2026-02-02' }, callTourplan);
+    expect(listRequestsFrom(callTourplan)).toEqual([{
+      AgentID: 'agent-id', Password: 'agent-password',
+      BookingEnteredDateFrom: '2026-02-01', BookingEnteredDateTo: '2026-02-02',
+    }]);
+    callTourplan.mockClear();
+    await runSearch({ purchaseDateStart: '2026-02-01', purchaseDateEnd: '2026-02-02',
+      travelDateStart: '2028-01-01', travelDateEnd: '2028-01-31' }, callTourplan);
+    expect(listRequestsFrom(callTourplan)[0]).toMatchObject({
+      BookingEnteredDateFrom: '2026-02-01', BookingEnteredDateTo: '2026-02-02',
+      TravelDateFrom: '2028-01-01', TravelDateTo: '2028-01-31',
+    });
+  });
+
+  it('propagates entered-date retrieval timeouts instead of reporting successful empty coverage', async () => {
+    const timeout = Object.assign(new Error('timed out'), { code: 'ETIMEDOUT' });
+    const callTourplan = jest.fn().mockRejectedValue(timeout);
+    await expect(runSearch({ purchaseDateStart: '2026-02-01', purchaseDateEnd: '2026-02-02' }, callTourplan))
+      .rejects.toMatchObject({ code: 'ETIMEDOUT' });
+    expect(callTourplan).toHaveBeenCalledTimes(1);
+  });
+
+  it('fails entered-date retrieval if a booking detail cannot be fetched', async () => {
+    const callTourplan = jest.fn(async ({ model }) => {
+      if (model.ListBookingsRequest) return { ListBookingsReply: { BookingHeaders: { BookingHeader: [{ BookingId: 'A' }] } } };
+      throw Object.assign(new Error('detail timeout'), { code: 'ETIMEDOUT' });
+    });
+    await expect(runSearch({ purchaseDateStart: '2026-02-01', purchaseDateEnd: '2026-02-02' }, callTourplan))
+      .rejects.toMatchObject({ code: 'ETIMEDOUT' });
+  });
+
   it('treats a numeric agentReferenceIds value as an exact AgentRef with explicit precedence', async () => {
     const callTourplan = jest.fn(async ({ model }) => {
       if (model.ListBookingsRequest) {
