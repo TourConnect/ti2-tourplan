@@ -141,6 +141,7 @@ const fetchFullBookingByBookingId = async (
   hostConnectAgentID,
   itineraryBookingTypeDefs,
   itineraryBookingQuery,
+  rejectErrors = false,
 ) => {
   try {
     const getBookingPayload = getPayload('GetBookingRequest', {
@@ -150,12 +151,14 @@ const fetchFullBookingByBookingId = async (
     });
     const bookingReply = await callTourplan(getBookingPayload);
     const booking = R.path(['GetBookingReply'], bookingReply);
+    if (rejectErrors && !booking) throw new Error('GetBookingReply is missing');
     return await translateItineraryBooking({
       rootValue: booking && { ...booking, agentId: hostConnectAgentID },
       typeDefs: itineraryBookingTypeDefs,
       query: itineraryBookingQuery,
     });
   } catch (err) {
+    if (rejectErrors) throw err;
     const detail = err instanceof Error ? (err.stack || err.message) : String(err);
     // Log the failing identifier so the booking can be investigated without
     // crashing the whole search — the caller filters out nulls.
@@ -250,16 +253,19 @@ const searchItineraries = async ({
 
   // Step3: Build base search filters.
   if (applyBaseSearchFilters) {
+    baseSearchFilters = {};
     // Build base search filters.
     // If booking reference(s) or bookingid are provided these those are used.
     // But if no booking reference(s) or bookingid are provided then we use the travel
     // dates window as a base search filters. To keep the search bounded (and not crash Tourplan)
     // If purchase dates are provided then its part of base search filters.
-    const travelDateWindow = resolveTravelDateWindow(travelDateStart, travelDateEnd);
-    baseSearchFilters = {
-      TravelDateFrom: travelDateWindow.from,
-      TravelDateTo: travelDateWindow.to,
-    };
+    if (!(purchaseDateStart && purchaseDateEnd) || travelDateStart || travelDateEnd) {
+      const travelDateWindow = resolveTravelDateWindow(travelDateStart, travelDateEnd);
+      baseSearchFilters = {
+        TravelDateFrom: travelDateWindow.from,
+        TravelDateTo: travelDateWindow.to,
+      };
+    }
     if (purchaseDateStart || purchaseDateEnd) {
       const purchaseDateWindow = resolvePurchaseDateWindow(purchaseDateStart, purchaseDateEnd);
       baseSearchFilters.BookingEnteredDateFrom = purchaseDateWindow.from;
@@ -268,6 +274,8 @@ const searchItineraries = async ({
   }
 
   // Step4: Fetch for bookings based on the search criterias.
+  const enteredDateOnly = Boolean(applyBaseSearchFilters && purchaseDateStart && purchaseDateEnd
+    && !travelDateStart && !travelDateEnd);
   const allSearches = searchCriteriaGroups.length
     ? searchCriteriaGroups
     : [[baseSearchFilters]];
@@ -318,7 +326,7 @@ const searchItineraries = async ({
           */
           } catch (err) {
             const errMsg = typeof err === 'string' ? err : (err && err.message) || String(err);
-            if (hasAgentReferenceIds) {
+            if (hasAgentReferenceIds || enteredDateOnly) {
               throw err instanceof Error ? err : Error(errMsg);
             }
             if (errMsg.includes('Request failed with status code')) throw Error(errMsg);
@@ -407,6 +415,7 @@ const searchItineraries = async ({
       hostConnectAgentID,
       itineraryBookingTypeDefs,
       itineraryBookingQuery,
+      enteredDateOnly,
     ),
     { concurrency: 10 },
   );
