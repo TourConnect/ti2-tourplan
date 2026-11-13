@@ -28,6 +28,7 @@ describe('Tourplan request Content-Length', () => {
   it.each([
     ['ASCII', 'Pickup 07:30 - meet driver in the lobby'],
     ['em dash', 'Pickup 07:30 — meet driver in the lobby'],
+    ['accented letters', 'Café Zürich, señor'],
     ['euro sign', 'Deposit €50 paid'],
     ['arrow', 'Sydney → Cairns'],
     ['CJK', '日本のお客様'],
@@ -38,11 +39,12 @@ describe('Tourplan request Content-Length', () => {
       endpoint,
       axios,
       xmlOptions,
-      model: { AddServiceRequest: { Opt: 'SYDACSYDHOTSTD', Remarks: escapeInvalidXmlChars(notes).slice(0, 60) } },
+      model: { AddServiceRequest: { Opt: 'SYDACSYDHOTSTD', Remarks: notes } },
     });
     const addService = calls.find(c => c.data.includes('AddServiceRequest'));
     const dtdDetection = calls.find(c => c.data.includes('AuthenticationRequest'));
     expectUtf8ContentLength(addService);
+    // The DTD probe body is ASCII; this only checks it uses the same header helper.
     expectUtf8ContentLength(dtdDetection);
   });
 
