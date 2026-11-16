@@ -28,10 +28,12 @@ const defaultXmlOptions = {
   },
 };
 const urlRegExp = /^(?!mailto:)(?:(?:http|https|ftp):\/\/)(?:\S+(?::\S*)?@)?(?:(?:(?:[1-9]\d?|1\d\d|2[01]\d|22[0-3])(?:\.(?:1?\d{1,2}|2[0-4]\d|25[0-5])){2}(?:\.(?:[0-9]\d?|1\d\d|2[0-4]\d|25[0-4]))|(?:(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)(?:\.(?:[a-z\u00a1-\uffff0-9]+-?)*[a-z\u00a1-\uffff0-9]+)*(?:\.(?:[a-z\u00a1-\uffff]{2,})))|localhost)(?::\d{2,5})?(?:(\/|\?|#)[^\s]*)?$/i;
-const getHeaders = ({ length }) => ({
+// Content-Length counts bytes. String length undercounts multibyte UTF-8
+// characters, and Tourplan then parses a truncated document (TC-2059).
+const getHeaders = xmlPayload => ({
   Accept: 'application/xml',
   'Content-Type': 'application/xml; charset=utf-8',
-  'Content-Length': length,
+  'Content-Length': Buffer.byteLength(xmlPayload, 'utf8'),
 });
 
 /**
@@ -250,7 +252,7 @@ class BuyerPlugin {
           method: 'post',
           url: endpoint,
           data: testData,
-          headers: getHeaders({ length: testData.length }),
+          headers: getHeaders(testData),
         });
 
         // The API returns 200 even for DTD errors, so check the response content
@@ -350,7 +352,7 @@ class BuyerPlugin {
       //       data: {
       //         url: endpoint,
       //         data,
-      //         headers: getHeaders({ length: `${data.length}` }),
+      //         headers: getHeaders(data),
       //       },
       //     }));
       //   } catch (err) {
@@ -365,7 +367,7 @@ class BuyerPlugin {
           method: 'post',
           url: endpoint,
           data,
-          headers: getHeaders({ length: data.length }),
+          headers: getHeaders(data),
         };
         const reply = R.path(['data'], await axios(axiospayload));
         if (this.xmlProxyUrl) {
@@ -538,7 +540,7 @@ class BuyerPlugin {
       method: 'post',
       url: endpoint,
       data: requestData,
-      headers: getHeaders({ length: requestData.length }),
+      headers: getHeaders(requestData),
     }));
     if (verbose) console.log('reply', cleanLog(reply));
     const returnObj = await xmlParser.parseStringPromise(reply);
